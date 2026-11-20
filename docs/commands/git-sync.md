@@ -7,45 +7,39 @@ summary: "Sync Metabase content with a git remote."
 
 Sync Metabase content with a git remote.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+Every command on this page needs `remoteSync` (token remote_sync).
+
 Agent skills:
 
 - `mb skills get git-sync`: import/export round-trip and dirty checks
 
-## Access
+## Only admins can sync
 
-The git-sync commands drive Metabase Enterprise remote sync, which imports and exports Metabase content against a git remote that an admin configured. Each command needs the `remote_sync` premium feature on an active token, and an admin: the server refuses other users.
+The git-sync commands import and export Metabase content against the git remote that an admin set up. The server refuses anyone who isn't an admin.
 
-## The tracked branch
+## Import and export use the tracked branch
 
-[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync export-preflight](#mb-git-sync-export-preflight) work on the branch that git-sync tracks, the `remote-sync-branch` setting. Each one reads it from the session properties just before its request, so a branch that the server's `MB_REMOTE_SYNC_BRANCH` environment variable sets counts too. The same read is the probe that judges the server, so it costs no request of its own.
+[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync export-preflight](#mb-git-sync-export-preflight) work on the branch that git-sync tracks: the `remote-sync-branch` setting, which the server's `MB_REMOTE_SYNC_BRANCH` environment variable can also set. On Metabase 63 and newer, `import` and `export` without `--branch` refuse (exit 2) when no branch is tracked or the setting isn't readable. Older servers don't check: `import` goes through, and `export` writes to the branch the server tracks. `export-preflight` without `--branch` refuses the same way on every server, before it contacts the remote.
 
-- `import` asserts the tracked branch. Metabase 63 and newer reject an import whose assertion disagrees with the setting. So there, when no branch is tracked, or when the caller is not an admin and cannot read the setting, the command refuses (exit 2) rather than read the setting as unset. Older servers ignore the assertion: they get it when the setting is readable and set, and none otherwise.
-- `export` without `--branch` reads the tracked branch, and refuses, as `import` does on Metabase 63 and newer. Older servers get no branch, and export to the branch that they track.
-- `export-preflight` without `--branch` previews the tracked branch. When no branch is tracked, or the setting is not readable, it refuses (exit 2) before it contacts the remote.
+## Import, export and stash wait for their task
 
-An Enterprise server without the `remote_sync` token still shows an admin the setting, which would read as a branch that git-sync tracks. So on such a server, [mb git-sync status](#mb-git-sync-status), `export-preflight` without `--branch`, and `export --branch` refuse (exit 2) on the probe that reads the setting. An `import`, or an `export` without `--branch`, is sent without the tracked branch there, and the server's refusal names the missing feature.
+[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync stash](#mb-git-sync-stash) start a task on the server, wait for it to end, and exit as [mb git-sync wait](#mb-git-sync-wait) does. `--no-wait` returns once the task starts.
 
-## Tasks and conflicts
+## Don't answer a conflict with a retry
 
-[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync stash](#mb-git-sync-stash) start a task on the server. By default, each one polls the task until it reaches a terminal status, and ends as [mb git-sync wait](#mb-git-sync-wait) does. `--no-wait` returns when the task starts.
-
-A task that ends in `conflict` names the conflict in its text output and in its error: the conflicting entities, or, for a plain export, the change on the remote branch since the last sync. The server may then count the remote commit that the task saw as synced, so a retry, `--merge` included, may not see the remote's changes. Never answer a conflict with a retry. Keep the remote's side with `import --force`, keep Metabase's with `export --force`, or keep both through a reviewed PR from a new branch (`mb skills get git-sync`, section "After a conflict task").
+A task that ends in `conflict` names the conflict in its output and its error: the conflicting entities, or, for a plain export, the remote's change since the last sync. The server may then count the remote commit as synced, so a retry, `--merge` included, may not see the remote's changes. Keep the remote's side with `import --force`, keep Metabase's with `export --force`, or keep both through a reviewed PR from a new branch (`mb skills get git-sync`, section "After a conflict task").
 
 ## mb git-sync status
 
 Show current git-sync state (remote, sync type, branch, dirty, current task).
 
-Reads whether a remote is configured, the sync type (`read-only` or `read-write`), the tracked branch, the dirty flag, the most recent task (`null` when none has ever run) and the collections marked for sync. On a server without the `remote_sync` feature it refuses (exit 2) rather than misread the responses: the collection read behind the sync scope is refused before it's sent, because such a server lists its collections without the sync flag, which would read as an empty scope.
+Shows whether a remote is set up, the sync type (`read-only` or `read-write`), the tracked branch, the dirty flag, the most recent task (`null` when none has run) and the collections marked for sync. Refused (exit 2) on a server without the `remote_sync` token feature, where the sync scope would read as empty.
 
 ```sh
 mb git-sync status [flags]
 ```
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync status --output`.
 
 Examples:
 
@@ -61,12 +55,6 @@ Check whether Metabase has unsynced local changes.
 ```sh
 mb git-sync is-dirty [flags]
 ```
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync is-dirty --output`.
 
 Examples:
 
@@ -85,15 +73,11 @@ Compares the latest version on the remote branch with the version Metabase last 
 mb git-sync has-remote-changes [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--force-refresh` | `false` | Bypass the in-memory cache and re-check the remote. |
+| Flag | Description |
+| --- | --- |
+| `--force-refresh` | Bypass the in-memory cache and re-check the remote. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSyncRemoteChanges` (v59+, token remote_sync).
-
-Output schema: `mb schema git-sync has-remote-changes --output`.
+Also needs `remoteSyncRemoteChanges` (v59+, token remote_sync).
 
 Examples:
 
@@ -110,11 +94,7 @@ List objects with unsynced local changes.
 mb git-sync dirty [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync dirty --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -133,12 +113,6 @@ Returns `{ "status": "idle" }` when no task has ever run.
 mb git-sync current-task [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync current-task --output`.
-
 Examples:
 
 ```sh
@@ -155,12 +129,6 @@ The server refuses with 400 when no task is running.
 ```sh
 mb git-sync cancel-task [flags]
 ```
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync cancel-task --output`.
 
 Examples:
 
@@ -179,16 +147,10 @@ Returns `{ "status": "idle" }` at once when no task has ever run, and the most r
 mb git-sync wait [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--timeout <value>` | `600000` | Polling timeout in ms. |
-| `--interval <value>` | `2000` | Polling interval in ms. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync wait --output`.
+| Flag | Description |
+| --- | --- |
+| `--timeout <value>` | Polling timeout in ms. Default: `600000`. |
+| `--interval <value>` | Polling interval in ms. Default: `2000`. |
 
 Examples:
 
@@ -201,26 +163,20 @@ mb git-sync wait --timeout 300000 --json
 
 Import content from the configured git remote into Metabase.
 
-A plain import refuses while Metabase holds un-pushed changes; `--force` discards them, and `--merge` keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there's no merge base: the remote history was rewritten, or the instance has never synced. `--merge` needs `remoteSyncMerge` (v63+, token remote_sync): on a server without it, the CLI refuses `--merge` before the request (exit 2), because such a server ignores it and runs a plain import.
+A plain import is refused while Metabase has changes it hasn't exported: `--force` discards them, and `--merge` keeps them and merges the remote's changes in. A merge ends in `conflict`, with local content untouched, when entities changed on both sides or there's no merge base (the remote history was rewritten, or the instance never synced). `--merge` is refused (exit 2) on a server without `remoteSyncMerge` (v63+, token remote_sync), which would run a plain import instead.
 
 ```sh
 mb git-sync import [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `-b, --branch <value>` |  | Branch to import from (defaults to remote-sync-branch setting); a blank name is refused. |
-| `--force` | `false` | Discard local Metabase-side dirty changes (LOSSY). |
-| `--merge` | `false` | Keep un-pushed local changes and fold the remote's in by a three-way merge. Can't be used with `--force`. |
-| `--wait, --no-wait` | `true` | Poll the resulting task until it reaches a terminal status (default: true; pass --no-wait to fire-and-forget). |
-| `--timeout <value>` | `600000` | Polling timeout in ms (used with --wait). |
-| `--interval <value>` | `2000` | Polling interval in ms (used with --wait). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync import --output`.
+| Flag | Description |
+| --- | --- |
+| `-b, --branch <value>` | Branch to import from. Defaults to the tracked branch (the `remote-sync-branch` setting); can't be blank. |
+| `--force` | Discard the changes Metabase hasn't exported. They're lost. |
+| `--merge` | Keep the changes Metabase hasn't exported, and merge the remote's changes in. Can't be used with `--force`. |
+| `--wait, --no-wait` | Poll the task until it ends. Default: `true`. |
+| `--timeout <value>` | Polling timeout in ms (used with --wait). Default: `600000`. |
+| `--interval <value>` | Polling interval in ms (used with --wait). Default: `2000`. |
 
 Examples:
 
@@ -235,27 +191,21 @@ mb git-sync import --merge
 
 Export Metabase changes back to the configured git remote.
 
-The export targets the branch git-sync tracks. On Metabase 63+ `--branch` defaults to it and must name it (the server responds with a 409 for any other branch); older servers export to the branch `--branch` names and switch git-sync to it, refusing with a 400 when that branch's tip isn't the last synced commit unless `--force` is given. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first: a `--branch` other than the tracked one is looked up on the remote, and one missing there is refused before the export (exit 2) with a pointer to `create-branch`. The result's `branch` names the target, and the text output ends with it; it's `null` only when no `--branch` was given and a server older than 63 exported to the branch it tracks. When the remote has moved past the last sync, a plain export ends in a `conflict` task on 63+ and is refused with a 400 on older servers; `--merge` folds the remote's changes in by a three-way merge, `--force` overwrites them, and `git-sync export-preflight` previews which applies. `--merge` needs `remoteSyncMerge` (v63+, token remote_sync): on a server without it, the CLI refuses `--merge` before the request (exit 2), because such a server ignores it and runs a plain export.
+Exports to the branch git-sync tracks. On v63+ servers, `--branch` must name that branch (409 otherwise); older servers export to the `--branch` you name and track it from then on, with a 400 unless its tip is the last synced commit or `--force` is given. To export to a new branch, run `git-sync stash` or `git-sync create-branch` first: a `--branch` the remote doesn't have is refused (exit 2). When the remote has moved past the last sync, a plain export ends in `conflict` (a 400 on older servers): `--merge` merges the remote's changes in, `--force` overwrites them, and `git-sync export-preflight` shows which applies. The output's `branch` names the target, or is `null` when an older server exported to the branch it tracks. `--merge` is refused (exit 2) on a server without `remoteSyncMerge` (v63+, token remote_sync), which would run a plain export instead.
 
 ```sh
 mb git-sync export [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `-b, --branch <value>` |  | Branch to export to (defaults to the remote-sync-branch setting; on 63+ it must be that branch); a blank name is refused. |
-| `-m, --message <value>` |  | Commit message. |
-| `--force` | `false` | Force-push / overwrite remote. |
-| `--merge` | `false` | When the remote moved on, fold its changes in by a three-way merge instead of ending in `conflict`; entities changed on both sides still end in `conflict`, writing nothing. Can't be used with `--force`. |
-| `--wait, --no-wait` | `true` | Poll the resulting task until it reaches a terminal status (default: true; pass --no-wait to fire-and-forget). |
-| `--timeout <value>` | `600000` | Polling timeout in ms (used with --wait). |
-| `--interval <value>` | `2000` | Polling interval in ms (used with --wait). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync export --output`.
+| Flag | Description |
+| --- | --- |
+| `-b, --branch <value>` | Branch to export to. Defaults to the tracked branch (the `remote-sync-branch` setting), which it must be on v63+ servers; can't be blank. |
+| `-m, --message <value>` | Commit message. |
+| `--force` | Force-push, overwriting the remote's changes. |
+| `--merge` | When the remote has moved on, merge its changes in instead of ending in `conflict`. Entities changed on both sides still end in `conflict`, and nothing is written. Can't be used with `--force`. |
+| `--wait, --no-wait` | Poll the task until it ends. Default: `true`. |
+| `--timeout <value>` | Polling timeout in ms (used with --wait). Default: `600000`. |
+| `--interval <value>` | Polling interval in ms (used with --wait). Default: `2000`. |
 
 Examples:
 
@@ -270,21 +220,17 @@ mb git-sync export --no-wait
 
 Preview what an export would do against the live remote branch, without writing.
 
-Compares the current Metabase content with the remote branch. `has_changes` says whether the remote has advanced past the last synced version (`false` when nothing has been synced yet, and, on servers that count a task that ended in `conflict` as synced, after one), `clean` whether a three-way merge would apply without conflicts, `conflicts` names the entities that would conflict, `summary` counts the remote changes a merge would fold in, `force_push_casualties` names the remote content a force push would discard (empty when nothing has been synced yet, although a forced export then replaces the remote's managed directories wholesale), and `reason` is `history-rewritten` when the remote was force-pushed or rebased so no merge base exists (no merge is possible then, and only `export --force` can push), otherwise `null`. When `clean` is `true`, `export --merge` applies the merge; when it's `false`, `create-branch <name>` and then `export` push Metabase's state to a new branch, for a PR into the old one. The text output is one headline for the branch, then the conflicts, the merge summary and the force-push casualties, each only when there is something to list. The branch must be the one git-sync tracks; the server responds with a 409 otherwise.
+Compares Metabase's content with the remote branch. `has_changes` says whether the remote moved past the last sync (`false` before the first sync), `clean` whether a merge would apply without conflicts, `conflicts` names the entities that would conflict, `summary` counts the remote changes a merge would bring in, and `force_push_casualties` names the remote content a force push would discard (empty before the first sync, when a forced export replaces the remote's managed folders whole). `reason` is `history-rewritten` when the remote was force-pushed or rebased, so only `export --force` can push; otherwise it's `null`. When `clean` is `true`, run `export --merge`. When it's `false`, run `create-branch <name>` and then `export`, and open a PR into the old branch.
 
 ```sh
 mb git-sync export-preflight [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `-b, --branch <value>` |  | Branch to preview against (defaults to the remote-sync-branch setting; must be that branch); a blank name is refused. |
+| Flag | Description |
+| --- | --- |
+| `-b, --branch <value>` | Branch to preview against. Defaults to the tracked branch (the `remote-sync-branch` setting), which it must be (409 otherwise); can't be blank. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSyncExportPreflight` (v63+, token remote_sync), `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync export-preflight --output`.
+Also needs `remoteSyncExportPreflight` (v63+, token remote_sync).
 
 Examples:
 
@@ -303,19 +249,13 @@ Creates the branch, exports Metabase's current state to it, and switches git-syn
 mb git-sync stash [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--new-branch <value>` |  | Required. Branch to create and export to. |
-| `-m, --message <value>` | `Stashed from mb CLI` | Commit message. |
-| `--wait, --no-wait` | `true` | Poll the resulting task until it reaches a terminal status (default: true; pass --no-wait to fire-and-forget). |
-| `--timeout <value>` | `600000` | Polling timeout in ms (used with --wait). |
-| `--interval <value>` | `2000` | Polling interval in ms (used with --wait). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync stash --output`.
+| Flag | Description |
+| --- | --- |
+| `--new-branch <value>` | Required. Branch to create and export to. |
+| `-m, --message <value>` | Commit message. Default: `Stashed from mb CLI`. |
+| `--wait, --no-wait` | Poll the task until it ends. Default: `true`. |
+| `--timeout <value>` | Polling timeout in ms (used with --wait). Default: `600000`. |
+| `--interval <value>` | Polling interval in ms (used with --wait). Default: `2000`. |
 
 Examples:
 
@@ -332,11 +272,7 @@ List branches on the configured git remote.
 mb git-sync branches [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync branches --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -359,12 +295,6 @@ mb git-sync create-branch <name> [flags]
 | --- | --- |
 | `<name>` | Branch name. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync create-branch --output`.
-
 Examples:
 
 ```sh
@@ -386,12 +316,6 @@ mb git-sync add-collection <id> [flags]
 | --- | --- |
 | `<id>` | Collection id (positive integer). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync add-collection --output`.
-
 Examples:
 
 ```sh
@@ -412,12 +336,6 @@ mb git-sync remove-collection <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Collection id (positive integer). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `remoteSync` (token remote_sync).
-
-Output schema: `mb schema git-sync remove-collection --output`.
 
 Examples:
 

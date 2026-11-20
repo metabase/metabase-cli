@@ -7,6 +7,8 @@ summary: "Manage Metabase dashboard subscriptions (scheduled dashboard delivery)
 
 Manage Metabase dashboard subscriptions (scheduled dashboard delivery).
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get notification`: channel schedules, recipients, skip_if_empty, per-subscription filter values
@@ -22,14 +24,12 @@ List dashboard subscriptions.
 mb subscription list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--dashboard-id <value>` |  | Only subscriptions on this dashboard ID, as `mb dashboard subscriptions <dashboard-id>` lists them. |
-| `--archived` |  | Show archived subscriptions instead of active ones. |
+| Flag | Description |
+| --- | --- |
+| `--dashboard-id <value>` | Only subscriptions on this dashboard ID, as `mb dashboard subscriptions <dashboard-id>` lists them. |
+| `--archived` | Show archived subscriptions instead of active ones. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema subscription list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -53,10 +53,6 @@ mb subscription get <id> [flags]
 | --- | --- |
 | `<id>` | Subscription id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema subscription get --output`.
-
 Examples:
 
 ```sh
@@ -68,20 +64,17 @@ mb subscription get 1 --full --json
 
 Create a dashboard subscription from JSON.
 
-The JSON body needs `name`, `dashboard_id`, `cards`, and `channels`. Each card is `{ id, dashboard_card_id, include_csv, include_xls }`, where `id` names the card and `dashboard_card_id` its place on the dashboard — get both ids from `mb dashboard cards <dashboard-id>`. Each channel is `{ channel_type: email|slack|http, schedule_type: hourly|daily|weekly|monthly }` plus the fields its schedule needs: `daily` needs `schedule_hour` (0-23); `weekly` also needs `schedule_day` (mon..sun); `monthly` also needs `schedule_frame` (first|mid|last). Email recipients are `[{ email: "a@b.com" } | { id: <user-id> }]`; Slack targets a channel via `details: { channel: "#general" }`. A channel is `enabled` unless you say otherwise. Non-empty `parameters` (filter values for this subscription only) need `dashboardSubscriptionFilters` (token dashboard_subscription_filters): a server without it stores them but sends the dashboard's own filter values, so the CLI refuses them there before the request (exit 2).
+The JSON body needs `name`, `dashboard_id`, `cards` and `channels`. Each card is `{ id, dashboard_card_id, include_csv, include_xls }`: the card's id and its place on the dashboard, both from `mb dashboard cards <dashboard-id>`.
+
+Each channel is `{ channel_type: email|slack|http, schedule_type: hourly|daily|weekly|monthly }` plus what its schedule needs: `daily` needs `schedule_hour` (0-23), `weekly` also `schedule_day` (mon..sun), and `monthly` also `schedule_frame` (first|mid|last). Email recipients are `[{ email: "a@b.com" } | { id: <user-id> }]`; Slack posts to `details: { channel: "#general" }`. A channel is `enabled` unless you say otherwise.
+
+Non-empty `parameters` (filter values for this subscription only) need `dashboardSubscriptionFilters` (token dashboard_subscription_filters). They're refused (exit 2) on a server without it, which would send the dashboard's own filter values instead.
 
 ```sh
 mb subscription create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema subscription create`. Output schema: `mb schema subscription create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -95,7 +88,9 @@ mb subscription create --file subscription.json
 
 Update a dashboard subscription by id.
 
-Patches only the fields you send: `name`, `cards`, `channels`, `skip_if_empty`, `parameters`, `archived`. `cards` and `channels` replace the whole list, so send every card and channel you want to keep — `mb subscription get <id> --full` prints the current ones. A subscription's `dashboard_id` and `collection_id` are fixed at creation and can't be changed. The update reads the subscription first and carries `archived` and `skip_if_empty` forward when the patch leaves them out: the server resets each omitted one to `false`, so a name-only patch would otherwise un-archive the subscription and clear `skip_if_empty`. Non-empty `parameters` need `dashboardSubscriptionFilters` and are refused before the request without it, as on `mb subscription create`.
+Patches only the fields you send: `name`, `cards`, `channels`, `skip_if_empty`, `parameters` and `archived`. `cards` and `channels` replace the whole list, so send every card and channel you want to keep (`mb subscription get <id> --full` prints them). `dashboard_id` and `collection_id` can't change after creation.
+
+The update reads the subscription first and keeps its `archived` and `skip_if_empty` when the patch leaves them out, since the server would reset them to `false`. Non-empty `parameters` need `dashboardSubscriptionFilters` and are refused without it, as on `mb subscription create`.
 
 ```sh
 mb subscription update <id> [flags]
@@ -105,14 +100,7 @@ mb subscription update <id> [flags]
 | --- | --- |
 | `<id>` | Subscription id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema subscription update`. Output schema: `mb schema subscription update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -135,10 +123,6 @@ mb subscription archive <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Subscription id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema subscription archive --output`.
 
 Examples:
 

@@ -41,7 +41,7 @@ export default defineMetabaseCommand({
     description: "Show current git-sync state (remote, sync type, branch, dirty, current task)",
   },
   details:
-    "Reads whether a remote is configured, the sync type (`read-only` or `read-write`), the tracked branch, the dirty flag, the most recent task (`null` when none has ever run) and the collections marked for sync. On a server without the `remote_sync` feature it refuses (exit 2) rather than misread the responses: the collection read behind the sync scope is refused before it's sent, because such a server lists its collections without the sync flag, which would read as an empty scope.",
+    "Shows whether a remote is set up, the sync type (`read-only` or `read-write`), the tracked branch, the dirty flag, the most recent task (`null` when none has run) and the collections marked for sync. Refused (exit 2) on a server without the `remote_sync` token feature, where the sync scope would read as empty.",
   requires: [
     "gitSync.remote",
     "gitSync.isDirty",

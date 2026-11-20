@@ -7,24 +7,22 @@ summary: "Upload CSV files into Metabase."
 
 Upload CSV files into Metabase.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 ## mb upload csv
 
 Upload a CSV file as a new table and model.
 
-Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server (**Admin** > **Settings** > **Uploads**); the destination database and schema are set there, not per command. Pass `--collection` to place the model in a specific collection (defaults to `root`).
+Creates a table, and a model over it, in the server's uploads database, and prints the new model id and table id. An admin sets that database and its schema in **Admin** > **Settings** > **Uploads**; without one, the upload fails.
 
 ```sh
 mb upload csv [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
-| `--collection <value>` |  | Target collection id, or 'root' (default: root). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema upload csv --output`.
+| Flag | Description |
+| --- | --- |
+| `--file <value>` | Path to the CSV/TSV file to upload (required). |
+| `--collection <value>` | Target collection id, or 'root' (default: root). |
 
 Examples:
 
@@ -44,17 +42,10 @@ Inserts the rows of the CSV into the table with the given id. The table must hav
 mb upload append <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Target table id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema upload append --output`.
+| `--file <value>` | Path to the CSV/TSV file to upload (required). |
 
 Examples:
 
@@ -73,17 +64,10 @@ Replaces the contents of the table with the given id with the rows of the CSV. T
 mb upload replace <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Target table id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema upload replace --output`.
+| `--file <value>` | Path to the CSV/TSV file to upload (required). |
 
 Examples:
 

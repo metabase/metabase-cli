@@ -33,7 +33,7 @@ export default defineMetabaseCommand({
     name: "scaffold",
     description: "Scaffold a data app in the synced repository, from its root",
   },
-  details: `Run from the root of the synced git repository. Copies the Vite + React + TypeScript template into \`data_apps/<slug>/\`, which must be missing or empty, and writes the app's \`data_app.yaml\` and its collection's file under \`collections/data_apps/\`, with new entity IDs, and adds \`.env.local\`, which holds the dev preview's API key, to the repository's \`.gitignore\`. It doesn't reach Metabase: the app exists there once the repository is imported. Before \`npm install\`, install the SDK tag \`mb data-app sdk-version\` answers for the instance (\`npm install ${EMBEDDING_SDK_PACKAGE}@<tag>\`): the template's \`*\` installs \`latest\`, which may not build the app.`,
+  details: `Copies the Vite + React + TypeScript template into \`data_apps/<slug>/\`, which must be missing or empty, writes the app's \`data_app.yaml\` and its collection's file with new entity IDs, and adds \`.env.local\` (the dev preview's API key) to \`.gitignore\`. It doesn't reach Metabase: the app exists there once you import the repository. Before \`npm install\`, install the SDK tag that \`mb data-app sdk-version\` names (\`npm install ${EMBEDDING_SDK_PACKAGE}@<tag>\`), since the template's \`*\` installs \`latest\`, which may not build the app.`,
   skills: [{ skill: "data-app", purpose: "the steps after scaffolding" }],
   requires: null,
   args: { ...outputFlags, ...slugArg },

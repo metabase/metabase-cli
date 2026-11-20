@@ -7,6 +7,10 @@ summary: "Manage Metabase measures."
 
 Manage Metabase measures.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+Every command on this page needs `measures` (v59+).
+
 Agent skills:
 
 - `mb skills get mbql`: the definition aggregation
@@ -20,11 +24,7 @@ List measures.
 mb measure list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `measures` (v59+).
-
-Output schema: `mb schema measure list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -45,12 +45,6 @@ mb measure get <id> [flags]
 | --- | --- |
 | `<id>` | Measure id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `measures` (v59+).
-
-Output schema: `mb schema measure get --output`.
-
 Examples:
 
 ```sh
@@ -62,23 +56,17 @@ mb measure get 1 --json
 
 Create a measure (saved aggregation) from JSON.
 
-A measure is a reusable, saved aggregation tied to a table, which cards and metrics reference to share the computation. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+A measure is a saved aggregation on a table, which cards and metrics reuse. The JSON body needs `name`, `table_id` and a `definition` (an MBQL query with exactly one aggregation). An MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb measure create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+| Flag | Description |
+| --- | --- |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `measures` (v59+).
-
-Body schema: `mb schema measure create`. Output schema: `mb schema measure create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -96,27 +84,18 @@ mb measure create --file measure.json --skip-validate
 
 Update a measure by id (body must include revision_message).
 
-Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+Patches only the fields you send, and needs a `revision_message` for the audit log. A new MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb measure update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Measure id. |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `measures` (v59+).
-
-Body schema: `mb schema measure update`. Output schema: `mb schema measure update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -139,19 +118,10 @@ Archive (soft-delete) a measure by id.
 mb measure archive <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Measure id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--revision-message <value>` | `Archived via mb CLI` | Audit-log message recorded with the change. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `measures` (v59+).
-
-Output schema: `mb schema measure archive --output`.
+| `--revision-message <value>` | Audit-log message recorded with the change. Default: `Archived via mb CLI`. |
 
 Examples:
 

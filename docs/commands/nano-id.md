@@ -13,13 +13,11 @@ For the values that must be an entity ID: the `entityId` of a data app's `define
 mb nano-id [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--count <value>` | `1` | How many NanoIDs to mint (default 1, max 10000). |
+| Flag | Description |
+| --- | --- |
+| `--count <value>` | How many NanoIDs to mint (default 1, max 10000). Default: `1`. |
 
-Shared flags: [output](README.md#output-flags).
-
-Output schema: `mb schema nano-id --output`.
+Takes the [output](README.md#output-flags) flags.
 
 Agent skills:
 

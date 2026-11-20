@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a table (display name, description, visibility, etc.)",
   },
-  details: `\`display_name\`, \`entity_type\`, \`show_in_getting_started\`, \`field_order\` and \`collection_id\` take no \`null\`: the server would drop it and keep the old value. Two values are refused before the request (exit 2), because a server would take them without doing what they ask: \`data_authority: null\` on a server without \`${WITHDRAWAL_FEATURE}\` (${featureAvailability(WITHDRAWAL_FEATURE)}), and a medallion \`data_layer\` (\`gold\`, \`silver\`, \`bronze\`, \`copper\`) on a server with \`${TIER_FEATURE}\` (${featureAvailability(TIER_FEATURE)}). When the server drops \`collection_id\`, the command exits 1 with a \`partial-write\` error.`,
+  details: `Changes only the fields you send. \`display_name\`, \`entity_type\`, \`show_in_getting_started\`, \`field_order\` and \`collection_id\` don't take \`null\` (the server keeps the old value). Refused before the request (exit 2): \`data_authority: null\` on a server without \`${WITHDRAWAL_FEATURE}\` (${featureAvailability(WITHDRAWAL_FEATURE)}), and a medallion \`data_layer\` (\`gold\`, \`silver\`, \`bronze\`, \`copper\`) on a server with \`${TIER_FEATURE}\` (${featureAvailability(TIER_FEATURE)}). If the table doesn't move to \`collection_id\`, the command exits 1 with a \`partial-write\` error.`,
   requires: ["table.update"],
   args: {
     ...outputFlags,

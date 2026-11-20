@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateFeatures,
   featureAvailability,
+  featureImplies,
   FEATURE_NAMES,
   FEATURE_RULES,
   type FeatureName,
@@ -112,5 +113,19 @@ describe("featureAvailability", () => {
     ["fieldRemappingAppendsDisplayColumns", "up to v59"],
   ] as const)("says where %s holds as %s", (feature, text) => {
     expect(featureAvailability(feature)).toBe(text);
+  });
+});
+
+describe("featureImplies", () => {
+  it.each([
+    ["remoteSyncRemoteChanges", "remoteSync", true],
+    ["remoteSync", "remoteSyncRemoteChanges", false],
+    ["transformTests", "transforms", true],
+    ["transformTargetTableLinkedOnCreate", "transformTargetTableId", true],
+    ["remoteSyncChangesCache", "remoteSyncRemoteChanges", true],
+    ["remoteSyncRemoteChanges", "remoteSyncChangesCache", false],
+    ["remoteSyncTaskOutcome", "remoteSyncMerge", false],
+  ] as const)("says whether %s implies %s: %s", (feature, other, implies) => {
+    expect(featureImplies(feature, other)).toBe(implies);
   });
 });

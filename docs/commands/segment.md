@@ -7,6 +7,8 @@ summary: "Manage Metabase segments."
 
 Manage Metabase segments.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get mbql`: the definition filter clause
@@ -20,9 +22,7 @@ List segments.
 mb segment list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema segment list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -43,10 +43,6 @@ mb segment get <id> [flags]
 | --- | --- |
 | `<id>` | Segment id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema segment get --output`.
-
 Examples:
 
 ```sh
@@ -58,21 +54,17 @@ mb segment get 1 --json
 
 Create a segment (saved filter) from JSON.
 
-A segment is a reusable, saved row filter tied to a table, which cards reference in their filters to share the predicate. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding the filter). An MBQL 5 `definition` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+A segment is a saved row filter on a table, which cards reuse in their filters. The JSON body needs `name`, `table_id` and a `definition` (an MBQL query holding the filter). An MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb segment create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+| Flag | Description |
+| --- | --- |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema segment create`. Output schema: `mb schema segment create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -90,25 +82,18 @@ mb segment create --file segment.json --skip-validate
 
 Update a segment by id (body must include revision_message).
 
-Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+Patches only the fields you send, and needs a `revision_message` for the audit log. A new MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb segment update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Segment id. |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema segment update`. Output schema: `mb schema segment update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -131,17 +116,10 @@ Archive (soft-delete) a segment by id.
 mb segment archive <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Segment id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--revision-message <value>` | `Archived via mb CLI` | Audit-log message recorded with the change. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema segment archive --output`.
+| `--revision-message <value>` | Audit-log message recorded with the change. Default: `Archived via mb CLI`. |
 
 Examples:
 

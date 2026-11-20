@@ -9,12 +9,14 @@ Inspect and sync Metabase databases, and turn their data actions on or off.
 
 Alias: `mb database`.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: the database traversal ladder and schema sync
 - `mb skills get data-workflow`: model a raw database into clean tables
 
-## Traversal ladder
+## Walk a database from tables to fields
 
 Start with [`mb db get <db-id> --include tables`](#mb-db-get), the compact table map. Pick the relevant tables, then fetch their fields one table at a time with [`mb table fields <table-id>`](table.md#mb-table-fields). When the answer outgrows the `--max-bytes` cap, the error names the next command down the ladder.
 
@@ -30,14 +32,12 @@ List databases.
 mb db list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--include <value>` |  | Hydrate related entities: tables (each database with its compact table map). |
-| `--saved` |  | Include the Saved Questions virtual database. |
+| Flag | Description |
+| --- | --- |
+| `--include <value>` | Hydrate related entities: tables (each database with its compact table map). |
+| `--saved` | Include the Saved Questions virtual database. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -58,17 +58,10 @@ Get a database by id.
 mb db get <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Database id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--include <value>` |  | Hydrate related entities: tables\|tables.fields. tables is the compact table map; tables.fields adds every field — fine for small databases, use the map plus table fields &lt;id> for large ones. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db get --output`.
+| `--include <value>` | Hydrate related entities: tables\|tables.fields. tables is the compact table map; tables.fields adds every field — fine for small databases, use the map plus table fields &lt;id> for large ones. |
 
 Examples:
 
@@ -93,9 +86,7 @@ mb db schemas <id> [flags]
 | --- | --- |
 | `<id>` | Database id. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db schemas --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -119,9 +110,7 @@ mb db schema-tables <id> <schema> [flags]
 | `<id>` | Database id. |
 | `<schema>` | Schema name. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db schema-tables --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -134,25 +123,18 @@ mb db schema-tables 1 public --json
 
 Trigger a manual schema sync for a database.
 
-Queues an async schema sync and returns `{ id, status: "ok" }` immediately. Pass `--wait` to poll the database until its `initial_sync_status` reports `complete` (a database that has already finished its initial sync returns at once); the result then adds `initial_sync_status`. To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.
+Queues an async schema sync and returns `{ id, status: "ok" }` at once. `--wait` polls the database until its `initial_sync_status` is `complete` (at once for a database that already finished its first sync) and adds `initial_sync_status` to the result. To wait for a new transform table to register, use `mb transform run <id> --sync` instead.
 
 ```sh
 mb db sync-schema <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Database id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--wait` | `false` | Poll until the operation reaches a terminal state. |
-| `--timeout <value>` | `600000` | Polling timeout in ms (used with --wait). |
-| `--interval <value>` | `2000` | Polling interval in ms (used with --wait). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db sync-schema --output`.
+| `--wait` | Poll until the operation reaches a terminal state. |
+| `--timeout <value>` | Polling timeout in ms (used with --wait). Default: `600000`. |
+| `--interval <value>` | Polling interval in ms (used with --wait). Default: `2000`. |
 
 Examples:
 
@@ -175,10 +157,6 @@ mb db rescan-values <id> [flags]
 | --- | --- |
 | `<id>` | Database id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db rescan-values --output`.
-
 Examples:
 
 ```sh
@@ -190,7 +168,7 @@ mb db rescan-values 1 --json
 
 Enable or disable data actions for a database.
 
-The Data actions toggle of Admin → Databases (the `database-enable-actions` database setting): while it is off, data actions on the database can be neither created nor run. Needs an admin. The driver must support writes: `mb db get <id> --full --json` lists `actions` in `features`. Answers the database with its `settings`.
+Sets the **Data actions** toggle in **Admin** > **Databases** (the `database-enable-actions` setting). While it's off, data actions on the database can't be created or run. Needs an admin and a driver that supports writes (`mb db get <id> --full --json` lists `actions` in `features`). Returns the database with its `settings`.
 
 ```sh
 mb db set-data-actions <id> <enabled> [flags]
@@ -200,10 +178,6 @@ mb db set-data-actions <id> <enabled> [flags]
 | --- | --- |
 | `<id>` | Database id. |
 | `<enabled>` | `true` turns on data actions, `false` turns them off. Any other value exits 2 before a request is sent. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema db set-data-actions --output`.
 
 Agent skills:
 

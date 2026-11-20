@@ -7,14 +7,16 @@ summary: "Manage Metabase question alerts (scheduled card delivery on a send con
 
 Manage Metabase question alerts (scheduled card delivery on a send condition).
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get notification`: send conditions, cron schedules, handlers and recipients, testing a send
 - `mb skills get core`: the card an alert watches and how to find its id
 
-## Card alerts only
+## The alert commands read card alerts only
 
-Metabase keeps its internal system-event notifications in the same API as question alerts, with ids alongside theirs. `get`, `update`, `send` and `archive` refuse an id that names any notification other than a card alert (exit 2): reading one as an alert would mislead, and sending one would fire an internal Metabase email.
+Metabase keeps its internal system-event notifications in the same API as question alerts, with ids alongside theirs. So `get`, `update`, `send` and `archive` refuse (exit 2) an id that names anything other than a card alert: sending one would fire an internal Metabase email.
 
 ## mb alert list
 
@@ -26,16 +28,14 @@ Archived (inactive) alerts are hidden unless you pass --include-inactive. System
 mb alert list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--card-id <value>` |  | Only alerts watching this card ID, as `mb card alerts <card-id>` lists them. |
-| `--creator-id <value>` |  | Only alerts created by this user id. |
-| `--recipient-id <value>` |  | Only alerts delivered to this user id. |
-| `--include-inactive` |  | Include archived (inactive) alerts. |
+| Flag | Description |
+| --- | --- |
+| `--card-id <value>` | Only alerts watching this card ID, as `mb card alerts <card-id>` lists them. |
+| `--creator-id <value>` | Only alerts created by this user id. |
+| `--recipient-id <value>` | Only alerts delivered to this user id. |
+| `--include-inactive` | Include archived (inactive) alerts. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema alert list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -59,10 +59,6 @@ mb alert get <id> [flags]
 | --- | --- |
 | `<id>` | Alert id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema alert get --output`.
-
 Examples:
 
 ```sh
@@ -74,20 +70,15 @@ mb alert get 9 --full --json
 
 Create a question alert from JSON.
 
-The JSON body needs `payload`, `subscriptions`, and `handlers`. `payload` is `{card_id, send_condition, send_once}` — `send_condition` is has_result (the card returns any row), goal_above, or goal_below (both need a goal set on the card's visualization). `subscriptions` is a list of `{cron_schedule}` in Quartz 7-field form (`0 0 8 * * ? *` = daily at 08:00 in the instance's report timezone). `handlers` is a list of `{channel_type: channel/email|channel/slack|channel/http, recipients}`; each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.
+The JSON body needs `payload`, `subscriptions` and `handlers`. `payload` is `{card_id, send_condition, send_once}`, where `send_condition` is `has_result` (the card returns any row), `goal_above` or `goal_below` (both need a goal on the card's visualization).
+
+`subscriptions` is a list of `{cron_schedule}` in Quartz 7-field form (`0 0 8 * * ? *` is daily at 08:00 in the report timezone). `handlers` is a list of `{channel_type: channel/email|channel/slack|channel/http, recipients}`, where each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.
 
 ```sh
 mb alert create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema alert create`. Output schema: `mb schema alert create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -101,7 +92,9 @@ mb alert create --file alert.json
 
 Update a question alert by id.
 
-Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep — `mb alert get <id>` prints the current ones. An alert's card can't be moved to a different card. The update reads the alert first and merges the patch over it, so the alert and its payload keep their IDs: the server reads the body as the alert's whole new state, and a body whose `id` differs from the stored one deletes the alert and inserts a replacement under a new ID.
+Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers` and `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card, which can't change. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep (`mb alert get <id>` prints them).
+
+The update merges the patch over the alert it reads first, so the alert and its payload keep their IDs. Don't send an `id`: the server reads the body as the alert's whole new state, and a different `id` deletes the alert and inserts a new one.
 
 ```sh
 mb alert update <id> [flags]
@@ -111,14 +104,7 @@ mb alert update <id> [flags]
 | --- | --- |
 | `<id>` | Alert id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema alert update`. Output schema: `mb schema alert update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -142,10 +128,6 @@ mb alert send <id> [flags]
 | --- | --- |
 | `<id>` | Alert id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema alert send --output`.
-
 Examples:
 
 ```sh
@@ -166,10 +148,6 @@ mb alert archive <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Alert id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema alert archive --output`.
 
 Examples:
 

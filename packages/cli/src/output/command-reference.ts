@@ -1,7 +1,11 @@
 import type { ArgsDef, CommandDef } from "citty";
 
 import { ConfigError } from "@metabase/client/errors";
-import { featureAvailability } from "@metabase/client/version/features";
+import {
+  featureAvailability,
+  featureImplies,
+  type FeatureName,
+} from "@metabase/client/version/features";
 
 import {
   isShortAlias,
@@ -12,7 +16,6 @@ import {
   SHORT_PREFIX,
   toAliasArray,
 } from "../runtime/citty";
-import { getMetabaseAugment, type CommandRequirements } from "../runtime/command-augment";
 import {
   buildHelpEntry,
   buildHelpIndex,
@@ -36,8 +39,14 @@ const PAGE_EXTENSION = ".md";
 const INDEX_TITLE = "Metabase CLI command reference";
 const INDEX_SUMMARY =
   "Each mb command, with its arguments, flags, examples, and the Metabase features it needs.";
+const BODY_SCHEMA_COMMAND = schemaCommand("<command>");
+const OUTPUT_SCHEMA_COMMAND = `${BODY_SCHEMA_COMMAND} ${OUTPUT_SCHEMA_FLAG}`;
+const SCHEMAS_PARAGRAPH = `\`${BODY_SCHEMA_COMMAND}\` prints the JSON Schema of the body a command reads, and \`${OUTPUT_SCHEMA_COMMAND}\` the schema of what it prints.`;
 const SHARED_FLAGS_INTRO =
-  "Many commands take one or more of these flag sets. Each command names the sets it takes.";
+  "Many commands take one or more of these flag sets. Each page names the sets its commands take.";
+// A page says once what every one of its commands takes or needs only when there is more than
+// one command to say it for.
+const MIN_COMMANDS_TO_HOIST = 2;
 
 const BLOCK_SEPARATOR = "\n\n";
 const VALUE_PLACEHOLDER = "<value>";
@@ -48,6 +57,7 @@ const SENTENCE_END = /[.!?]$/;
 // space a hyphen.
 const ANCHOR_DROPPED = /[^a-z0-9 _-]/g;
 const ANCHOR_SPACE = / /g;
+const LIST_FORMAT = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 
 export interface SharedFlagSet {
   name: string;
@@ -68,9 +78,17 @@ interface ReferenceCommand {
   aliases: readonly string[];
   sharedSets: readonly SharedFlagSet[];
   ownArgs: readonly CommandHelpArg[];
-  bodySchema: boolean;
-  outputSchema: boolean;
+  // Without the features another of them implies.
+  features: readonly FeatureName[];
 }
+
+// What every command on a page takes and needs, which the page says once.
+interface PageCommon {
+  sets: readonly SharedFlagSet[];
+  features: readonly FeatureName[];
+}
+
+const NOTHING_COMMON: PageCommon = { sets: [], features: [] };
 
 interface GroupPage {
   kind: "group";
@@ -80,6 +98,7 @@ interface GroupPage {
   aliases: readonly string[];
   defaultCommand: string | null;
   skills: readonly CommandHelpSkill[];
+  common: PageCommon;
   commands: readonly ReferenceCommand[];
 }
 
@@ -148,6 +167,7 @@ async function collectPage(
   const meta = await resolveCitty(node.command.meta);
   const index = await buildHelpIndex(node.command, path);
   const defaultCommand = await resolveCitty(node.command.default);
+  const commands = await collectCommands(node.command, path, sets);
   return {
     kind: "group",
     file,
@@ -156,7 +176,8 @@ async function collectPage(
     aliases: toAliasArray(meta?.alias),
     defaultCommand: defaultCommand ?? null,
     skills: index.skills,
-    commands: await collectCommands(node.command, path, sets),
+    common: pageCommon(commands, sets),
+    commands,
   };
 }
 
@@ -187,15 +208,13 @@ async function collectCommand(
   const argsDef = await resolveCitty(command.args);
   const sharedSets = argsDef === undefined ? [] : takenSharedSets(argsDef, sets);
   const sharedKeys = new Set(sharedSets.flatMap((set) => Object.keys(set.flags)));
-  const augment = getMetabaseAugment(command);
   return {
     entry,
     path,
     aliases: toAliasArray(meta?.alias),
     sharedSets,
     ownArgs: entry.args.filter((arg) => !sharedKeys.has(arg.name)),
-    bodySchema: augment !== null && augment.input !== null,
-    outputSchema: augment !== null && augment.outputSchema !== null,
+    features: entry.requires === null ? [] : essentialFeatures(entry.requires.features),
   };
 }
 
@@ -216,6 +235,32 @@ function takenSharedSets(argsDef: ArgsDef, sets: readonly SharedFlagSet[]): Shar
     }
   }
   return taken;
+}
+
+// A feature that another one in the list implies says nothing the other doesn't. Two that imply
+// each other hold on the same servers but name different behaviours, so both stay.
+function essentialFeatures(features: readonly FeatureName[]): FeatureName[] {
+  return features.filter(
+    (feature) =>
+      !features.some((other) => featureImplies(other, feature) && !featureImplies(feature, other)),
+  );
+}
+
+function pageCommon(
+  commands: readonly ReferenceCommand[],
+  sets: readonly SharedFlagSet[],
+): PageCommon {
+  if (commands.length < MIN_COMMANDS_TO_HOIST) {
+    return NOTHING_COMMON;
+  }
+  const candidates = [...new Set(commands.flatMap((command) => command.features))];
+  const features = candidates.filter((feature) =>
+    commands.every((command) => command.features.some((own) => featureImplies(own, feature))),
+  );
+  return {
+    sets: sets.filter((set) => commands.every((command) => command.sharedSets.includes(set))),
+    features: essentialFeatures(features),
+  };
 }
 
 async function visibleSubCommands(cmd: CommandDef): Promise<CommandNode[]> {
@@ -265,9 +310,10 @@ function renderIndex(
     ...skillsBlocks(skills),
     "## Commands",
     commandTable(pages),
+    SCHEMAS_PARAGRAPH,
     "## Shared flags",
     SHARED_FLAGS_INTRO,
-    ...sets.flatMap((set) => [`### ${sharedSetHeading(set)}`, flagTable(convertArgs(set.flags))]),
+    ...sets.flatMap((set) => [`### ${sharedSetHeading(set)}`, argTable(convertArgs(set.flags))]),
   ]);
 }
 
@@ -280,7 +326,7 @@ function renderPage(page: ReferencePage, notes: string | null): string {
       `# ${title}`,
       ...descriptionBlocks(description),
       ...notesBlocks(notes),
-      ...commandBlocks(page.command),
+      ...commandBlocks(page.command, NOTHING_COMMON),
     ]);
   }
   return joinBlocks([
@@ -289,17 +335,18 @@ function renderPage(page: ReferencePage, notes: string | null): string {
     ...descriptionBlocks(page.description),
     ...aliasBlocks([], page.aliases),
     ...defaultCommandBlocks(page.name, page.defaultCommand),
+    ...pageCommonBlocks(page.common),
     ...skillsBlocks(page.skills),
     ...notesBlocks(notes),
     ...page.commands.flatMap((command) => [
       `## ${commandName(command.path)}`,
       ...descriptionBlocks(command.entry.description),
-      ...commandBlocks(command),
+      ...commandBlocks(command, page.common),
     ]),
   ]);
 }
 
-function commandBlocks(command: ReferenceCommand): string[] {
+function commandBlocks(command: ReferenceCommand, common: PageCommon): string[] {
   const { entry } = command;
   const positionals = command.ownArgs.filter((arg) => arg.type === "positional");
   const flags = command.ownArgs.filter((arg) => arg.type !== "positional");
@@ -308,11 +355,9 @@ function commandBlocks(command: ReferenceCommand): string[] {
     ...aliasBlocks(command.path.slice(0, -1), command.aliases),
     ...(entry.details === undefined ? [] : [escapeText(entry.details)]),
     usageBlock(command.path, positionals, takesFlags),
-    ...(positionals.length === 0 ? [] : [positionalTable(positionals)]),
-    ...(flags.length === 0 ? [] : [flagTable(flags)]),
-    ...sharedSetBlocks(command.sharedSets),
-    ...requirementBlocks(entry.requires),
-    ...schemaBlocks(command),
+    ...(command.ownArgs.length === 0 ? [] : [argTable([...positionals, ...flags])]),
+    ...sharedSetBlocks(command.sharedSets, common.sets),
+    ...requirementBlocks(command.features, common.features),
     ...skillsBlocks(entry.skills),
     ...exampleBlocks(entry.examples),
   ];
@@ -350,6 +395,17 @@ function defaultCommandBlocks(name: string, defaultCommand: string | null): stri
   return [`Without a command, ${group} runs ${runs}.`];
 }
 
+function pageCommonBlocks(common: PageCommon): string[] {
+  const blocks: string[] = [];
+  if (common.sets.length > 0) {
+    blocks.push(`Every command on this page takes the ${setLinks(common.sets)} flags.`);
+  }
+  if (common.features.length > 0) {
+    blocks.push(`Every command on this page needs ${featureList(common.features)}.`);
+  }
+  return blocks;
+}
+
 function notesBlocks(notes: string | null): string[] {
   return notes === null ? [] : [notes.trim()];
 }
@@ -380,22 +436,23 @@ function positionalToken(arg: CommandHelpArg): string {
   return arg.required ? `<${arg.name}>` : `[${arg.name}]`;
 }
 
-function positionalTable(positionals: readonly CommandHelpArg[]): string {
+function argTable(args: readonly CommandHelpArg[]): string {
   return table(
-    ["Argument", "Description"],
-    positionals.map((arg) => [code(positionalToken(arg)), argDescription(arg)]),
+    [argColumnHeading(args), "Description"],
+    args.map((arg) => [code(argSpelling(arg)), argDescription(arg)]),
   );
 }
 
-function flagTable(flags: readonly CommandHelpArg[]): string {
-  return table(
-    ["Flag", "Default", "Description"],
-    flags.map((arg) => [
-      code(flagSpelling(arg)),
-      arg.default === undefined ? "" : code(String(arg.default)),
-      argDescription(arg),
-    ]),
-  );
+function argColumnHeading(args: readonly CommandHelpArg[]): string {
+  const positionals = args.filter((arg) => arg.type === "positional").length;
+  if (positionals === args.length) {
+    return "Argument";
+  }
+  return positionals === 0 ? "Flag" : "Argument or flag";
+}
+
+function argSpelling(arg: CommandHelpArg): string {
+  return arg.type === "positional" ? positionalToken(arg) : flagSpelling(arg);
 }
 
 // The spellings citty binds that a reader needs: the one-letter alias, the kebab-case name (and
@@ -430,43 +487,51 @@ function argDescription(arg: CommandHelpArg): string {
   if (arg.options !== undefined) {
     parts.push(`One of ${arg.options.map(code).join(", ")}.`);
   }
+  // A flag that is off unless given has nothing to say about its default.
+  if (arg.default !== undefined && arg.default !== false) {
+    parts.push(`Default: ${code(String(arg.default))}.`);
+  }
   return parts.join(" ");
 }
 
-function sharedSetBlocks(sets: readonly SharedFlagSet[]): string[] {
-  if (sets.length === 0) {
+function sharedSetBlocks(
+  sets: readonly SharedFlagSet[],
+  pageSets: readonly SharedFlagSet[],
+): string[] {
+  const own = sets.filter((set) => !pageSets.includes(set));
+  if (own.length === 0) {
     return [];
   }
-  const links = sets.map(
-    (set) => `[${set.name}](${INDEX_PAGE}#${anchorFor(sharedSetHeading(set))})`,
+  const verb = pageSets.length === 0 ? "Takes" : "Also takes";
+  return [`${verb} the ${setLinks(own)} flags.`];
+}
+
+function setLinks(sets: readonly SharedFlagSet[]): string {
+  return LIST_FORMAT.format(
+    sets.map((set) => `[${set.name}](${INDEX_PAGE}#${anchorFor(sharedSetHeading(set))})`),
   );
-  return [`Shared flags: ${links.join(", ")}.`];
 }
 
 function sharedSetHeading(set: SharedFlagSet): string {
   return `${set.name.charAt(0).toUpperCase()}${set.name.slice(1)} flags`;
 }
 
-function requirementBlocks(requires: CommandRequirements | null): string[] {
-  if (requires === null || requires.features.length === 0) {
+function requirementBlocks(
+  features: readonly FeatureName[],
+  pageFeatures: readonly FeatureName[],
+): string[] {
+  const own = features.filter((feature) => !pageFeatures.includes(feature));
+  if (own.length === 0) {
     return [];
   }
-  const features = requires.features.map(
-    (feature) => `${code(feature)} (${featureAvailability(feature)})`,
-  );
-  return [`Needs: ${features.join(", ")}.`];
+  const verb = pageFeatures.length === 0 ? "Needs" : "Also needs";
+  return [`${verb} ${featureList(own)}.`];
 }
 
-function schemaBlocks(command: ReferenceCommand): string[] {
-  const schema = schemaCommand(command.path.join(" "));
-  const lines: string[] = [];
-  if (command.bodySchema) {
-    lines.push(`Body schema: ${code(schema)}.`);
-  }
-  if (command.outputSchema) {
-    lines.push(`Output schema: ${code(`${schema} ${OUTPUT_SCHEMA_FLAG}`)}.`);
-  }
-  return lines.length === 0 ? [] : [lines.join(" ")];
+function featureList(features: readonly FeatureName[]): string {
+  return LIST_FORMAT.format(
+    features.map((feature) => `${code(feature)} (${featureAvailability(feature)})`),
+  );
 }
 
 function exampleBlocks(examples: readonly string[]): string[] {
@@ -479,7 +544,7 @@ function commandTable(pages: readonly ReferencePage[]): string {
     pages.map((page) => {
       const description = page.kind === "leaf" ? page.command.entry.description : page.description;
       const link = `[${commandName([page.name])}](${page.file})`;
-      return [link, description === null ? "" : escapeCell(description)];
+      return [link, description === null ? "" : sentence(escapeCell(description))];
     }),
   );
 }

@@ -7,17 +7,19 @@ summary: "Manage Metabase documents."
 
 Manage Metabase documents.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get document`: author the ProseMirror document body
 
-## Documents
+## A document is a TipTap JSON tree
 
-A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed` nodes) and inline links to Metabase entities (`smartLink` nodes). Its body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree, stored with `content_type` `application/json+vnd.prose-mirror`. Documents are a baseline open-source feature: they need no premium token.
+A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed` nodes) and inline links to Metabase entities (`smartLink` nodes). Its body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree, stored with `content_type` `application/json+vnd.prose-mirror`. Documents need no premium token.
 
-## Node ids
+## Each block node needs an id
 
-For a document to open clean, with no spurious "unsaved changes" prompt, each `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed` and `supportingText` node carries its own `_id`, a UUID. [mb document create](#mb-document-create) and [mb document update](#mb-document-update) refuse a body in which one of these nodes has none. Mint ids with [mb uuid](uuid.md). Other node types take no `_id`.
+[mb document create](#mb-document-create) and [mb document update](#mb-document-update) refuse a body in which a `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed` or `supportingText` node has no `_id`, a UUID. Without one, the document opens with a spurious "unsaved changes" prompt. Mint ids with [mb uuid](uuid.md). Other node types take no `_id`.
 
 ## mb document list
 
@@ -29,9 +31,7 @@ Lists the documents you can see, except archived ones. The compact row leaves ou
 mb document list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema document list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -52,10 +52,6 @@ mb document get <id> [flags]
 | --- | --- |
 | `<id>` | Document id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema document get --output`.
-
 Examples:
 
 ```sh
@@ -73,14 +69,7 @@ Body keys: `name` (required), `document` (required, the TipTap `doc` tree), `col
 mb document create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema document create`. Output schema: `mb schema document create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -104,14 +93,7 @@ mb document update <id> [flags]
 | --- | --- |
 | `<id>` | Document id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema document update`. Output schema: `mb schema document update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -126,27 +108,20 @@ mb document update 1 --body '{"archived":false}'
 
 Copy a document, with the cards saved inside it, into a collection.
 
-The copy duplicates the cards saved inside the document into the target collection and carries the source body with their embeds pointing at the duplicates. Without --collection-id the copy lands in the root collection. An archived source is not found.
+Duplicates the cards saved inside the document into the target collection, and points the copy's embeds at the duplicates. Without `--collection-id`, the copy lands in the root collection. An archived source isn't found.
 
 ```sh
 mb document copy <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Document id. |
+| `--name <value>` | Name for the copy (default: the source name). |
+| `--collection-id <value>` | Collection to copy into (default: root). |
+| `--collection-position <value>` | Pin the copy at this position in the collection. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--name <value>` |  | Name for the copy (default: the source name). |
-| `--collection-id <value>` |  | Collection to copy into (default: root). |
-| `--collection-position <value>` |  | Pin the copy at this position in the collection. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `documentCopy` (v59+).
-
-Output schema: `mb schema document copy --output`.
+Needs `documentCopy` (v59+).
 
 Examples:
 
@@ -168,10 +143,6 @@ mb document archive <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Document id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema document archive --output`.
 
 Examples:
 

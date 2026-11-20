@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Trigger a manual schema sync for a database",
   },
   details:
-    'Queues an async schema sync and returns `{ id, status: "ok" }` immediately. Pass `--wait` to poll the database until its `initial_sync_status` reports `complete` (a database that has already finished its initial sync returns at once); the result then adds `initial_sync_status`. To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.',
+    'Queues an async schema sync and returns `{ id, status: "ok" }` at once. `--wait` polls the database until its `initial_sync_status` is `complete` (at once for a database that already finished its first sync) and adds `initial_sync_status` to the result. To wait for a new transform table to register, use `mb transform run <id> --sync` instead.',
   requires: ["database.syncSchema"],
   args: {
     ...outputFlags,

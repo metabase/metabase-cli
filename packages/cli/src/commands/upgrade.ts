@@ -60,7 +60,7 @@ export default defineMetabaseCommand({
     description: "Upgrade the Metabase CLI itself to the latest published release",
   },
   details:
-    "Reads the latest version from the npm registry's dist-tags and finds how the binary was installed: `npm-global` (with its package manager: npm, pnpm, yarn or bun), `npm-local`, `npx`, `dev`, or `unknown`. Only an `npm-global` install is upgraded in place, by running the matching install command after a confirmation; every other method prints what to do by hand. Without `--yes`, a run with no TTY never prompts and installs nothing. `--registry` changes only where the dist-tags are read: the install goes through your package manager and its own configured registry. Exits 0 when up to date or when it printed the command, 1 on a registry or install failure, 2 when `--to` isn't a valid semver version, 130 when you cancel the prompt.",
+    "Finds how the CLI was installed and the latest version on npm. Only an `npm-global` install (npm, pnpm, yarn or bun) is upgraded in place, after a confirmation; for an `npm-local`, `npx`, `dev` or `unknown` install, it prints what to do. Without `--yes`, a run with no TTY installs nothing. `--registry` changes only where the latest version is read: the install uses your package manager's own registry. Exits 0 when it upgrades, finds nothing to do, or prints what to do; 1 on a registry or install failure; 2 when `--to` isn't a valid semver version; and 130 when you cancel.",
   requires: null,
   args: {
     ...outputFlags,

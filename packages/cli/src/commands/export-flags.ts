@@ -29,7 +29,7 @@ const exportOnlyFlags = {
   },
   "csv-include-bom": {
     type: "boolean",
-    description: `With \`--export-format csv\`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs \`${CSV_BYTE_ORDER_MARK_FEATURE}\` (${featureAvailability(CSV_BYTE_ORDER_MARK_FEATURE)}): an older server drops the key and exports without the mark, so the CLI refuses it there before the request`,
+    description: `With \`--export-format csv\`: start the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Refused (exit 2) on a server without \`${CSV_BYTE_ORDER_MARK_FEATURE}\` (${featureAvailability(CSV_BYTE_ORDER_MARK_FEATURE)})`,
     default: false,
   },
 } as const;

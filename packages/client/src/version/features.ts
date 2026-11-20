@@ -121,6 +121,25 @@ export function featureAvailability(feature: FeatureName): string {
   return parts.join(", ");
 }
 
+/**
+ * Whether every supported server that holds `feature` also holds `other`: the majors its rule
+ * spans lie within the other's, and it needs the other's token feature, if the other needs one.
+ */
+export function featureImplies(feature: FeatureName, other: FeatureName): boolean {
+  const rule: FeatureRule = FEATURE_RULES[feature];
+  const otherRule: FeatureRule = FEATURE_RULES[other];
+  const startsWithin = supportedSince(rule) >= supportedSince(otherRule);
+  const endsWithin =
+    otherRule.until === undefined || (rule.until !== undefined && rule.until <= otherRule.until);
+  const tokenCovered =
+    otherRule.tokenFeature === undefined || otherRule.tokenFeature === rule.tokenFeature;
+  return startsWithin && endsWithin && tokenCovered;
+}
+
+function supportedSince(rule: FeatureRule): number {
+  return Math.max(rule.since, KNOWN_RANGE.min);
+}
+
 function majorSpan(rule: FeatureRule): string | null {
   const floor = rule.since > KNOWN_RANGE.min ? `v${rule.since}` : null;
   if (rule.until === undefined) {

@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
-  details: `A plain import refuses while Metabase holds un-pushed changes; \`--force\` discards them, and \`--merge\` keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in \`conflict\`, leaving local content untouched, when entities changed on both sides or when there's no merge base: the remote history was rewritten, or the instance has never synced. ${mergeRefusal("import")}`,
+  details: `A plain import is refused while Metabase has changes it hasn't exported: \`--force\` discards them, and \`--merge\` keeps them and merges the remote's changes in. A merge ends in \`conflict\`, with local content untouched, when entities changed on both sides or there's no merge base (the remote history was rewritten, or the instance never synced). ${mergeRefusal("import")}`,
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
@@ -26,18 +26,18 @@ export default defineMetabaseCommand({
     branch: {
       type: "string",
       description:
-        "Branch to import from (defaults to remote-sync-branch setting); a blank name is refused",
+        "Branch to import from. Defaults to the tracked branch (the `remote-sync-branch` setting); can't be blank",
       alias: "b",
     },
     force: {
       type: "boolean",
-      description: "Discard local Metabase-side dirty changes (LOSSY)",
+      description: "Discard the changes Metabase hasn't exported. They're lost",
       default: false,
     },
     merge: {
       type: "boolean",
       description:
-        "Keep un-pushed local changes and fold the remote's in by a three-way merge. Can't be used with `--force`",
+        "Keep the changes Metabase hasn't exported, and merge the remote's changes in. Can't be used with `--force`",
       default: false,
     },
     ...gitSyncWaitFlags,

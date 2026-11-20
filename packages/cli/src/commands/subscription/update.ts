@@ -9,14 +9,9 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a dashboard subscription by id" },
   details: [
-    "Patches only the fields you send: `name`, `cards`, `channels`, `skip_if_empty`, `parameters`, `archived`.",
-    "`cards` and `channels` replace the whole list, so send every card and channel you want to keep —",
-    "`mb subscription get <id> --full` prints the current ones.",
-    "A subscription's `dashboard_id` and `collection_id` are fixed at creation and can't be changed.",
-    "The update reads the subscription first and carries `archived` and `skip_if_empty` forward when the patch leaves them out:",
-    "the server resets each omitted one to `false`, so a name-only patch would otherwise un-archive the subscription and clear `skip_if_empty`.",
-    `Non-empty \`parameters\` need \`${SUBSCRIPTION_FILTERS_GATE.feature}\` and are refused before the request without it, as on \`mb subscription create\`.`,
-  ].join(" "),
+    "Patches only the fields you send: `name`, `cards`, `channels`, `skip_if_empty`, `parameters` and `archived`. `cards` and `channels` replace the whole list, so send every card and channel you want to keep (`mb subscription get <id> --full` prints them). `dashboard_id` and `collection_id` can't change after creation.",
+    `The update reads the subscription first and keeps its \`archived\` and \`skip_if_empty\` when the patch leaves them out, since the server would reset them to \`false\`. Non-empty \`parameters\` need \`${SUBSCRIPTION_FILTERS_GATE.feature}\` and are refused without it, as on \`mb subscription create\`.`,
+  ].join("\n\n"),
   requires: ["pulse.update"],
   args: {
     ...outputFlags,

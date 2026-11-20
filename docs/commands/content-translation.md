@@ -7,9 +7,13 @@ summary: "Download or replace the content translation dictionary."
 
 Download or replace the content translation dictionary.
 
-## Access and Remote Sync
+Every command on this page takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
 
-Both commands need an admin credential. The dictionary is independent of Remote Sync: importing or exporting a Git repository with [`mb git-sync import`](git-sync.md#mb-git-sync-import) or [`mb git-sync export`](git-sync.md#mb-git-sync-export) does not deploy it.
+Every command on this page needs `contentTranslation` (token content_translation).
+
+## Admins only, and separate from Remote Sync
+
+Both commands need an admin credential. The dictionary is independent of Remote Sync: importing or exporting a Git repository with [`mb git-sync import`](git-sync.md#mb-git-sync-import) or [`mb git-sync export`](git-sync.md#mb-git-sync-export) doesn't deploy it.
 
 ## mb content-translation download
 
@@ -20,12 +24,6 @@ Streams the active dictionary to stdout with the server's CSV formatting. Redire
 ```sh
 mb content-translation download [flags]
 ```
-
-Shared flags: [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `contentTranslation` (token content_translation).
-
-Output schema: `mb schema content-translation download --output`.
 
 Examples:
 
@@ -44,15 +42,11 @@ Uploads one complete dictionary and replaces every active content translation on
 mb content-translation upload [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--file <value>` |  | Path to the complete translation dictionary CSV (required). |
+| Flag | Description |
+| --- | --- |
+| `--file <value>` | Path to the complete translation dictionary CSV (required). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `contentTranslation` (token content_translation).
-
-Output schema: `mb schema content-translation upload --output`.
+Also takes the [output](README.md#output-flags) flags.
 
 Examples:
 

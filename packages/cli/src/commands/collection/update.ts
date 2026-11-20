@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     description: "Rename, describe, move, trash, or restore a collection by id (partial)",
   },
   details:
-    "Patches only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use one form or the other: a body together with a patch flag is refused (exit 2), and a body with no key, an unknown key, or a value of the wrong type fails validation (exit 1) before any request. The server reads an absent `archived` as `false`, so when the patch leaves it out the CLI reads the collection first and sends its current state: an archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash`, and entity IDs are refused.",
+    "Changes only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use flags or a body, not both (exit 2). An archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash` and entity IDs are refused.",
   requires: ["collection.get", "collection.update", "collection.archive"],
   args: {
     ...outputFlags,

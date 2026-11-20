@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     description: "Look up another field's value on the row where a field equals a value",
   },
   details:
-    "Answers `{ found: true, value, label }` with `label` the value of `<remapped-id>` on the one row where `<id>` equals `<value>`, or `{ found: false }` when no row does. A FK `<id>` is followed to the key it points at, and `<remapped-id>` must be on that key's table: the server answers a pair that is not, and any failure of the warehouse query, as `{ found: false }` rather than an error. When `<id>` is numeric the server reads the leading number of `<value>` and ignores any text after it (`20abc` looks up 20), failing only a value with no leading number; a value starting with `-` goes after `--` (`mb field remapping 100 101 -- -5`). In text mode the label prints bare so the result composes in a shell; an empty line means either no row matched or the matched label is empty, which `--json` tells apart.",
+    "Returns `{ found: true, value, label }`, where `label` is the value of `<remapped-id>` on the row where `<id>` equals `<value>`, or `{ found: false }` when no row matches. A FK `<id>` is followed to the key it points at, and `<remapped-id>` must be on that key's table; a pair that isn't, or a failed warehouse query, also returns `{ found: false }`. For a numeric `<id>`, only the leading number of `<value>` counts (`20abc` looks up 20); put a negative value after `--` (`mb field remapping 100 101 -- -5`). The text output is the label alone; use `--json` to tell no match from an empty label.",
   requires: ["field.remapping"],
   args: {
     ...outputFlags,

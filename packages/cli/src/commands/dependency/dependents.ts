@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     description: "List the entities that depend directly on an entity",
   },
   details:
-    "Each row is a dependent with its own `dependents_count` by kind, so a chain can be followed one hop at a time. `--broken` keeps only the dependents whose query analysis failed, whatever the cause, and each row's `dependents_count` then counts only its broken dependents. The server sorts and filters; the window is applied here.",
+    "Each row carries its own `dependents_count` by kind, so you can follow a chain one hop at a time. `--broken` keeps only the dependents whose query analysis failed, for any cause, and each row's `dependents_count` then counts only its broken dependents. The server sorts and filters; the CLI applies the window.",
   requires: ["dependency.dependents"],
   args: {
     ...outputFlags,

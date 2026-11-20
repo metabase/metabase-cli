@@ -3,6 +3,7 @@ import type { StringArgDef } from "citty";
 import type { SharedFlagSet } from "../output/command-reference";
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
+import { bodyInputFlags } from "./body-flags";
 
 interface ListFlagDef extends StringArgDef {
   type: "string";
@@ -19,18 +20,18 @@ export function listFlag<const T extends ListFlagDef>(def: T): T & ListMarker {
 // takes only the format pair, which still picks the shape of an error report.
 export const formatFlags = {
   format: { type: "string", description: "auto | json | text", default: "auto" },
-  json: { type: "boolean", description: "Shorthand for --format json" },
+  json: { type: "boolean", description: "Shorthand for `--format json`" },
 } as const;
 
 export const outputFlags = {
   ...formatFlags,
   full: {
     type: "boolean",
-    description: "Return the full object (default: compact)",
+    description: "Return the full object instead of the compact one",
   },
   fields: listFlag({
     type: "string",
-    description: "Dot-paths, comma separated (mutually exclusive with --full)",
+    description: "Comma-separated dot-paths to keep; can't be used with `--full`",
   }),
   maxBytes: {
     type: "string",
@@ -47,7 +48,7 @@ export const listFlags = {
   },
   offset: {
     type: "string",
-    description: "Start at this item index; pass the previous run's next_offset to continue",
+    description: "Start at this item index; pass the previous run's `next_offset` to continue",
     default: "0",
   },
 } as const;
@@ -95,6 +96,7 @@ export const SHARED_FLAG_SETS: readonly SharedFlagSet[] = [
   { name: "output", flags: outputFlags },
   { name: "format", flags: formatFlags },
   { name: "list", flags: listFlags },
+  { name: "body", flags: bodyInputFlags },
   { name: "profile", flags: profileFlag },
   { name: "connection", flags: connectionFlags },
 ];

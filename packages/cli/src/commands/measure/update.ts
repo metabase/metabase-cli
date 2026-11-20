@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Update a measure by id (body must include revision_message)",
   },
   details:
-    "Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.",
+    "Patches only the fields you send, and needs a `revision_message` for the audit log. A new MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.",
   skills: [{ skill: "mbql", purpose: "the definition aggregation" }],
   requires: ["measure.update"],
   args: {

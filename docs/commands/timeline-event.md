@@ -7,6 +7,8 @@ summary: "Manage events on Metabase timelines (list them with `mb timeline event
 
 Manage events on Metabase timelines (list them with `mb timeline events`).
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: required event fields and timeline collection scoping
@@ -23,10 +25,6 @@ mb timeline-event get <id> [flags]
 | --- | --- |
 | `<id>` | Timeline event id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline-event get --output`.
-
 Examples:
 
 ```sh
@@ -38,20 +36,13 @@ mb timeline-event get 1 --json
 
 Create a timeline event from JSON.
 
-The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (IANA name like UTC or America/New_York), `time_matters` (true when the time of day is significant, false when only the date is), and `timeline_id`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default: the timeline's icon).
+The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (an IANA name such as `UTC` or `America/New_York`), `time_matters` (`true` when the time of day matters, `false` when only the date does) and `timeline_id`. Optional: `description` and `icon` (star|cake|mail|warning|bell|cloud, plus mail_at|info|note|event from Metabase v64; the timeline's icon by default).
 
 ```sh
 mb timeline-event create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema timeline-event create`. Output schema: `mb schema timeline-event create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -75,14 +66,7 @@ mb timeline-event update <id> [flags]
 | --- | --- |
 | `<id>` | Timeline event id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema timeline-event update`. Output schema: `mb schema timeline-event update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -106,10 +90,6 @@ mb timeline-event archive <id> [flags]
 | --- | --- |
 | `<id>` | Timeline event id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline-event archive --output`.
-
 Examples:
 
 ```sh
@@ -125,17 +105,10 @@ Permanently delete a timeline event by id.
 mb timeline-event delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Timeline event id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline-event delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 

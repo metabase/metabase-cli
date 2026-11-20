@@ -5,7 +5,6 @@ import { defineCommand } from "citty";
 import type { CommandDef, SubCommandsDef } from "citty";
 import * as fc from "fast-check";
 import { beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { ConfigError, errorMessage } from "@metabase/client/errors";
 import { featureAvailability } from "@metabase/client/version/features";
@@ -81,7 +80,6 @@ describe("renderCommandReference", () => {
         interval: { type: "string", description: "Polling interval in ms", default: "2000" },
         id: { type: "positional", description: "Thing id", required: true },
       },
-      outputSchema: z.object({ id: z.number() }),
       examples: ["mb thing run 1", "mb thing run 1 --verbose"],
       run() {
         return;
@@ -121,19 +119,14 @@ describe("renderCommandReference", () => {
         "mb thing run <id> [flags]",
         "```",
         "",
-        "| Argument | Description |",
+        "| Argument or flag | Description |",
         "| --- | --- |",
         "| `<id>` | Thing id. |",
+        "| `--interval <value>` | Polling interval in ms. Default: `2000`. |",
         "",
-        "| Flag | Default | Description |",
-        "| --- | --- | --- |",
-        "| `--interval <value>` | `2000` | Polling interval in ms. |",
+        "Takes the [verbose](README.md#verbose-flags) flags.",
         "",
-        "Shared flags: [verbose](README.md#verbose-flags).",
-        "",
-        `Needs: \`transforms\` (${featureAvailability("transforms")}).`,
-        "",
-        "Output schema: `mb schema thing run --output`.",
+        `Needs \`transforms\` (${featureAvailability("transforms")}).`,
         "",
         "Examples:",
         "",
@@ -146,7 +139,7 @@ describe("renderCommandReference", () => {
     );
   });
 
-  it("lists the top-level commands and each shared flag set on the index page", async () => {
+  it("lists the top-level commands, the schema commands and each shared flag set on the index page", async () => {
     const index = await renderedPage(rootOf({ thing: groupOf({ list }) }), "README.md");
 
     expect(index).toBe(
@@ -162,23 +155,25 @@ describe("renderCommandReference", () => {
         "",
         "| Command | Description |",
         "| --- | --- |",
-        "| [mb thing](thing.md) | Manage things |",
+        "| [mb thing](thing.md) | Manage things. |",
+        "",
+        "`mb schema <command>` prints the JSON Schema of the body a command reads, and `mb schema <command> --output` the schema of what it prints.",
         "",
         "## Shared flags",
         "",
-        "Many commands take one or more of these flag sets. Each command names the sets it takes.",
+        "Many commands take one or more of these flag sets. Each page names the sets its commands take.",
         "",
         "### Verbose flags",
         "",
-        "| Flag | Default | Description |",
-        "| --- | --- | --- |",
-        "| `--verbose` |  | Say more. |",
+        "| Flag | Description |",
+        "| --- | --- |",
+        "| `--verbose` | Say more. |",
         "",
         "### Region flags",
         "",
-        "| Flag | Default | Description |",
-        "| --- | --- | --- |",
-        "| `--region <value>` | `eu` | Region to read. |",
+        "| Flag | Description |",
+        "| --- | --- |",
+        "| `--region <value>` | Region to read. Default: `eu`. |",
         "",
       ].join("\n"),
     );
@@ -199,8 +194,8 @@ describe("renderCommandReference", () => {
 
     const page = await renderedPage(rootOf({ thing: groupOf({ list: fullList }) }), "thing.md");
 
-    expect(page).toContain("| `--verbose` |  | Print each thing in full. |");
-    expect(page).not.toContain("Shared flags:");
+    expect(page).toContain("| `--verbose` | Print each thing in full. |");
+    expect(page).not.toContain("Takes the");
   });
 
   it("credits a flag to the first set that holds it", async () => {
@@ -227,7 +222,7 @@ describe("renderCommandReference", () => {
       notes: new Map(),
     });
 
-    expect(files.get("thing.md")).toContain("Shared flags: [outer](README.md#outer-flags).\n");
+    expect(files.get("thing.md")).toContain("Takes the [outer](README.md#outer-flags) flags.\n");
   });
 
   it("spells each flag the way citty binds it", async () => {
@@ -249,12 +244,12 @@ describe("renderCommandReference", () => {
 
     expect(page).toContain(
       [
-        "| Flag | Default | Description |",
-        "| --- | --- | --- |",
-        "| `--max-rows <value>` |  | Rows to show. |",
-        "| `-m, --message <value>` |  | Required. Commit message. |",
-        "| `--run-log, --no-run-log` | `true` | Keep a run log. |",
-        "| `--dry-run` |  | Check without writing. |",
+        "| Flag | Description |",
+        "| --- | --- |",
+        "| `--max-rows <value>` | Rows to show. |",
+        "| `-m, --message <value>` | Required. Commit message. |",
+        "| `--run-log, --no-run-log` | Keep a run log. Default: `true`. |",
+        "| `--dry-run` | Check without writing. |",
       ].join("\n"),
     );
   });
@@ -274,24 +269,78 @@ describe("renderCommandReference", () => {
     const page = await renderedPage(rootOf({ thing: groupOf({ get }) }), "thing.md");
 
     expect(page).toContain(
-      '| `--schema <value>` |  | Schema id "&lt;db>:&lt;schema>" or `<raw>`, a \\| b. |',
+      '| `--schema <value>` | Schema id "&lt;db>:&lt;schema>" or `<raw>`, a \\| b. |',
     );
   });
 
-  it("points a command that reads a body at its body schema", async () => {
-    const create = defineMetabaseCommand({
-      meta: { name: "create", description: "Create a thing" },
-      requires: null,
-      args: {},
-      inputSchema: z.object({ name: z.string() }),
+  it("says once on a page what every command on it takes and needs", async () => {
+    const status = defineMetabaseCommand({
+      meta: { name: "status" },
+      requires: ["gitSync.isDirty"],
+      args: { ...verboseFlags },
+      run() {
+        return;
+      },
+    });
+    const check = defineMetabaseCommand({
+      meta: { name: "check" },
+      requires: ["gitSync.hasRemoteChanges", "gitSync.isDirty"],
+      args: { ...verboseFlags, ...regionFlags },
       run() {
         return;
       },
     });
 
-    const page = await renderedPage(rootOf({ thing: groupOf({ create }) }), "thing.md");
+    const page = await renderedPage(rootOf({ thing: groupOf({ status, check }) }), "thing.md");
 
-    expect(page).toContain("\n\nBody schema: `mb schema thing create`.\n");
+    expect(page).toBe(
+      [
+        "---",
+        'title: "mb thing"',
+        'summary: "Manage things."',
+        "---",
+        "",
+        "# mb thing",
+        "",
+        "Manage things.",
+        "",
+        "Every command on this page takes the [verbose](README.md#verbose-flags) flags.",
+        "",
+        `Every command on this page needs \`remoteSync\` (${featureAvailability("remoteSync")}).`,
+        "",
+        "## mb thing status",
+        "",
+        "```sh",
+        "mb thing status [flags]",
+        "```",
+        "",
+        "## mb thing check",
+        "",
+        "```sh",
+        "mb thing check [flags]",
+        "```",
+        "",
+        "Also takes the [region](README.md#region-flags) flags.",
+        "",
+        `Also needs \`remoteSyncRemoteChanges\` (${featureAvailability("remoteSyncRemoteChanges")}).`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("names no default for a flag that is off unless given", async () => {
+    const reset = defineMetabaseCommand({
+      meta: { name: "reset" },
+      requires: null,
+      args: { force: { type: "boolean", description: "Overwrite", default: false } },
+      run() {
+        return;
+      },
+    });
+
+    const page = await renderedPage(rootOf({ thing: groupOf({ reset }) }), "thing.md");
+
+    expect(page).toContain("| `--force` | Overwrite. |\n");
   });
 
   it("names a group's alias and the command it runs without one", async () => {

@@ -9,7 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a transform test by id" },
   details:
-    "The compact form carries the id, transform, name and description. Pass --full for the `inputs` and `expectations` themselves, which is also the body to edit and send back to `update` once `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` are shed.",
+    "The compact form carries the id, transform, name and description. `--full` adds the `inputs` and `expectations`: the body to edit and send to `update` once you drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at`.",
   requires: ["transformTest.get"],
   args: {
     ...outputFlags,

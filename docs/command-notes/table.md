@@ -1,11 +1,11 @@
-## Publish status
+## Publish status shows on the table
 
-A table's publish status shows on the table itself: [`mb table get`](#mb-table-get) and [`mb table list`](#mb-table-list) carry `is_published`, and `collection_id` under `--full`. [`mb library publish`](library.md#mb-library-publish) publishes tables to the Library.
-
-## Some update values are refused before the request
-
-A server without `tableUserValueWithdrawal` writes `data_authority: null` into a column that takes no `null`: the update fails with a bare 500, or stores something other than a withdrawal. A server with `tableDataLayerTiers` names its layers `final`, `internal` and `hidden`, and maps a medallion `data_layer` onto one of them. So [`mb table update`](#mb-table-update) refuses both values before it sends the request (exit 2).
+[`mb table get`](#mb-table-get) and [`mb table list`](#mb-table-list) carry a table's `is_published`, and its `collection_id` under `--full`. [`mb library publish`](library.md#mb-library-publish) publishes tables to the Library.
 
 ## A move to a collection can fail in part
 
-Whether an update moves a table to `collection_id` depends on the server's patch release, so `mb table update` checks the table that the server returns. A server that drops the key applies the rest of the update and leaves the table where it was. The command then reports a `partial-write` error (exit 1) that names the collection the table stayed in.
+Some patch releases ignore `collection_id`, so [`mb table update`](#mb-table-update) checks the table the server returns. If the table didn't move, the rest of the update still applies, and the command reports a `partial-write` error (exit 1) that names the collection the table stayed in.
+
+## What `null` does in a bulk edit
+
+On a server with `tableUserValueWithdrawal`, `null` in [`mb table bulk-edit`](#mb-table-bulk-edit) withdraws an edit. `data_source` and `data_layer` then read back empty, and `entity_type`, `owner_email`, `owner_user_id` and `data_authority` go back to the values Metabase keeps for the table: the entity type it derives from the table name, and the owner and data authority from before the upgrade (no owner and `unconfigured` for a table published then or created since). On an older server, `null` clears the field, and the next scheduled analysis overwrites `entity_type` with the name-derived type. A table that leaves the `hidden` data layer is synced again after the call returns.

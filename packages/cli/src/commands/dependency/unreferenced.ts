@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
       "List the entities no readable, unarchived content depends on, across the instance",
   },
   details:
-    "Only a dependent the caller can read and that is not archived counts, so an entity used only by archived content, or by content in collections the caller cannot read, is listed. Every entity kind is listed unless `--types` narrows it; a `--query` leaves sandboxes out, since they have no name or location to match. The server pages the answer, so `total` is its count and `--limit` / `--offset` size the request.",
+    "Only dependents you can read that aren't archived count, so an entity used only by archived content, or by content in collections you can't read, is listed. Lists every entity kind unless `--types` narrows it; `--query` leaves out sandboxes, which have no name or location to match. The server pages the answer: `total` is its count, and `--limit` and `--offset` size the request.",
   requires: ["dependency.unreferencedPages"],
   args: {
     ...outputFlags,

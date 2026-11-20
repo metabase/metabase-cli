@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     description: "List the entities whose dependents carry query errors, across the whole instance",
   },
   details:
-    "Each row is a source of breakage with `dependents_errors`, the validation errors query analysis traced back to it, each naming the dependent it was found in (`analyzed_entity_type`, `analyzed_entity_id`) and its `error_type` (`missing-column`, `syntax-error`, …). Cards and tables are listed unless `--types` says otherwise; only a table, a card or (from Metabase v60) a transform can be a source, so any other kind lists nothing. The server pages the answer, so `total` is its count and `--limit` / `--offset` size the request.",
+    "Each row is a source of breakage with its `dependents_errors`: the validation errors query analysis traced back to it, each with the dependent it was found in (`analyzed_entity_type`, `analyzed_entity_id`) and its `error_type` (`missing-column`, `syntax-error`, …). Lists cards and tables unless `--types` says otherwise; only a table, a card or (from Metabase v60) a transform can be a source. The server pages the answer: `total` is its count, and `--limit` and `--offset` size the request.",
   requires: ["dependency.breakingPages"],
   args: {
     ...outputFlags,

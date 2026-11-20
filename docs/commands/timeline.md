@@ -7,6 +7,8 @@ summary: "Manage Metabase timelines (event annotations for time-series charts)."
 
 Manage Metabase timelines (event annotations for time-series charts).
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: collection scoping — events render only on questions in the timeline's collection
@@ -19,13 +21,11 @@ List timelines.
 mb timeline list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--archived` |  | Show archived timelines instead of active ones. |
+| Flag | Description |
+| --- | --- |
+| `--archived` | Show archived timelines instead of active ones. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -47,10 +47,6 @@ mb timeline get <id> [flags]
 | --- | --- |
 | `<id>` | Timeline id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline get --output`.
-
 Examples:
 
 ```sh
@@ -66,17 +62,12 @@ List events on a timeline.
 mb timeline events <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Timeline id. |
+| `--archived` | Include archived events alongside active ones. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--archived` |  | Include archived events alongside active ones. |
-
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline events --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -95,14 +86,7 @@ The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|ma
 mb timeline create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema timeline create`. Output schema: `mb schema timeline create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -126,14 +110,7 @@ mb timeline update <id> [flags]
 | --- | --- |
 | `<id>` | Timeline id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema timeline update`. Output schema: `mb schema timeline update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -157,10 +134,6 @@ mb timeline archive <id> [flags]
 | --- | --- |
 | `<id>` | Timeline id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline archive --output`.
-
 Examples:
 
 ```sh
@@ -178,17 +151,10 @@ You can't undo this. To keep the timeline restorable, use `mb timeline archive`.
 mb timeline delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Timeline id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema timeline delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 

@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a field (description, semantic_type, FK target, visibility, etc.)",
   },
-  details: `A \`data_sensitivity\` key (a label, or \`null\` to withdraw one; see \`mb field set-sensitivity\`) is refused before the request (exit 2) on a server without \`${SENSITIVITY_FEATURE}\` (${featureAvailability(SENSITIVITY_FEATURE)}), because such a server drops the key without a word.`,
+  details: `A \`data_sensitivity\` key (a label, or \`null\` to withdraw one; see \`mb field set-sensitivity\`) is refused before the request (exit 2) on a server without \`${SENSITIVITY_FEATURE}\` (${featureAvailability(SENSITIVITY_FEATURE)}).`,
   requires: ["field.update"],
   args: {
     ...outputFlags,

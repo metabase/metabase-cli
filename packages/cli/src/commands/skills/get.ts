@@ -44,9 +44,10 @@ const skillContentView: ResourceView<SkillContent> = {
 export default defineMetabaseCommand({
   meta: {
     name: "get",
-    description:
-      "Print one or more skills' `SKILL.md` content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it can't use is left out. Pass comma-separated names, or `--all` for every non-hidden skill. A named skill prints whole unless `--max-bytes` is given; `--all` keeps the default cap, which one long skill can fill, so pass `--max-bytes 0` to print every skill. `--unfiltered` prints the selection as written, regardless of the server. `--full` includes references and templates.",
+    description: "Print one or more skills' `SKILL.md` content",
   },
+  details:
+    "Pass comma-separated names, or `--all` for every non-hidden skill. A skill the profile's server can't use is reported under `unavailable`, and a section it can't use is left out; `--unfiltered` prints the selection as written. A named skill prints whole unless you pass `--max-bytes`, but `--all` keeps the default cap, which one long skill can fill, so pass `--max-bytes 0` to print every skill. `--full` adds references and templates.",
   requires: null,
   args: {
     ...outputFlags,

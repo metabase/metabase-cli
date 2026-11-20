@@ -7,13 +7,17 @@ summary: "Manage transform tests — fixtures and expectations run against temp 
 
 Manage transform tests — fixtures and expectations run against temp tables.
 
-## What can be tested
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+Every command on this page needs `transformTests` (v65+, token transforms-testing).
+
+## Only query transforms can be tested
 
 Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server. The server refuses any other transform with `transform-test.unsupported-transform`, and any other database with `transform-test.unsupported-driver`.
 
-## Expectation rules
+## Expectation SQL reads only the test's tables
 
-Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables. Any other table is refused with `transform-test.unremapped-reference`, and so is a column qualified by a table name rather than an alias (`FROM people p … p.id` passes, `people.id` does not), in expectation SQL and in the transform's own SQL alike.
+Expectation names must be unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which the run rewrites to its temp tables. Any other table is refused with `transform-test.unremapped-reference`, and so is a column qualified by a table name instead of an alias (`FROM people p … p.id` passes, `people.id` doesn't), in expectation SQL and the transform's own SQL alike.
 
 ## mb transform-test list
 
@@ -23,15 +27,11 @@ List transform tests.
 mb transform-test list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--transform-id <value>` |  | Only the tests of this transform id. |
+| Flag | Description |
+| --- | --- |
+| `--transform-id <value>` | Only the tests of this transform id. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Output schema: `mb schema transform-test list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -44,7 +44,7 @@ mb transform-test list --transform-id 1 --json
 
 Get a transform test by id.
 
-The compact form carries the id, transform, name and description. Pass --full for the `inputs` and `expectations` themselves, which is also the body to edit and send back to `update` once `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` are shed.
+The compact form carries the id, transform, name and description. `--full` adds the `inputs` and `expectations`: the body to edit and send to `update` once you drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at`.
 
 ```sh
 mb transform-test get <id> [flags]
@@ -53,12 +53,6 @@ mb transform-test get <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Transform test id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Output schema: `mb schema transform-test get --output`.
 
 Examples:
 
@@ -71,22 +65,15 @@ mb transform-test get 1 --full --json
 
 Create a transform test from JSON.
 
-The JSON body needs a `transform_id`, a `name`, the `inputs` standing in for every table the transform reads, and the `expectations` checked against its output. An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse accepts as a `CAST` target) and `rows`, each row carrying exactly the declared columns. An expectation is either `type: "empty"` with the `sql` that must return nothing, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. The body is closed at every level: a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent.
+The JSON body needs a `transform_id`, a `name`, `inputs` that stand in for every table the transform reads, and `expectations` to check against its output. An input names its `table` and has either `format: "sql"` with a `sql` query, or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse can `CAST` to) and `rows` that carry exactly those columns.
+
+An expectation is either `type: "empty"` with `sql` that must return nothing, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. The body is closed at every level, so a test read with `get --full` must drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it's sent.
 
 ```sh
 mb transform-test create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Body schema: `mb schema transform-test create`. Output schema: `mb schema transform-test create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -99,7 +86,7 @@ mb transform-test create --file transform-test.json
 
 Update a transform test from JSON.
 
-Only the fields the body carries are patched. `inputs` and `expectations` replace what is stored rather than merging into it. The body is closed at every level: a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent.
+Patches only the fields the body carries; `inputs` and `expectations` replace what's stored. The body is closed at every level, so a test read with `get --full` must drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it's sent.
 
 ```sh
 mb transform-test update <id> [flags]
@@ -109,16 +96,7 @@ mb transform-test update <id> [flags]
 | --- | --- |
 | `<id>` | Transform test id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Body schema: `mb schema transform-test update`. Output schema: `mb schema transform-test update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -137,19 +115,10 @@ Delete a transform test by id.
 mb transform-test delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform test id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Output schema: `mb schema transform-test delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 
@@ -162,25 +131,16 @@ mb transform-test delete 1
 
 Run a transform test by id.
 
-Runs the transform against temp tables built from the test's inputs, checks every expectation against its output, and drops the temp tables. The transform and the expectations read only those temp tables; a `format: "sql"` input runs verbatim against the transform's source database. The run is one synchronous request, so --timeout bounds the whole of it. --json reports what each expectation found, including the rows a comparison disagreed on. A test that does not pass exits 1, also when its report is over --max-bytes and is not printed; the error then names the expectations that did not pass.
+Builds temp tables from the test's inputs, runs the transform against them, checks every expectation against its output, and drops the temp tables. A `format: "sql"` input runs verbatim against the transform's source database. The run is one synchronous request, so `--timeout` bounds all of it; `--json` reports what each expectation found, including the rows a comparison disagreed on. A test that doesn't pass exits 1, even when its report is over `--max-bytes` and isn't printed, and the error names the expectations that failed.
 
 ```sh
 mb transform-test run <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform test id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--timeout <value>` | `30000` | Request timeout in ms. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformTests` (v65+, token transforms-testing).
-
-Output schema: `mb schema transform-test run --output`.
+| `--timeout <value>` | Request timeout in ms. Default: `30000`. |
 
 Examples:
 

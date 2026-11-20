@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Write a data app's src/metabase.schema.ts, from the repository root",
   },
   details:
-    "Run from the root of the synced git repository. Metabase generates the Library's published tables, with their fields, segments and measures, and the Library's metrics, by numeric ID; `defineQuery` and `defineAction` definitions in `src/metabase.queries.ts` and `src/metabase.actions.ts` are written against it. The IDs are this instance's, so the dev preview runs against it; a production build runs the questions and actions by entity ID. Fetch it again after publishing tables or changing their metadata.",
+    "Metabase writes the Library's published tables, with their fields, segments and measures, and its metrics, by numeric ID, for the `defineQuery` and `defineAction` definitions to be written against. The IDs are this instance's, so the dev preview runs against it; a production build runs the questions and actions by entity ID. Run it again after you publish tables or change their metadata.",
   skills: [{ skill: "data-app-data", purpose: "defining the app's questions and actions" }],
   requires: ["dataApp.generateSchema"],
   args: { ...profileFlag, ...connectionFlags, ...slugArg },

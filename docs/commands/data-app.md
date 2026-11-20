@@ -16,7 +16,7 @@ Agent skills:
 - `mb skills get data-app-actions`: writes: actions, forms and refresh
 - `mb skills get data-app-testing`: unit tests with mocked queries and actions, and e2e tests
 
-## Data apps
+## A data app lives in the synced repository
 
 A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, and its questions and actions live in its collection's files under `collections/data_apps/`. Its content changes in Metabase only through an import of the repository ([mb git-sync import](git-sync.md#mb-git-sync-import)).
 
@@ -24,7 +24,7 @@ A data app is a React app built into one JavaScript bundle, which Metabase serve
 
 Scaffold a data app in the synced repository, from its root.
 
-Run from the root of the synced git repository. Copies the Vite + React + TypeScript template into `data_apps/<slug>/`, which must be missing or empty, and writes the app's `data_app.yaml` and its collection's file under `collections/data_apps/`, with new entity IDs, and adds `.env.local`, which holds the dev preview's API key, to the repository's `.gitignore`. It doesn't reach Metabase: the app exists there once the repository is imported. Before `npm install`, install the SDK tag `mb data-app sdk-version` answers for the instance (`npm install @metabase/embedding-sdk-react@<tag>`): the template's `*` installs `latest`, which may not build the app.
+Copies the Vite + React + TypeScript template into `data_apps/<slug>/`, which must be missing or empty, writes the app's `data_app.yaml` and its collection's file with new entity IDs, and adds `.env.local` (the dev preview's API key) to `.gitignore`. It doesn't reach Metabase: the app exists there once you import the repository. Before `npm install`, install the SDK tag that `mb data-app sdk-version` names (`npm install @metabase/embedding-sdk-react@<tag>`), since the template's `*` installs `latest`, which may not build the app.
 
 ```sh
 mb data-app scaffold <slug> [flags]
@@ -34,9 +34,7 @@ mb data-app scaffold <slug> [flags]
 | --- | --- |
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 
-Shared flags: [output](README.md#output-flags).
-
-Output schema: `mb schema data-app scaffold --output`.
+Takes the [output](README.md#output-flags) flags.
 
 Agent skills:
 
@@ -52,19 +50,17 @@ mb data-app scaffold sales-overview
 
 Name the Embedding SDK tag that matches the instance's Metabase version.
 
-Reads the instance's version afresh and the npm dist-tags of @metabase/embedding-sdk-react, and returns the most mature tag published for that Metabase major: its stable tag (`65-stable` for v1.65.x), or while the major has none, its beta, then its alpha tag. Exits 2 on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches, and on a major npm has no tag for. `--registry "$(npm config get registry)"` reads the registry `npm install` uses. JSON output carries `metabaseVersion`, `tag`, and the SDK `version` the tag points at; text output is the bare tag, so the install composes in a shell.
+Returns the most mature tag of @metabase/embedding-sdk-react published for the instance's Metabase major: its stable tag (`65-stable` for v1.65.x), or, while it has none, its beta, then its alpha tag. Exits 2 on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag) and on a major with no tag on npm. JSON output carries `metabaseVersion`, `tag` and the SDK `version`; text output is the bare tag, for use in a shell. To read the registry `npm install` uses, pass `--registry "$(npm config get registry)"`.
 
 ```sh
 mb data-app sdk-version [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--registry <value>` |  | npm registry URL (default: https://registry.npmjs.org). |
+| Flag | Description |
+| --- | --- |
+| `--registry <value>` | npm registry URL (default: https://registry.npmjs.org). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema data-app sdk-version --output`.
+Takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
 Agent skills:
 
@@ -82,17 +78,15 @@ TAG=$(mb data-app sdk-version --format text) && npm install "@metabase/embedding
 
 List data apps.
 
-Admins see every app, disabled and outdated ones included, with the id of its collection; other users see only the id, slug, name and state of the apps they can open.
+Admins see every app, disabled and outdated ones included, with its collection's id; other people see only the id, slug, name and state of the apps they can open.
 
 ```sh
 mb data-app list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app list --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Examples:
 
@@ -105,7 +99,7 @@ mb data-app list --json
 
 Get a data app by slug.
 
-Admins get any app, disabled ones included; other users get an enabled app they can open.
+Admins get any app, disabled ones included; other people get an enabled app they can open.
 
 ```sh
 mb data-app get <slug> [flags]
@@ -115,11 +109,9 @@ mb data-app get <slug> [flags]
 | --- | --- |
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app get --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Examples:
 
@@ -132,7 +124,7 @@ mb data-app get sales-overview --json --full
 
 Write a data app's src/metabase.schema.ts, from the repository root.
 
-Run from the root of the synced git repository. Metabase generates the Library's published tables, with their fields, segments and measures, and the Library's metrics, by numeric ID; `defineQuery` and `defineAction` definitions in `src/metabase.queries.ts` and `src/metabase.actions.ts` are written against it. The IDs are this instance's, so the dev preview runs against it; a production build runs the questions and actions by entity ID. Fetch it again after publishing tables or changing their metadata.
+Metabase writes the Library's published tables, with their fields, segments and measures, and its metrics, by numeric ID, for the `defineQuery` and `defineAction` definitions to be written against. The IDs are this instance's, so the dev preview runs against it; a production build runs the questions and actions by entity ID. Run it again after you publish tables or change their metadata.
 
 ```sh
 mb data-app generate-schema <slug> [flags]
@@ -142,11 +134,9 @@ mb data-app generate-schema <slug> [flags]
 | --- | --- |
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 
-Shared flags: [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app generate-schema --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Agent skills:
 
@@ -162,7 +152,7 @@ mb data-app generate-schema sales-overview
 
 Write a data app's questions as its collection's files, from the repository root.
 
-Run from the root of the synced git repository, after `npm install` in the app. Loads the `defineQuery` exports of the app's `src/metabase.queries.ts`, has Metabase build the question of each, named after its export and with its `entityId`, and replaces the question files of the app's collection under `collections/data_apps/` with them, leaving its action files alone. Nothing changes in Metabase until the repository is imported.
+Run it after `npm install` in the app. Loads the `defineQuery` exports of `src/metabase.queries.ts`, has Metabase build each one's question (named after the export, with its `entityId`), and replaces the question files of the app's collection with them. Action files stay as they are, and Metabase changes only when you import the repository.
 
 ```sh
 mb data-app generate-queries <slug> [flags]
@@ -172,11 +162,9 @@ mb data-app generate-queries <slug> [flags]
 | --- | --- |
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 
-Shared flags: [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app generate-queries --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Agent skills:
 
@@ -192,7 +180,7 @@ mb data-app generate-queries sales-overview
 
 Write a data app's actions as its collection's files, from the repository root.
 
-Run from the root of the synced git repository, after `npm install` in the app. Loads the `defineAction` exports of the app's `src/metabase.actions.ts`, has Metabase build the implicit action of each, named after its export and with its `entityId`, and replaces the action files of the app's collection under `collections/data_apps/` with them, leaving its question files alone. Nothing changes in Metabase until the repository is imported.
+Run it after `npm install` in the app. Loads the `defineAction` exports of `src/metabase.actions.ts`, has Metabase build each one's implicit action (named after the export, with its `entityId`), and replaces the action files of the app's collection with them. Question files stay as they are, and Metabase changes only when you import the repository.
 
 ```sh
 mb data-app generate-actions <slug> [flags]
@@ -202,11 +190,9 @@ mb data-app generate-actions <slug> [flags]
 | --- | --- |
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 
-Shared flags: [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app generate-actions --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Agent skills:
 
@@ -222,7 +208,7 @@ mb data-app generate-actions sales-overview
 
 Enable or disable a data app.
 
-A new app is enabled, served to admins and the groups assigned to it; disable it to take it down. A disabled app opens only in Data Studio (Data apps → the app → Overview), and /apps/&lt;slug> says not found, admins included.
+A new app is enabled, served to admins and the groups assigned to it; disable it to take it down. A disabled app opens only in Data Studio (**Data apps** > the app > **Overview**), and `/apps/<slug>` says not found, admins included.
 
 ```sh
 mb data-app set-enabled <slug> <enabled> [flags]
@@ -233,11 +219,9 @@ mb data-app set-enabled <slug> <enabled> [flags]
 | `<slug>` | Data app slug (its /apps/&lt;slug> URL). |
 | `<enabled>` | true to enable the app, false to disable it. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
+Takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
-Needs: `dataApps` (v65+, token data-apps).
-
-Output schema: `mb schema data-app set-enabled --output`.
+Needs `dataApps` (v65+, token data-apps).
 
 Agent skills:
 

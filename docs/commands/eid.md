@@ -13,19 +13,12 @@ Entity IDs are NanoIDs that can start with `-`, which the positional form reads 
 mb eid [eids] [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `[eids]` | Comma-separated EIDs to translate (used with --model). |
+| `--model <value>` | Entity model for the positional EIDs: action \| card \| collection \| dashboard \| dashboard-card \| dashboard-tab \| dataset \| dimension \| document \| exploration \| measure \| metric \| permissions-group \| pulse \| pulse-card \| pulse-channel \| segment \| snippet \| timeline \| transform \| user. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--model <value>` |  | Entity model for the positional EIDs: action \| card \| collection \| dashboard \| dashboard-card \| dashboard-tab \| dataset \| dimension \| document \| exploration \| measure \| metric \| permissions-group \| pulse \| pulse-card \| pulse-channel \| segment \| snippet \| timeline \| transform \| user. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema eid`. Output schema: `mb schema eid --output`.
+Takes the [output](README.md#output-flags), [body](README.md#body-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
 Agent skills:
 

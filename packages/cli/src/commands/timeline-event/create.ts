@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a timeline event from JSON" },
   details:
-    "The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (IANA name like UTC or America/New_York), `time_matters` (true when the time of day is significant, false when only the date is), and `timeline_id`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default: the timeline's icon).",
+    "The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (an IANA name such as `UTC` or `America/New_York`), `time_matters` (`true` when the time of day matters, `false` when only the date does) and `timeline_id`. Optional: `description` and `icon` (star|cake|mail|warning|bell|cloud, plus mail_at|info|note|event from Metabase v64; the timeline's icon by default).",
   requires: ["timelineEvent.create"],
   args: {
     ...outputFlags,

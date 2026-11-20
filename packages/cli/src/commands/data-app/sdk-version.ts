@@ -35,7 +35,7 @@ export default defineMetabaseCommand({
     name: "sdk-version",
     description: "Name the Embedding SDK tag that matches the instance's Metabase version",
   },
-  details: `Reads the instance's version afresh and the npm dist-tags of ${EMBEDDING_SDK_PACKAGE}, and returns the most mature tag published for that Metabase major: its stable tag (\`65-stable\` for v1.65.x), or while the major has none, its beta, then its alpha tag. Exits 2 on a development build (\`vUNKNOWN\`, \`vLOCAL_DEV\`, a \`-SNAPSHOT\` tag), which no published SDK matches, and on a major npm has no tag for. \`--registry "$(npm config get registry)"\` reads the registry \`npm install\` uses. JSON output carries \`metabaseVersion\`, \`tag\`, and the SDK \`version\` the tag points at; text output is the bare tag, so the install composes in a shell.`,
+  details: `Returns the most mature tag of ${EMBEDDING_SDK_PACKAGE} published for the instance's Metabase major: its stable tag (\`65-stable\` for v1.65.x), or, while it has none, its beta, then its alpha tag. Exits 2 on a development build (\`vUNKNOWN\`, \`vLOCAL_DEV\`, a \`-SNAPSHOT\` tag) and on a major with no tag on npm. JSON output carries \`metabaseVersion\`, \`tag\` and the SDK \`version\`; text output is the bare tag, for use in a shell. To read the registry \`npm install\` uses, pass \`--registry "$(npm config get registry)"\`.`,
   skills: [{ skill: "data-app", purpose: "installing the SDK in a scaffolded project" }],
   requires: ["session.properties"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...registryFlag },

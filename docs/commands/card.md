@@ -7,6 +7,8 @@ summary: "Manage Metabase cards (questions, models, metrics)."
 
 Manage Metabase cards (questions, models, metrics).
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get mbql`: author the dataset_query
@@ -20,14 +22,12 @@ List cards (questions, models, metrics).
 mb card list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--filter <value>` | `all` | Filter preset: all\|mine\|bookmarked\|database\|table\|archived\|using_model\|using_segment. |
-| `--model-id <value>` |  | Required with `--filter database\|table\|using_model\|using_segment`: the ID of that database, table, model or segment. |
+| Flag | Description |
+| --- | --- |
+| `--filter <value>` | Filter preset: all\|mine\|bookmarked\|database\|table\|archived\|using_model\|using_segment. Default: `all`. |
+| `--model-id <value>` | Required with `--filter database\|table\|using_model\|using_segment`: the ID of that database, table, model or segment. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema card list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -49,10 +49,6 @@ mb card get <id> [flags]
 | --- | --- |
 | `<id>` | Card id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema card get --output`.
-
 Examples:
 
 ```sh
@@ -64,29 +60,22 @@ mb card get 1 --json
 
 Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format).
 
-Without `--export-format`, prints Metabase's result envelope (`status`, `row_count`, `data: { rows, cols }`, …), whose rows stop at the server's row limit for an API run: when the server cut them, `data.rows_truncated` (`pivot_rows_truncated` for a pivot) carries the limit and the text summary says so. A result served from the cache carries the time it was computed in `cached`. With `--export-format`, the export bytes stream straight to stdout, capped at the server's download row limit; `--full`, `--fields`, `--max-bytes` and `--limit` are refused, since they shape only the JSON output, and `--json` and `--format` still pick the shape of an error. `--format-rows`, `--pivot-results` and `--csv-include-bom` are refused without `--export-format`.
+Without `--export-format`, prints Metabase's result envelope (`status`, `row_count`, `data: { rows, cols }`, …). Rows stop at the server's row limit; when they're cut, `data.rows_truncated` (`pivot_rows_truncated` for a pivot) gives the limit. A cached result carries the time it was computed in `cached`. With `--export-format`, the export streams to stdout, capped at the server's download row limit, and `--full`, `--fields`, `--max-bytes` and `--limit` are refused. `--format-rows`, `--pivot-results` and `--csv-include-bom` are refused without `--export-format`.
 
 ```sh
 mb card query <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Card id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--export-format <value>` |  | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
-| `--format-rows` | `false` | Streamed exports only: format values as Metabase displays them, column settings included. |
-| `--pivot-results` | `false` | With `--export-format` `csv` or `xlsx`: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
-| `--csv-include-bom` | `false` | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs `exportCsvByteOrderMark` (v63+): an older server drops the key and exports without the mark, so the CLI refuses it there before the request. |
-| `--parameters <value>` |  | JSON array of Metabase parameter objects to pass with the query, in the shape Metabase sends from a dashboard. |
-| `--limit <value>` |  | Cap rows kept in the JSON envelope; refused with --export-format. |
-| `--ignore-cache` | `false` | Run the query against the database even when a cached result would be served; refused with --export-format. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema card query --output`.
+| `--export-format <value>` | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
+| `--format-rows` | Streamed exports only: format values as Metabase displays them, column settings included. |
+| `--pivot-results` | With `--export-format` `csv` or `xlsx`: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom` | With `--export-format csv`: start the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Refused (exit 2) on a server without `exportCsvByteOrderMark` (v63+). |
+| `--parameters <value>` | JSON array of Metabase parameter objects to pass with the query, in the shape Metabase sends from a dashboard. |
+| `--limit <value>` | Cap rows kept in the JSON envelope; refused with --export-format. |
+| `--ignore-cache` | Run the query against the database even when a cached result would be served; refused with --export-format. |
 
 Examples:
 
@@ -110,17 +99,12 @@ Manage them with `mb alert create|update|send|archive`, which take the alert id 
 mb card alerts <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Card id. |
+| `--include-inactive` | Include archived (inactive) alerts. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--include-inactive` |  | Include archived (inactive) alerts. |
-
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema card alerts --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -133,21 +117,17 @@ mb card alerts 94 --include-inactive --json
 
 Create a card (question, model, or metric) from JSON.
 
-The JSON body needs `name`, `display` (the visualization — e.g. table, bar, scalar), `dataset_query` (the query powering the card), and `visualization_settings` (`{}` is fine). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending — fix the reported errors, or pass --skip-validate to send anyway. Native-SQL and legacy queries are sent unchecked.
+The JSON body needs `name`, `display` (the visualization, such as `table`, `bar` or `scalar`), `dataset_query`, and `visualization_settings` (`{}` is fine). An MBQL 5 `dataset_query` is checked against the bundled schema (`mb schema query`) before it's sent: fix the errors it reports, or pass `--skip-validate`. Native SQL and legacy queries are sent unchecked.
 
 ```sh
 mb card create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+| Flag | Description |
+| --- | --- |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema card create`. Output schema: `mb schema card create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -168,25 +148,18 @@ mb card create --file card.json --skip-validate
 
 Update a card by id (partial).
 
-Patches only the fields you send (any of `name`, `display`, `dataset_query`, `visualization_settings`, `description`, `collection_id`, `dashboard_id`, `parameters`, `archived`, …). When `dataset_query` is an MBQL 5 query, it's checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+Changes only the fields you send, such as `name`, `display`, `dataset_query`, `visualization_settings`, `description`, `collection_id`, `dashboard_id`, `parameters` or `archived`. An MBQL 5 `dataset_query` is checked against the bundled schema (`mb schema query`) before it's sent; pass `--skip-validate` to skip the check.
 
 ```sh
 mb card update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Card id. |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema card update`. Output schema: `mb schema card update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -208,26 +181,19 @@ mb card update 1 --file patch.json --skip-validate
 
 Mark a card verified, or withdraw the mark with --remove.
 
-Records a moderation review on the card (admins only). Verified content carries a check mark in the product and ranks higher in search; `mb search --verified` finds only verified content. Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (an update with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note that the edit unverified it. `card get <id> --fields moderation_reviews` reads the reviews, newest first; the first one's `status` is the current state. Prints the review, whose `status` is `verified` or `null`; `--full` adds `moderator_id` and the timestamps.
+Adds a moderation review that marks the card verified (admins only). Verified content shows a check mark and ranks higher in search, and `mb search --verified` finds only verified content. `--remove` adds a review with no status, which withdraws the mark, and so does a change to the card's query. Prints the review, whose `status` is `verified` or `null`; `card get <id> --fields moderation_reviews` lists every review, newest first.
 
 ```sh
 mb card verify <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Card id. |
+| `--text <value>` | Note stored with the review. |
+| `--remove` | Withdraw the verification instead of granting it. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--text <value>` |  | Note stored with the review. |
-| `--remove` |  | Withdraw the verification instead of granting it. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `contentVerification` (token content_verification).
-
-Output schema: `mb schema card verify --output`.
+Needs `contentVerification` (token content_verification).
 
 Examples:
 
@@ -250,10 +216,6 @@ mb card archive <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Card id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema card archive --output`.
 
 Examples:
 

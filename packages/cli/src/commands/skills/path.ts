@@ -33,9 +33,9 @@ const skillPathView: ResourceView<SkillPathJson> = {
 export default defineMetabaseCommand({
   meta: {
     name: "path",
-    description:
-      "Print the absolute path to a skill (or all skills). Useful when an agent needs to read the SKILL.md or its references with the Read tool directly.",
+    description: "Print the absolute path to a skill, or to every skill",
   },
+  details: "Use the path to read a skill's `SKILL.md` or its references from disk.",
   requires: null,
   args: {
     ...outputFlags,

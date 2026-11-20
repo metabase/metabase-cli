@@ -1,4 +1,4 @@
-## Traversal ladder
+## Walk a database from tables to fields
 
 Start with [`mb db get <db-id> --include tables`](#mb-db-get), the compact table map. Pick the relevant tables, then fetch their fields one table at a time with [`mb table fields <table-id>`](table.md#mb-table-fields). When the answer outgrows the `--max-bytes` cap, the error names the next command down the ladder.
 

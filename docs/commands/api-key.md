@@ -7,6 +7,8 @@ summary: "Manage Metabase API keys."
 
 Manage Metabase API keys.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 ## mb api-key list
 
 List API keys.
@@ -17,9 +19,7 @@ Only admins list API keys. Each shows its masked key; the key itself is never re
 mb api-key list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema api-key list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -38,14 +38,7 @@ Only admins can create API keys. The JSON body needs `name` and `group_id` (`2` 
 mb api-key create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema api-key create`. Output schema: `mb schema api-key create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -63,17 +56,10 @@ Only admins can delete API keys. Any request that uses the key fails after that.
 mb api-key delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | API key id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema api-key delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 

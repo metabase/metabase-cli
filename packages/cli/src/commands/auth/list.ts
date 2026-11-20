@@ -90,7 +90,7 @@ function renderStatus(value: unknown): string {
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List configured authentication profiles" },
   details:
-    "Probes every listed profile again, one at a time: a probe can refresh and rewrite an expired OAuth token in the shared `profiles.json`. `--limit` and `--offset` choose the profiles before any probe. The table shows profile, URL, auth method, status, role, version, skew and last probe time; `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential). For each `auth-failed` row, a warning gives the `mb auth login --profile <name>` command that renews its token.",
+    "Probes every listed profile again, one at a time, which can refresh and save an expired OAuth token. `--limit` and `--offset` pick the profiles before any probe. `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential); for each `auth-failed` row, a warning gives the `mb auth login --profile <name>` command that renews it.",
   requires: ["user.current"],
   args: { ...outputFlags, ...listFlags },
   outputSchema: AuthProfileListEnvelope,

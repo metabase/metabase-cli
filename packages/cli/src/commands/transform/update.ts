@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
     description: "Update a transform by id (partial)",
   },
   details:
-    "Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). When a new `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.",
+    "Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). A new MBQL 5 `source.query` is checked against the bundled schema (`mb schema query`) before it's sent.",
   skills: [{ skill: "mbql", purpose: "MBQL source.query bodies" }],
   requires: ["transform.update"],
   args: {

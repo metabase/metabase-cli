@@ -7,11 +7,13 @@ summary: "Manage the Metabase glossary of business terms."
 
 Manage the Metabase glossary of business terms.
 
-## The glossary
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+## The glossary gives Metabot your business terms
 
 The glossary is the instance-wide list of business terms and their definitions. Its entries are listed on the Glossary pages of Data Studio and the Data Reference, and Metabot gets them as context, so a definition written once shapes every answer that uses the term.
 
-Every command runs on every supported server, and a server may restrict writes to admins and data analysts. There is no command that gets one entry by id: use [mb glossary list](#mb-glossary-list) with `--search`.
+Every command runs on every supported server, and a server may restrict writes to admins and data analysts. There's no command to get one entry by id: use [mb glossary list](#mb-glossary-list) with `--search`.
 
 ## mb glossary list
 
@@ -23,13 +25,11 @@ List glossary entries in term order.
 mb glossary list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--search <value>` |  | Keep entries whose term or definition contains this text (case-insensitive). |
+| Flag | Description |
+| --- | --- |
+| `--search <value>` | Keep entries whose term or definition contains this text (case-insensitive). |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema glossary list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -48,16 +48,12 @@ Pass `--term` and `--definition` together, or a JSON body with exactly those two
 mb glossary create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--term <value>` |  | The term (used with --definition). |
-| `--definition <value>` |  | The definition (used with --term). |
+| Flag | Description |
+| --- | --- |
+| `--term <value>` | The term (used with --definition). |
+| `--definition <value>` | The definition (used with --term). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema glossary create`. Output schema: `mb schema glossary create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -77,20 +73,13 @@ Both fields are replaced, so pass `--term` and `--definition` together, or a JSO
 mb glossary update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Glossary entry id. |
+| `--term <value>` | The term (used with --definition). |
+| `--definition <value>` | The definition (used with --term). |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--term <value>` |  | The term (used with --definition). |
-| `--definition <value>` |  | The definition (used with --term). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema glossary update`. Output schema: `mb schema glossary update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -108,17 +97,10 @@ Delete a glossary entry by id.
 mb glossary delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Glossary entry id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema glossary delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 

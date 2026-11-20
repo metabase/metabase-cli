@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     name: "bulk-rescan-values",
     description: "Trigger a rescan of cached field values for every table a selector picks out",
   },
-  details: `Queues an async rescan of the distinct values behind the filter dropdowns of every selected table and returns immediately. Only the sets already cached and read in the last 14 days are refreshed; a set never read, discarded, or unread for longer is skipped until a read rebuilds or revives it. ${SELECTION_DETAILS}`,
+  details: `Queues a rescan of the cached filter values of every selected table, and returns at once. Only the sets that are cached and were read in the last 14 days are refreshed. ${SELECTION_DETAILS}`,
   requires: ["table.bulkRescanValues"],
   args: {
     ...outputFlags,

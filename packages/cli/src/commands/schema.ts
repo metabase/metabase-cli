@@ -135,8 +135,7 @@ export default defineMetabaseCommand({
     name: "schema",
     description: "Print the schema of a command's JSON body or output",
   },
-  details:
-    "Names another command and prints the JSON Schema of the JSON body it accepts, or with --output of the JSON it prints. A body field only some servers take says in its description the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server lacks it` follows a field that server lacks the feature for, which the client refuses there, `this server reads it differently` a value it would take as another, and `this server ignores it` a field it drops unread. A field holding an MBQL 5 query names `mb schema query`, which prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
+  details: `Prints the JSON Schema of the body another command reads, or with \`--output\` of what it prints. A body field that only some servers take names its feature in its description (\`needs fieldDataSensitivity (${featureAvailability("fieldDataSensitivity")})\`), and the profile's cached probe, read with no request, adds a verdict: \`this server lacks it\`, \`this server reads it differently\`, or \`this server ignores it\`. A field holding an MBQL 5 query names \`mb schema query\`, the schema such queries are checked against.`,
   requires: null,
   args: {
     ...formatFlags,

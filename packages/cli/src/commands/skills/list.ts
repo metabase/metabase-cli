@@ -40,8 +40,9 @@ export default defineMetabaseCommand({
   meta: {
     name: "list",
     description:
-      "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow. Skills the profile's server cannot use are left out; --unfiltered lists them too.",
+      "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow.",
   },
+  details: "Skills the profile's server can't use are left out; `--unfiltered` lists them too.",
   requires: null,
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...unfilteredFlag },
   outputSchema: SkillListEnvelope,

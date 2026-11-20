@@ -7,11 +7,13 @@ summary: "Manage Metabase native query snippets."
 
 Manage Metabase native query snippets.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: native-SQL snippets and body input
 
-## Snippets
+## A snippet is reusable SQL text
 
 A snippet is a named, reusable piece of native (SQL) query text. A native query includes one by name, as `{{snippet: Name}}`.
 
@@ -23,13 +25,11 @@ List native query snippets.
 mb snippet list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--archived` |  | Show archived snippets instead of active ones. |
+| Flag | Description |
+| --- | --- |
+| `--archived` | Show archived snippets instead of active ones. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema snippet list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -51,10 +51,6 @@ mb snippet get <id> [flags]
 | --- | --- |
 | `<id>` | Snippet id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema snippet get --output`.
-
 Examples:
 
 ```sh
@@ -72,14 +68,7 @@ The JSON body needs `name` and `content`, the SQL text; `description` and `colle
 mb snippet create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema snippet create`. Output schema: `mb schema snippet create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -103,14 +92,7 @@ mb snippet update <id> [flags]
 | --- | --- |
 | `<id>` | Snippet id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema snippet update`. Output schema: `mb schema snippet update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -134,10 +116,6 @@ mb snippet archive <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Snippet id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema snippet archive --output`.
 
 Examples:
 

@@ -7,6 +7,10 @@ summary: "Manage Metabase transform jobs."
 
 Manage Metabase transform jobs.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+Every command on this page needs `transforms` (v59+).
+
 Agent skills:
 
 - `mb skills get transform`: tag-driven job schedules
@@ -19,11 +23,7 @@ List transform jobs.
 mb transform-job list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform-job list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -44,12 +44,6 @@ mb transform-job get <id> [flags]
 | --- | --- |
 | `<id>` | Transform job id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform-job get --output`.
-
 Examples:
 
 ```sh
@@ -65,16 +59,7 @@ Create a transform job.
 mb transform-job create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Body schema: `mb schema transform-job create`. Output schema: `mb schema transform-job create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -96,16 +81,7 @@ mb transform-job update <id> [flags]
 | --- | --- |
 | `<id>` | Transform job id. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Body schema: `mb schema transform-job update`. Output schema: `mb schema transform-job update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -123,19 +99,10 @@ Delete a transform job by id.
 mb transform-job delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform job id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform-job delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 
@@ -154,19 +121,10 @@ Starts the job and returns immediately. The job runs every transform carrying on
 mb transform-job run <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform job id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--force-refresh` | `false` | Re-run the whole plan, including dependencies that are already fresh. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform-job run --output`.
+| `--force-refresh` | Re-run the whole plan, including dependencies that are already fresh. |
 
 Examples:
 
@@ -189,11 +147,7 @@ mb transform-job transforms <id> [flags]
 | --- | --- |
 | `<id>` | Transform job id. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform-job transforms --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -206,7 +160,7 @@ mb transform-job transforms 1 --json
 
 Activate or deactivate every transform job.
 
-Flips the active flag on every transform job at once. Inactive jobs do not run on schedule; manual runs ignore the flag. Requires admin.
+Flips the active flag on every transform job at once. Inactive jobs don't run on schedule; manual runs ignore the flag. Needs an admin.
 
 ```sh
 mb transform-job set-active <active> [flags]
@@ -216,11 +170,7 @@ mb transform-job set-active <active> [flags]
 | --- | --- |
 | `<active>` | true to activate all jobs, false to deactivate. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transformJobActivation` (v61+), `transforms` (v59+).
-
-Output schema: `mb schema transform-job set-active --output`.
+Also needs `transformJobActivation` (v61+).
 
 Examples:
 

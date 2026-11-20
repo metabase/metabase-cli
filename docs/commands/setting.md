@@ -7,11 +7,13 @@ summary: "Inspect and update Metabase settings."
 
 Inspect and update Metabase settings.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: setting get/set JSON value quoting
 
-## Access
+## Each setting has its own access rules
 
 [mb setting get](#mb-setting-get) and [mb setting set](#mb-setting-set) work on one key, and the server judges each call by that setting's own access rules.
 
@@ -25,9 +27,7 @@ The full rows, with each setting's `description` and `default`, can go over the 
 mb setting list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema setting list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -51,10 +51,6 @@ mb setting get <key> [flags]
 | --- | --- |
 | `<key>` | Setting key. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema setting get --output`.
-
 Examples:
 
 ```sh
@@ -66,24 +62,17 @@ mb setting get site-name --json
 
 Set a setting value (parsed strictly as JSON).
 
-Pass `'"main"'` for the string `main`, `true` or `42` for a boolean or a number, and `null` to delete the stored value, which resets the setting to its default. Give the value once: as the positional, with `--file`, or on stdin; a positional together with `--file` is refused. A value that isn't JSON, or no value at all, is refused before any request (exit 2).
+Pass `'"main"'` for the string `main`, `true` or `42` for a boolean or a number, and `null` to delete the stored value, which resets the setting to its default. Give the value once: as the positional, with `--file`, or on stdin. A value that isn't JSON, no value, or a positional together with `--file` is refused before any request (exit 2).
 
 ```sh
 mb setting set <key> [value] [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<key>` | Setting key. |
 | `[value]` | JSON-encoded value. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--file <value>` |  | Path to a file containing the JSON value. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema setting set`. Output schema: `mb schema setting set --output`.
+| `--file <value>` | Path to a file containing the JSON value. |
 
 Examples:
 

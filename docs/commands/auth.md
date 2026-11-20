@@ -9,23 +9,25 @@ Authenticate against a Metabase instance.
 
 Without a command, `mb auth` runs `mb auth login`.
 
+Every command on this page takes the [output](README.md#output-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: authentication and named profiles
 
-## Profiles
+## Each profile has its own credential
 
-Credentials are stored per profile. The default profile is named `default`; pass `--profile <name>` (`-p`) to log in to, inspect or clear another one, and to point any other command at it.
+The CLI stores credentials per profile. The default profile is `default`; pass `--profile <name>` (`-p`) to log in to, inspect or clear another one, or to point any other command at it.
 
-Profile metadata (URL, auth method, last successful probe, last failure) lives in `profiles.json` in the CLI's config directory, at mode `0600`. The directory is `$XDG_CONFIG_HOME/metabase-cli` (by default `~/.config/metabase-cli`), or `%APPDATA%\metabase-cli` on Windows. The secrets (an API key, or OAuth access and refresh tokens) sit in the OS keychain when one is available, or inline in the same file when it is not.
+Each profile's URL, auth method and last probe go in `profiles.json` (mode `0600`) in `$XDG_CONFIG_HOME/metabase-cli` (`~/.config/metabase-cli` by default), or `%APPDATA%\metabase-cli` on Windows. Secrets (an API key, or OAuth tokens) go in the OS keychain when there is one, and in the same file when there isn't.
 
-## The server probe
+## A probe checks the credential and caches the server
 
-A probe reads the current user and the server's properties with the profile's credential. [`mb auth login`](#mb-auth-login) probes before it saves a credential, and [`mb auth list`](#mb-auth-list) probes every profile again. [`mb auth status`](#mb-auth-status) only reads what the last probe cached. Other commands read the server's version and features from the cached probe instead of probing again.
+A probe reads the current user and the server's properties with the profile's credential. [`mb auth login`](#mb-auth-login) probes before it saves a credential, and [`mb auth list`](#mb-auth-list) probes every profile again. [`mb auth status`](#mb-auth-status) reads only what the last probe cached, as every other command does for the server's version and features.
 
 A successful probe replaces the cached one and clears `lastFailure`. A failed probe records `lastFailure` and leaves the cached probe, the URL and the credential as they were.
 
-In the table output, `login` and `status` show the probed user, and all three commands show the role (`Admin` or `User`), the Metabase version and the skew. `--json` adds `edition`, `tokenFeatures`, `knownRange` (the Metabase majors this CLI knows) and the `features` map that an explained refusal names. The skew is one of:
+The text output of `login` and `status` shows the probed user, and all three commands show the role (`Admin` or `User`), the Metabase version and the skew. `--json` adds `edition`, `tokenFeatures`, `knownRange` (the Metabase majors this CLI knows) and the `features` map that an explained refusal names. The skew is one of:
 
 | `skew`             | Shown as                                     |
 | ------------------ | -------------------------------------------- |
@@ -38,20 +40,18 @@ In the table output, `login` and `status` show the probed user, and all three co
 
 Log in to a Metabase instance for a profile.
 
-Interactive login offers browser OAuth (recommended; Metabase v62.3.3+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a short-lived access token and a rotating refresh token, which it refreshes on its own; the API key choice prompts for a key from **Admin** > **Settings** > **Authentication** > **API keys**. For CI and other non-interactive use, supply an API key via `--api-key` (`--api-key -` reads it from stdin), piped stdin, or `$MB_API_KEY` (first non-empty wins); any of these skips the browser flow, even on a TTY, and without one a non-TTY login fails rather than prompting. A key given as the `--api-key` value shows in shell history, so login warns about it. The URL comes from `--url` or `$MB_URL`, prompted when stdin is a TTY. Unless `--skip-verify` is given, login then probes the server and caches the result in the profile. If the probe fails, nothing is saved: an existing profile keeps its last good credential and records a `lastFailure`, and new browser tokens are revoked.
+Interactive login offers browser login (recommended; Metabase v62.3.3+) or an API key from **Admin** > **Settings** > **Authentication** > **API keys**; older servers go straight to the API key prompt. Browser login opens Metabase for you to sign in and approve, then stores tokens that the CLI refreshes on its own. For CI and other non-interactive runs, pass an API key with `--api-key`, piped stdin, or `$MB_API_KEY` (the first one given wins; `--api-key -` reads stdin and keeps the key out of shell history); any of these skips the browser, and a non-TTY login without one fails. The URL comes from `--url`, `$MB_URL`, or a prompt on a TTY. Unless `--skip-verify` is given, login probes the server, and saves nothing if the probe fails.
 
 ```sh
 mb auth login [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--client-id <value>` |  | Pre-registered OAuth client id (when dynamic registration is disabled). |
-| `--skip-verify` | `false` | Save without contacting the server. |
+| Flag | Description |
+| --- | --- |
+| `--client-id <value>` | Pre-registered OAuth client id (when dynamic registration is disabled). |
+| `--skip-verify` | Save without contacting the server. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema auth login --output`.
+Also takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
 
 Examples:
 
@@ -73,9 +73,7 @@ Reads what the last probe cached in the profile and never contacts the server. S
 mb auth status [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags).
-
-Output schema: `mb schema auth status --output`.
+Also takes the [profile](README.md#profile-flags) flags.
 
 Examples:
 
@@ -88,15 +86,13 @@ mb auth status --profile staging
 
 List configured authentication profiles.
 
-Probes every listed profile again, one at a time: a probe can refresh and rewrite an expired OAuth token in the shared `profiles.json`. `--limit` and `--offset` choose the profiles before any probe. The table shows profile, URL, auth method, status, role, version, skew and last probe time; `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential). For each `auth-failed` row, a warning gives the `mb auth login --profile <name>` command that renews its token.
+Probes every listed profile again, one at a time, which can refresh and save an expired OAuth token. `--limit` and `--offset` pick the profiles before any probe. `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential); for each `auth-failed` row, a warning gives the `mb auth login --profile <name>` command that renews it.
 
 ```sh
 mb auth list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags).
-
-Output schema: `mb schema auth list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -115,13 +111,11 @@ Clears the local credentials first. For an OAuth profile it then revokes the tok
 mb auth logout [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation; without a TTY there's no prompt. |
+| Flag | Description |
+| --- | --- |
+| `--yes` | Skip confirmation; without a TTY there's no prompt. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags).
-
-Output schema: `mb schema auth logout --output`.
+Also takes the [profile](README.md#profile-flags) flags.
 
 Examples:
 

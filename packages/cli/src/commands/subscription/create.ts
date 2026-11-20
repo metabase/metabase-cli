@@ -11,14 +11,10 @@ const FILTERS_FEATURE = SUBSCRIPTION_FILTERS_GATE.feature;
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a dashboard subscription from JSON" },
   details: [
-    "The JSON body needs `name`, `dashboard_id`, `cards`, and `channels`.",
-    "Each card is `{ id, dashboard_card_id, include_csv, include_xls }`, where `id` names the card and `dashboard_card_id` its place on the dashboard — get both ids from `mb dashboard cards <dashboard-id>`.",
-    "Each channel is `{ channel_type: email|slack|http, schedule_type: hourly|daily|weekly|monthly }` plus the fields its schedule needs:",
-    "`daily` needs `schedule_hour` (0-23); `weekly` also needs `schedule_day` (mon..sun); `monthly` also needs `schedule_frame` (first|mid|last).",
-    'Email recipients are `[{ email: "a@b.com" } | { id: <user-id> }]`; Slack targets a channel via `details: { channel: "#general" }`.',
-    "A channel is `enabled` unless you say otherwise.",
-    `Non-empty \`parameters\` (filter values for this subscription only) need \`${FILTERS_FEATURE}\` (${featureAvailability(FILTERS_FEATURE)}): a server without it stores them but sends the dashboard's own filter values, so the CLI refuses them there before the request (exit 2).`,
-  ].join(" "),
+    "The JSON body needs `name`, `dashboard_id`, `cards` and `channels`. Each card is `{ id, dashboard_card_id, include_csv, include_xls }`: the card's id and its place on the dashboard, both from `mb dashboard cards <dashboard-id>`.",
+    'Each channel is `{ channel_type: email|slack|http, schedule_type: hourly|daily|weekly|monthly }` plus what its schedule needs: `daily` needs `schedule_hour` (0-23), `weekly` also `schedule_day` (mon..sun), and `monthly` also `schedule_frame` (first|mid|last). Email recipients are `[{ email: "a@b.com" } | { id: <user-id> }]`; Slack posts to `details: { channel: "#general" }`. A channel is `enabled` unless you say otherwise.',
+    `Non-empty \`parameters\` (filter values for this subscription only) need \`${FILTERS_FEATURE}\` (${featureAvailability(FILTERS_FEATURE)}). They're refused (exit 2) on a server without it, which would send the dashboard's own filter values instead.`,
+  ].join("\n\n"),
   requires: ["pulse.create"],
   args: {
     ...outputFlags,

@@ -14,7 +14,7 @@ const SENSITIVITY_FEATURE = DATA_SENSITIVITY_GATE.feature;
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a field by id" },
-  details: `\`data_sensitivity\` is the field's sensitivity label (see \`mb field set-sensitivity\`), or \`null\` when it has none. A server without \`${SENSITIVITY_FEATURE}\` (${featureAvailability(SENSITIVITY_FEATURE)}) has no such label, so the key and the Sensitivity column are left out.`,
+  details: `\`data_sensitivity\` is the field's sensitivity label (see \`mb field set-sensitivity\`), or \`null\` when it has none. On a server without \`${SENSITIVITY_FEATURE}\` (${featureAvailability(SENSITIVITY_FEATURE)}), the key and the Sensitivity column are left out.`,
   requires: ["field.get"],
   args: {
     ...outputFlags,

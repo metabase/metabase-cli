@@ -7,25 +7,27 @@ summary: "Manage Metabase collections."
 
 Manage Metabase collections.
 
+Every command on this page takes the [profile](README.md#profile-flags) and [connection](README.md#connection-flags) flags.
+
 Agent skills:
 
 - `mb skills get core`: collection ref forms and the transforms namespace
 
-## Collections
+## Collections are folders
 
 Collections are the folders that hold cards, dashboards, and other collections. [mb collection list](#mb-collection-list) includes the virtual root collection, **Our analytics**, whose id is the string `"root"`, beside the numeric ids of the others.
 
-## Moving, trashing, and restoring
+## Restore a collection with `--archived false`
 
 [mb collection update](#mb-collection-update) with `--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the trash.
 
-The server ignores `parent_id` in a request that trashes a collection. So `--archived true` with `--parent-id` on a collection that is not in the trash is sent as two requests: the move, with every other change, and then the trash. If the second one fails, the error says that the collection was moved but not trashed.
+`--archived true` with `--parent-id` moves the collection and then trashes it, in two requests, since the server ignores `parent_id` when it trashes. If the second request fails, the error says that the collection moved but isn't in the trash.
 
-A collection enters the trash only by being trashed. Whenever `--parent-id` is a collection id, the CLI looks up the trash with one more request. A `--parent-id` that names the trash is read as the trash alone with `--archived true`, and is refused otherwise.
+A `--parent-id` that names the trash is refused, except with `--archived true`, where it only trashes the collection.
 
-## Official collections
+## Official collections need an admin and a Pro or Enterprise plan
 
-Setting or clearing `authority_level` (`"official"`) needs an admin and the Official Collections feature (Pro and Enterprise). Without the feature, the server answers 402. Sending the value that the collection already has is no change, and passes on any instance.
+Setting or clearing `authority_level` (`"official"`) needs an admin and the Official Collections feature; without the feature, the server answers 402. Sending the value the collection already has changes nothing, and works on any instance.
 
 ## mb collection list
 
@@ -37,14 +39,12 @@ List collections.
 mb collection list [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--filter <value>` | `all` | Filter preset: all\|archived\|personal. |
-| `--namespace <value>` |  | List one namespace's collections: transforms\|snippets\|analytics\|shared-tenant-collection\|tenant-specific\|data-apps\|data-actions (omit for normal collections). |
+| Flag | Description |
+| --- | --- |
+| `--filter <value>` | Filter preset: all\|archived\|personal. Default: `all`. |
+| `--namespace <value>` | List one namespace's collections: transforms\|snippets\|analytics\|shared-tenant-collection\|tenant-specific\|data-apps\|data-actions (omit for normal collections). |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema collection list --output`.
+Also takes the [output](README.md#output-flags) and [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -69,9 +69,7 @@ mb collection get <id> [flags]
 | --- | --- |
 | `<id>` | Collection id, 21-char entity id, or one of: "root", "trash". |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema collection get --output`.
+Also takes the [output](README.md#output-flags) flags.
 
 Examples:
 
@@ -92,19 +90,14 @@ Takes the same references as `collection get`; the items under `root` carry `col
 mb collection items <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Collection id, 21-char entity id, or one of: "root", "trash". |
+| `-m, --models <value>` | Comma-separated model filter: card,dataset,metric,dashboard,snippet,collection,document,exploration,table,transform,measure,pulse,timeline,no_models. |
+| `--archived` | Return archived items instead of unarchived. |
+| `--pinned-state <value>` | Pinned filter: all\|is_pinned\|is_not_pinned. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `-m, --models <value>` |  | Comma-separated model filter: card,dataset,metric,dashboard,snippet,collection,document,exploration,table,transform,measure,pulse,timeline,no_models. |
-| `--archived` | `false` | Return archived items instead of unarchived. |
-| `--pinned-state <value>` |  | Pinned filter: all\|is_pinned\|is_not_pinned. |
-
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema collection items --output`.
+Also takes the [output](README.md#output-flags) and [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -126,13 +119,11 @@ The tree is the server's JSON as is, so it takes no `--full`, `--fields` or `--m
 mb collection tree [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--include-library` |  | Include the Library collections, which the tree leaves out by default. |
+| Flag | Description |
+| --- | --- |
+| `--include-library` | Include the Library collections, which the tree leaves out by default. |
 
-Shared flags: [format](README.md#format-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema collection tree --output`.
+Also takes the [format](README.md#format-flags) flags.
 
 Examples:
 
@@ -146,21 +137,17 @@ mb collection tree --include-library
 
 Create a collection from a JSON spec.
 
-Body keys: `name` (required), `description`, `parent_id` (omit it, or pass `null`, for the top level), `authority_level`, `namespace`. Most collections use the default namespace (omit it). Pass `namespace: "transforms"` (or `--namespace transforms`) to create the kind of collection a transform's `collection_id` can point at — a regular collection is rejected there.
+Body keys: `name` (required), `description`, `parent_id` (omit it, or pass `null`, for the top level), `authority_level` and `namespace`. Leave out `namespace` for a regular collection. A transform's `collection_id` must point at a collection made with `namespace: "transforms"` (or `--namespace transforms`).
 
 ```sh
 mb collection create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--namespace <value>` |  | Collection namespace: transforms\|snippets\|analytics\|shared-tenant-collection\|tenant-specific\|data-apps\|data-actions (omit for a normal collection). |
+| Flag | Description |
+| --- | --- |
+| `--namespace <value>` | Collection namespace: transforms\|snippets\|analytics\|shared-tenant-collection\|tenant-specific\|data-apps\|data-actions (omit for a normal collection). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema collection create`. Output schema: `mb schema collection create --output`.
+Also takes the [output](README.md#output-flags) and [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -175,29 +162,22 @@ mb collection create --body '{"name":"ETL"}' --namespace transforms
 
 Rename, describe, move, trash, or restore a collection by id (partial).
 
-Patches only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use one form or the other: a body together with a patch flag is refused (exit 2), and a body with no key, an unknown key, or a value of the wrong type fails validation (exit 1) before any request. The server reads an absent `archived` as `false`, so when the patch leaves it out the CLI reads the collection first and sends its current state: an archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash`, and entity IDs are refused.
+Changes only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use flags or a body, not both (exit 2). An archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash` and entity IDs are refused.
 
 ```sh
 mb collection update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Collection id. |
+| `--name <value>` | New name; a blank one is refused. |
+| `--description <value>` | New description; a blank one is refused. |
+| `--clear-description` | Remove the description. Can't be used with `--description`. |
+| `--parent-id <value>` | Collection to move it under, or 'root' for the top level. |
+| `--archived <value>` | true moves it to the trash, false restores it (default: leave as is). |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--name <value>` |  | New name; a blank one is refused. |
-| `--description <value>` |  | New description; a blank one is refused. |
-| `--clear-description` |  | Remove the description. Can't be used with `--description`. |
-| `--parent-id <value>` |  | Collection to move it under, or 'root' for the top level. |
-| `--archived <value>` |  | true moves it to the trash, false restores it (default: leave as is). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema collection update`. Output schema: `mb schema collection update --output`.
+Also takes the [output](README.md#output-flags) and [body](README.md#body-flags) flags.
 
 Examples:
 
@@ -225,9 +205,7 @@ mb collection archive <id> [flags]
 | --- | --- |
 | `<id>` | Collection id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Output schema: `mb schema collection archive --output`.
+Also takes the [output](README.md#output-flags) flags.
 
 Examples:
 

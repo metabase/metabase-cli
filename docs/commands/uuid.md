@@ -7,19 +7,17 @@ summary: "Mint random UUID v4 strings."
 
 Mint random UUID v4 strings.
 
-For the values that must be a UUID: the `lib/uuid` of an aggregation an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`. Text output prints one UUID per line, JSON a string array. A `--count` outside 1 through 10000 exits 2.
+Use them where a value must be a UUID: the `lib/uuid` of an aggregation that an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`. Text output prints one UUID per line, JSON a string array. A `--count` outside 1 through 10000 exits 2.
 
 ```sh
 mb uuid [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--count <value>` | `1` | How many UUIDs to mint (default 1, max 10000). |
+| Flag | Description |
+| --- | --- |
+| `--count <value>` | How many UUIDs to mint (default 1, max 10000). Default: `1`. |
 
-Shared flags: [output](README.md#output-flags).
-
-Output schema: `mb schema uuid --output`.
+Takes the [output](README.md#output-flags) flags.
 
 Agent skills:
 

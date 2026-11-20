@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Preview what an export would do against the live remote branch, without writing",
   },
   details:
-    "Compares the current Metabase content with the remote branch. `has_changes` says whether the remote has advanced past the last synced version (`false` when nothing has been synced yet, and, on servers that count a task that ended in `conflict` as synced, after one), `clean` whether a three-way merge would apply without conflicts, `conflicts` names the entities that would conflict, `summary` counts the remote changes a merge would fold in, `force_push_casualties` names the remote content a force push would discard (empty when nothing has been synced yet, although a forced export then replaces the remote's managed directories wholesale), and `reason` is `history-rewritten` when the remote was force-pushed or rebased so no merge base exists (no merge is possible then, and only `export --force` can push), otherwise `null`. When `clean` is `true`, `export --merge` applies the merge; when it's `false`, `create-branch <name>` and then `export` push Metabase's state to a new branch, for a PR into the old one. The text output is one headline for the branch, then the conflicts, the merge summary and the force-push casualties, each only when there is something to list. The branch must be the one git-sync tracks; the server responds with a 409 otherwise.",
+    "Compares Metabase's content with the remote branch. `has_changes` says whether the remote moved past the last sync (`false` before the first sync), `clean` whether a merge would apply without conflicts, `conflicts` names the entities that would conflict, `summary` counts the remote changes a merge would bring in, and `force_push_casualties` names the remote content a force push would discard (empty before the first sync, when a forced export replaces the remote's managed folders whole). `reason` is `history-rewritten` when the remote was force-pushed or rebased, so only `export --force` can push; otherwise it's `null`. When `clean` is `true`, run `export --merge`. When it's `false`, run `create-branch <name>` and then `export`, and open a PR into the old branch.",
   requires: ["gitSync.exportPreflight", "gitSync.trackedBranch"],
   args: {
     ...outputFlags,
@@ -22,7 +22,7 @@ export default defineMetabaseCommand({
     branch: {
       type: "string",
       description:
-        "Branch to preview against (defaults to the remote-sync-branch setting; must be that branch); a blank name is refused",
+        "Branch to preview against. Defaults to the tracked branch (the `remote-sync-branch` setting), which it must be (409 otherwise); can't be blank",
       alias: "b",
     },
   },

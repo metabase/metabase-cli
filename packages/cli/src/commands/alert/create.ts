@@ -10,12 +10,9 @@ import { describeAlert } from "./summary";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a question alert from JSON" },
   details: [
-    "The JSON body needs `payload`, `subscriptions`, and `handlers`.",
-    "`payload` is `{card_id, send_condition, send_once}` — `send_condition` is has_result (the card returns any row), goal_above, or goal_below (both need a goal set on the card's visualization).",
-    "`subscriptions` is a list of `{cron_schedule}` in Quartz 7-field form (`0 0 8 * * ? *` = daily at 08:00 in the instance's report timezone).",
-    "`handlers` is a list of `{channel_type: channel/email|channel/slack|channel/http, recipients}`;",
-    'each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.',
-  ].join(" "),
+    "The JSON body needs `payload`, `subscriptions` and `handlers`. `payload` is `{card_id, send_condition, send_once}`, where `send_condition` is `has_result` (the card returns any row), `goal_above` or `goal_below` (both need a goal on the card's visualization).",
+    '`subscriptions` is a list of `{cron_schedule}` in Quartz 7-field form (`0 0 8 * * ? *` is daily at 08:00 in the report timezone). `handlers` is a list of `{channel_type: channel/email|channel/slack|channel/http, recipients}`, where each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.',
+  ].join("\n\n"),
   requires: ["notification.create"],
   args: {
     ...outputFlags,

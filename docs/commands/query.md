@@ -9,60 +9,58 @@ Run, compile, or inspect an ad-hoc MBQL or native query.
 
 ## Modes and their output
 
-| Mode              | Prints                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| (none)            | The query result.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `--dry-run`       | `{ ok, errors: [{ path, message }], sql }`. The local check runs first; when it passes, the server compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and its `message` the schema validator's; a server rejection (HTTP 400, or 500 for a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile. |
-| `--compile`       | `{ query, params }`, plus `collection` for a document database when the server reports it. The server inlines parameters into the query, so `params` is `null` for a SQL driver. It is the query as compiled, not as a run executes it: a run also caps an unaggregated query at the server's row limit. Text output is the query alone; a document driver's stage list prints as JSON.                                                                        |
-| `--metadata`      | `{ databases, tables, fields, snippets }`. `tables` holds the source table and the tables its foreign keys point at; a card used as a source is a virtual table with a `card__<id>` id. `fields` are the fields native template tags (field filters) and snippets point at; an MBQL body's own columns sit inside its tables. `--full` carries every hydrated field, which exceeds the default `--max-bytes` for most tables.                                  |
-| `--export-format` | The export bytes, straight to stdout, capped at the server's download row limit. `--full`, `--fields`, `--max-bytes` and `--limit` are refused, since they shape only the JSON output; `--json` and `--format` still pick the shape of an error.                                                                                                                                                                                                               |
+| Mode              | Prints                                                                                                                                                                                                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (none)            | The query result.                                                                                                                                                                                                                                                                                                                            |
+| `--dry-run`       | `{ ok, errors: [{ path, message }], sql }`. The local check runs first; if it passes, the server compiles the query without running it. A local error's `path` is a JSON Pointer into the body. A server rejection (HTTP 400, or 500 for a reference it can't resolve) is one error with `path: ""`. `sql` is the compiled query, or `null`. |
+| `--compile`       | `{ query, params }`, plus `collection` for a document database. `params` is `null` for a SQL driver, since the server inlines parameters. A run also caps an unaggregated query at the server's row limit, which the compiled query doesn't show. Text output is the query alone.                                                            |
+| `--metadata`      | `{ databases, tables, fields, snippets }`: the source table and the tables its foreign keys point at (a card source is a virtual table with a `card__<id>` id), and the fields that template tags and snippets point at. With `--full`, most tables exceed the default `--max-bytes`.                                                        |
+| `--export-format` | The export bytes on stdout, capped at the server's download row limit. `--full`, `--fields`, `--max-bytes` and `--limit` are refused; `--json` and `--format` set only the shape of an error.                                                                                                                                                |
 
-`--pretty` and `--no-pretty` are refused without `--compile`; `--visualization-settings`, `--format-rows`, `--pivot-results` and `--csv-include-bom` without `--export-format`. `--pivot-results` is refused without a `pivot_table.column_split` in `--visualization-settings`.
+`--pretty` and `--no-pretty` are refused without `--compile`; `--visualization-settings`, `--format-rows`, `--pivot-results` and `--csv-include-bom` without `--export-format`. `--pivot-results` also needs a `pivot_table.column_split` in `--visualization-settings`.
 
-Compiling, with `--compile` or `--dry-run`, needs native query permission on the body's database and access to every table and card the query reads; without them the server refuses with 403 (exit 1).
+To compile, with `--compile` or `--dry-run`, you need native query permission on the body's database and access to every table and card the query reads. Without them, the server refuses with 403 (exit 1).
 
 ## Exit codes
 
-- `0`: the query ran, compiled (`--dry-run`, `--compile`), or was answered (`--metadata`).
-- `2`: the local check, or with `--dry-run` the server compile, rejected the body; the body is malformed (one without `lib/type` or `type` included, in every mode); or a flag is wrong.
-- `1`: a server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` or `--compile` a compile that could not run (no native query permission on the database, no access to a table or card the query reads, server unreachable).
+| Code | When                                                                                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | The query ran, compiled, or its metadata was read.                                                                                                                                    |
+| `2`  | A flag is wrong, the body is malformed (it has neither `lib/type` nor `type`), or the local check rejected it. With `--dry-run`, also when the server compile rejected it.            |
+| `1`  | A server error after the local check passed: network, HTTP 4xx or 5xx, or a compile the server refused (no native query permission, or no access to a table or card the query reads). |
 
 ## The MBQL 5 pre-flight
 
-An MBQL 5 body (`"lib/type": "mbql/query"`) uses numeric ids (`database: 1`, `source-table: 7`) and is checked against a bundled JSON Schema before any request, in every mode that reaches the server. `mb schema query` prints that schema; it is synced from a pinned `@metabase/representations` release, with every id `$def` narrowed to a positive integer. A failed check prints `{ ok, errors }` on stdout and exits 2, with no request made.
+An MBQL 5 body (`"lib/type": "mbql/query"`, with numeric ids such as `database: 1`) is checked against a bundled JSON Schema before any request. A failed check prints `{ ok, errors }` on stdout and exits 2. `mb schema query` prints the schema, which comes from a pinned `@metabase/representations` release with every id narrowed to a positive integer.
 
-Any other body skips the check: legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "…" } }`), or any shape without `"lib/type": "mbql/query"`. The server normalizes those, as it does for a saved card or transform. With `--dry-run` such a body goes straight to the server compile. An MBQL 5 query nested inside a legacy `{ "type": "query", "query": … }` envelope is refused before sending, in every mode.
+Other bodies skip the check, and the server normalizes them: legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T } }`) and legacy native (`{ "type": "native", "database": N, "native": { "query": "…" } }`). With `--dry-run`, such a body goes straight to the server compile. An MBQL 5 query inside a legacy `{ "type": "query", "query": … }` envelope is refused before sending.
 
-`--skip-validate` skips both checks: it sends the body as it is and lets the server be the authority. Use it only when the bundled schema disagrees with what the server accepts. It cannot be combined with `--dry-run`, whose point is the local check.
+`--skip-validate` skips these checks and sends the body as it is. Use it only when the bundled schema disagrees with what the server accepts. It can't be combined with `--dry-run`, whose point is the check.
 
 ## The pre-flight in other commands
 
-[`card create`](card.md#mb-card-create), [`card update`](card.md#mb-card-update), [`transform create`](transform.md#mb-transform-create), [`transform update`](transform.md#mb-transform-update), [`measure create`](measure.md#mb-measure-create), [`measure update`](measure.md#mb-measure-update), [`segment create`](segment.md#mb-segment-create), [`segment update`](segment.md#mb-segment-update), [`data-action create`](data-action.md#mb-data-action-create) and [`data-action update`](data-action.md#mb-data-action-update) run the same check on the query their body carries: a card's or data action's `dataset_query`, a transform's `source.query` when `source.type` is `"query"`, a measure's or segment's `definition`. A failure prints `{ ok, errors }` on stdout and exits 2, with no request made. Legacy MBQL 4 queries and Python transform sources are not checked. Each of these commands takes `--skip-validate`, and `mb schema <command>` names `mb schema query` on the field it checks.
+The `create` and `update` commands of [card](card.md), [transform](transform.md), [measure](measure.md), [segment](segment.md) and [data-action](data-action.md) run the same check on the query in their body: a card's or data action's `dataset_query`, a transform's `source.query` (when `source.type` is `"query"`), and a measure's or segment's `definition`. A failure exits 2 the same way, and each command takes `--skip-validate`. Legacy MBQL 4 queries and Python transform sources aren't checked.
 
-Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase's structured query format, shaped {"lib/type": "mbql/query", "database": &lt;database id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": &lt;table id>, "aggregation": [["count", {}]]}]} with ids from `mb database list` and `mb table list`; it is checked against a bundled JSON Schema before sending, and `mb schema query` prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check. --compile prints the native query the server compiles the body to, --metadata the databases, tables, fields and snippets the body touches, and --export-format streams the rows as csv, json or xlsx; the three are mutually exclusive with each other and with --dry-run. An export takes its column formatting and pivot layout from --visualization-settings, since an ad-hoc query has no card to read them from: --pivot-results needs their pivot_table.column_split.
+Runs the JSON query body from `--body`, `--file`, or stdin. An MBQL 5 body, shaped `{"lib/type": "mbql/query", "database": <db-id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table-id>}]}` with ids from `mb db list` and `mb table list`, is checked against the schema `mb schema query` prints, and one that fails exits 2 with no request made. Legacy MBQL 4 and native bodies skip the check. `--dry-run`, `--compile`, `--metadata` and `--export-format` check, compile, inspect or export the query instead of running it, and you can use only one of them.
 
 ```sh
 mb query [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--dry-run` |  | Check the body and compile it on the server to native SQL without running it; prints {ok, errors, sql}. |
-| `--compile` |  | Print the native query the server compiles the body to, instead of running it. |
-| `--metadata` |  | Print the databases, tables, fields and snippets the body references, instead of running it. |
-| `--pretty` |  | With --compile: format the native query for reading, as the server does by default; --no-pretty compiles to one line. |
-| `--export-format <value>` |  | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
-| `--format-rows` | `false` | Streamed exports only: format values as Metabase displays them, column settings included. |
-| `--pivot-results` | `false` | With `--export-format` `csv` or `xlsx`: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
-| `--csv-include-bom` | `false` | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs `exportCsvByteOrderMark` (v63+): an older server drops the key and exports without the mark, so the CLI refuses it there before the request. |
-| `--visualization-settings <value>` |  | With --export-format: JSON object of visualization settings; column settings shape --format-rows, pivot_table.column_split the --pivot-results layout. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Check the body and compile it on the server to native SQL without running it; prints {ok, errors, sql}. |
+| `--compile` | Print the native query the server compiles the body to, instead of running it. |
+| `--metadata` | Print the databases, tables, fields and snippets the body references, instead of running it. |
+| `--pretty` | With --compile: format the native query for reading, as the server does by default; --no-pretty compiles to one line. |
+| `--export-format <value>` | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
+| `--format-rows` | Streamed exports only: format values as Metabase displays them, column settings included. |
+| `--pivot-results` | With `--export-format` `csv` or `xlsx`: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom` | With `--export-format csv`: start the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Refused (exit 2) on a server without `exportCsvByteOrderMark` (v63+). |
+| `--visualization-settings <value>` | With --export-format: JSON object of visualization settings; column settings shape --format-rows, pivot_table.column_split the --pivot-results layout. |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Body schema: `mb schema query`. Output schema: `mb schema query --output`.
+Takes the [output](README.md#output-flags), [body](README.md#body-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
 
 Agent skills:
 

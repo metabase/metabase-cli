@@ -34,7 +34,7 @@ function filterNeeds(filter: TableListFilter): string {
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List tables, optionally filtered" },
   details:
-    "Returns a flat compact list without fields; when you know the schema, `mb db schema-tables <db-id> <schema>` is the better starting point. `--db-id` narrows the list on the client; every other filter is applied by the server. `--unused-only`, `--published-only`, `--can-query`, `--can-write` and `--include-transform-targets` are refused before the request (exit 2) on a server without the feature the flag needs, because such a server drops a filter it doesn't know without a word.",
+    "Returns a flat, compact list without fields. When you know the schema, start with `mb db schema-tables <db-id> <schema>` instead. `--db-id` filters on the client, and the server applies the other filters. A filter that needs a feature is refused before the request (exit 2) on a server without it.",
   requires: ["table.list"],
   args: {
     ...outputFlags,

@@ -7,6 +7,10 @@ summary: "Manage Metabase transforms."
 
 Manage Metabase transforms.
 
+Every command on this page takes the [output](README.md#output-flags), [profile](README.md#profile-flags), and [connection](README.md#connection-flags) flags.
+
+Every command on this page needs `transforms` (v59+).
+
 Agent skills:
 
 - `mb skills get transform`: body shape, run-with-wait, iterate
@@ -20,11 +24,7 @@ List transforms.
 mb transform list [flags]
 ```
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform list --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -44,12 +44,6 @@ mb transform get <id> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Transform id. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform get --output`.
 
 Examples:
 
@@ -72,11 +66,7 @@ mb transform dependencies <id> [flags]
 | --- | --- |
 | `<id>` | Transform id. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform dependencies --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 
@@ -89,23 +79,17 @@ mb transform dependencies 1 --json
 
 Create a transform from JSON.
 
-The JSON body needs a `name`, a `source` (the query to run — native SQL or MBQL — under `source.query`), and a `target` (the warehouse table to write, with `database`/`schema`/`name`). When `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+The JSON body needs a `name`, a `source` (the native SQL or MBQL query to run, under `source.query`), and a `target` (the warehouse table to write: `database`, `schema` and `name`). An MBQL 5 `source.query` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb transform create [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+| Flag | Description |
+| --- | --- |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Body schema: `mb schema transform create`. Output schema: `mb schema transform create --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -123,27 +107,18 @@ mb transform create --file transform.json --skip-validate
 
 Update a transform by id (partial).
 
-Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). When a new `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
+Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). A new MBQL 5 `source.query` is checked against the bundled schema (`mb schema query`) before it's sent.
 
 ```sh
 mb transform update <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform id. |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
-| `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Body schema: `mb schema transform update`. Output schema: `mb schema transform update --output`.
+Also takes the [body](README.md#body-flags) flags.
 
 Agent skills:
 
@@ -166,19 +141,10 @@ Delete a transform by id.
 mb transform delete <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform delete --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 
@@ -195,19 +161,10 @@ Drop a transform's materialized output table (keeps the transform definition).
 mb transform delete-table <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--yes` | `false` | Skip confirmation. |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform delete-table --output`.
+| `--yes` | Skip confirmation. |
 
 Examples:
 
@@ -220,28 +177,19 @@ mb transform delete-table 1
 
 Trigger a transform run by id.
 
-Starts a run and returns `{ message, run_id }` at once. `--wait` polls the run to a terminal status (`succeeded`, `failed`, `timeout` or `canceled`) and adds the polled run as `final`. `--sync` additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; `--sync` implies waiting for the run. While waiting, a run that does not succeed exits 1.
+Starts a run and returns `{ message, run_id }` at once. `--wait` polls the run to a terminal status (`succeeded`, `failed`, `timeout` or `canceled`) and adds it as `final`. `--sync` also waits for the run to register its output table and returns its `target_table_id`, for the cards you build on it, with no `db sync-schema` needed. While waiting, a run that doesn't succeed exits 1.
 
 ```sh
 mb transform run <id> [flags]
 ```
 
-| Argument | Description |
+| Argument or flag | Description |
 | --- | --- |
 | `<id>` | Transform id. |
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--wait` | `false` | Poll until the operation reaches a terminal state. |
-| `--timeout <value>` | `600000` | Polling timeout in ms (used with --wait). |
-| `--interval <value>` | `2000` | Polling interval in ms (used with --wait). |
-| `--sync` | `false` | After a successful run, wait until the output table is registered and return its id (implies --wait). |
-
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform run --output`.
+| `--wait` | Poll until the operation reaches a terminal state. |
+| `--timeout <value>` | Polling timeout in ms (used with --wait). Default: `600000`. |
+| `--interval <value>` | Polling interval in ms (used with --wait). Default: `2000`. |
+| `--sync` | After a successful run, wait until the output table is registered and return its id (implies --wait). |
 
 Examples:
 
@@ -265,12 +213,6 @@ mb transform cancel <id> [flags]
 | --- | --- |
 | `<id>` | Transform id. |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform cancel --output`.
-
 Examples:
 
 ```sh
@@ -292,12 +234,6 @@ mb transform get-run <id> [flags]
 | --- | --- |
 | `<id>` | Run id (from `mb transform runs`). |
 
-Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform get-run --output`.
-
 Examples:
 
 ```sh
@@ -309,21 +245,17 @@ mb transform get-run 1 --json
 
 List recent transform runs.
 
-Lists runs across all transforms, or one transform's with `--transform-id`. The server pages the runs, so the CLI reads only as many pages as the output cap can show, then reports `has_more` / `next_offset` to continue.
+Lists runs across all transforms, or one transform's with `--transform-id`. The server pages the runs, so the CLI reads only the pages the output cap can show, and reports `has_more` and `next_offset` to continue.
 
 ```sh
 mb transform runs [flags]
 ```
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--transform-id <value>` |  | Filter to runs of a single transform id. |
+| Flag | Description |
+| --- | --- |
+| `--transform-id <value>` | Filter to runs of a single transform id. |
 
-Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
-
-Needs: `transforms` (v59+).
-
-Output schema: `mb schema transform runs --output`.
+Also takes the [list](README.md#list-flags) flags.
 
 Examples:
 

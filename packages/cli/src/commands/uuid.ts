@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     description: "Mint random UUID v4 strings",
   },
   details:
-    "For the values that must be a UUID: the `lib/uuid` of an aggregation an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`. Text output prints one UUID per line, JSON a string array. A `--count` outside 1 through 10000 exits 2.",
+    "Use them where a value must be a UUID: the `lib/uuid` of an aggregation that an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`. Text output prints one UUID per line, JSON a string array. A `--count` outside 1 through 10000 exits 2.",
   skills: [
     { skill: "mbql", purpose: "aggregation refs" },
     { skill: "document", purpose: "document node ids" },

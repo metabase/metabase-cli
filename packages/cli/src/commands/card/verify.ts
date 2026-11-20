@@ -9,7 +9,7 @@ import { reviewInput, verifyFlags } from "../verify-flags";
 export default defineMetabaseCommand({
   meta: { name: "verify", description: "Mark a card verified, or withdraw the mark with --remove" },
   details:
-    "Records a moderation review on the card (admins only). Verified content carries a check mark in the product and ranks higher in search; `mb search --verified` finds only verified content. Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (an update with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note that the edit unverified it. `card get <id> --fields moderation_reviews` reads the reviews, newest first; the first one's `status` is the current state. Prints the review, whose `status` is `verified` or `null`; `--full` adds `moderator_id` and the timestamps.",
+    "Adds a moderation review that marks the card verified (admins only). Verified content shows a check mark and ranks higher in search, and `mb search --verified` finds only verified content. `--remove` adds a review with no status, which withdraws the mark, and so does a change to the card's query. Prints the review, whose `status` is `verified` or `null`; `card get <id> --fields moderation_reviews` lists every review, newest first.",
   requires: ["moderationReview.create"],
   args: {
     ...outputFlags,

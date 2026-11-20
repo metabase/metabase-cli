@@ -1,6 +1,7 @@
 import { SyncExportResult } from "@metabase/client/domain/git-sync";
 import { ConfigError } from "@metabase/client/errors";
 import type { SyncExportParams } from "@metabase/client/resources/git-sync";
+import { featureAvailability, type FeatureName } from "@metabase/client/version/features";
 
 import { warn } from "../../output/notice";
 import { renderSummary } from "../../output/render";
@@ -14,12 +15,15 @@ import { mergeRefusal } from "./merge-refusal";
 import { branchFlag } from "./branch-flag";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
+const BRANCH_GUARD_FEATURE = "remoteSyncBranchGuard" satisfies FeatureName;
+const GUARDED_SERVERS = featureAvailability(BRANCH_GUARD_FEATURE);
+
 export default defineMetabaseCommand({
   meta: {
     name: "export",
     description: "Export Metabase changes back to the configured git remote",
   },
-  details: `The export targets the branch git-sync tracks. On Metabase 63+ \`--branch\` defaults to it and must name it (the server responds with a 409 for any other branch); older servers export to the branch \`--branch\` names and switch git-sync to it, refusing with a 400 when that branch's tip isn't the last synced commit unless \`--force\` is given. To push to a new branch, use \`git-sync stash\` or \`git-sync create-branch\` first: a \`--branch\` other than the tracked one is looked up on the remote, and one missing there is refused before the export (exit 2) with a pointer to \`create-branch\`. The result's \`branch\` names the target, and the text output ends with it; it's \`null\` only when no \`--branch\` was given and a server older than 63 exported to the branch it tracks. When the remote has moved past the last sync, a plain export ends in a \`conflict\` task on 63+ and is refused with a 400 on older servers; \`--merge\` folds the remote's changes in by a three-way merge, \`--force\` overwrites them, and \`git-sync export-preflight\` previews which applies. ${mergeRefusal("export")}`,
+  details: `Exports to the branch git-sync tracks. On ${GUARDED_SERVERS} servers, \`--branch\` must name that branch (409 otherwise); older servers export to the \`--branch\` you name and track it from then on, with a 400 unless its tip is the last synced commit or \`--force\` is given. To export to a new branch, run \`git-sync stash\` or \`git-sync create-branch\` first: a \`--branch\` the remote doesn't have is refused (exit 2). When the remote has moved past the last sync, a plain export ends in \`conflict\` (a 400 on older servers): \`--merge\` merges the remote's changes in, \`--force\` overwrites them, and \`git-sync export-preflight\` shows which applies. The output's \`branch\` names the target, or is \`null\` when an older server exported to the branch it tracks. ${mergeRefusal("export")}`,
   requires: ["gitSync.branch", "gitSync.branches", "gitSync.export"],
   args: {
     ...outputFlags,
@@ -27,8 +31,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     branch: {
       type: "string",
-      description:
-        "Branch to export to (defaults to the remote-sync-branch setting; on 63+ it must be that branch); a blank name is refused",
+      description: `Branch to export to. Defaults to the tracked branch (the \`remote-sync-branch\` setting), which it must be on ${GUARDED_SERVERS} servers; can't be blank`,
       alias: "b",
     },
     message: {
@@ -38,13 +41,13 @@ export default defineMetabaseCommand({
     },
     force: {
       type: "boolean",
-      description: "Force-push / overwrite remote",
+      description: "Force-push, overwriting the remote's changes",
       default: false,
     },
     merge: {
       type: "boolean",
       description:
-        "When the remote moved on, fold its changes in by a three-way merge instead of ending in `conflict`; entities changed on both sides still end in `conflict`, writing nothing. Can't be used with `--force`",
+        "When the remote has moved on, merge its changes in instead of ending in `conflict`. Entities changed on both sides still end in `conflict`, and nothing is written. Can't be used with `--force`",
       default: false,
     },
     ...gitSyncWaitFlags,

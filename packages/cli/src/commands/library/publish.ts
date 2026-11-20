@@ -29,7 +29,7 @@ export default defineMetabaseCommand({
     description: "Publish tables (and their upstream dependencies) to the Library Data collection",
   },
   details:
-    "Sets each selected table and every upstream table it depends on into the Library Data collection, so they appear first in data pickers and rank up in search. The Library Data collection is resolved automatically (and the Library is created if it doesn't exist yet). Select with `--table-ids`, `--db-ids`, or `--schemas` (each schema ID is `<db-id>:<schema>`, e.g. `1:public`); the filters are combined. Publishing doesn't add the Library to the git-sync scope. On an instance with remote sync configured and the Library root outside that scope, the command warns on stderr with the command that adds the root, `mb git-sync add-collection <library-id>`, so that exports carry the published tables' metadata and the rest of the Library.",
+    "Publishes each selected table, and every upstream table it depends on, to the Library's Data collection, so they show first in data pickers and rank higher in search. Creates the Library if it doesn't exist. The selectors are combined. Publishing doesn't add the Library to git sync: when remote sync is set up and the Library is outside its scope, the command warns with the `mb git-sync add-collection <library-id>` command that adds it.",
   requires: [
     "library.ensureDataCollectionId",
     "library.publishTables",
