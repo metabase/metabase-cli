@@ -234,6 +234,7 @@ export const METHOD_REQUIREMENTS = {
   "dataTest.delete": ["transformTests"],
   "dataTest.run": ["transformTests"],
   "dataTestRun.list": ["dataTestRuns"],
+  "dataTestRun.get": ["dataTestRuns"],
   "testSuite.list": ["testSuites"],
   "testSuite.get": ["testSuites"],
   "testSuite.create": ["testSuites"],
