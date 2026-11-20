@@ -2,7 +2,7 @@
 
 Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62.3.3+) or with an API key, and stores credentials securely on your machine.
 
-The command reference — every command's arguments, flags, examples and the Metabase features it needs — is generated from the command definitions into [`docs/commands`](docs/commands/README.md). This page covers what no one command owns.
+The command reference — every command's arguments, flags, examples and the Metabase features it needs — is on the Metabase docs site at <https://www.metabase.com/docs/latest/cli/>. Each release builds it from the command definitions and ships it in the npm package under `dist/reference/`, and the site copies it from the latest release. This page covers what no one command owns.
 
 ## Supported Metabase versions
 
@@ -45,11 +45,11 @@ mb auth login --url https://metabase.example.com
 mb auth status
 ```
 
-[`mb auth`](docs/commands/auth.md) describes the login methods, profiles, and the server probe.
+[`mb auth`](https://www.metabase.com/docs/latest/cli/auth) describes the login methods, profiles, and the server probe.
 
 ## Output
 
-Most commands take the output flags, and every list command the window flags `--limit` and `--offset`; the reference documents each set once, under [Shared flags](docs/commands/README.md#shared-flags). `--format auto`, the default, prints JSON when stdout is not a terminal, so a shell capture that wants plain text passes `--format text`. A `get` or `list` prints a compact projection of each item: `--full` prints every field, and `--fields` projects comma-separated dot-paths, relative to each `data[]` item on a list. `--max-bytes` caps the output (default `24576`, `0` disables).
+Most commands take the output flags, and every list command the window flags `--limit` and `--offset`; the reference documents each set once, under [Shared flags](https://www.metabase.com/docs/latest/cli/#shared-flags). `--format auto`, the default, prints JSON when stdout is not a terminal, so a shell capture that wants plain text passes `--format text`. A `get` or `list` prints a compact projection of each item: `--full` prints every field, and `--fields` projects comma-separated dot-paths, relative to each `data[]` item on a list. `--max-bytes` caps the output (default `24576`, `0` disables).
 
 ### List envelope
 
@@ -89,7 +89,7 @@ A command that deletes asks for confirmation on a terminal. Without a terminal i
 
 ## Agent skills
 
-The CLI ships agent skills that document `mb` itself, served by [`mb skills`](docs/commands/skills.md) from the installed version. Two discovery surfaces point an agent at them:
+The CLI ships agent skills that document `mb` itself, served by [`mb skills`](https://www.metabase.com/docs/latest/cli/skills) from the installed version. Two discovery surfaces point an agent at them:
 
 - **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` declares a `metabase-cli` plugin pointing at the in-repo discovery stub. Users install with `/plugin marketplace add metabase/metabase-cli` then `/plugin install metabase-cli@metabase`. The manifest lives at the repo root and is served from GitHub, not from the npm tarball: its `source: "./packages/cli"` is resolved relative to the repo checkout, so a copy inside the published package would point at nothing. `files` in `packages/cli/package.json` therefore omits `.claude-plugin` by design.
 - **`npx skills add`**: the same stub at `packages/cli/skills/metabase-cli/SKILL.md` is picked up by `npx skills add metabase/metabase-cli`. The stub is intentionally minimal — it redirects the agent at `mb skills get core` so the real workflow content always comes from the installed CLI version.
@@ -143,12 +143,13 @@ bun run build
 bun run test           # unit tests
 bun run typecheck
 bun run lint
-bun run docs           # regenerate docs/commands from the command definitions and docs/command-notes
+bun run docs           # write the command reference to packages/cli/dist/reference (the build does too)
 ```
 
 A command's reference page is written from its definition — `description`, `details`, argument
 descriptions, `examples`, `requires` — and from `docs/command-notes/<command>.md` when there is
-one. Change those, never `docs/commands/`, and run `bun run docs`.
+one. A note names a feature as `{feature:<name>}`, never a version: the page writes the
+servers that hold it.
 
 `bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a
 dev run never touches your real profiles or the OS keychain.

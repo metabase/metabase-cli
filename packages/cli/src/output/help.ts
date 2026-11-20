@@ -22,6 +22,11 @@ const ANSI_PATTERN = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, "g");
 const BREADCRUMB_SUFFIX = / \([^()]*\)\s*$/;
 const TRAILING_WHITESPACE = /[ \t]+$/;
 
+// Descriptions are Markdown for the command reference, which bolds a UI path
+// (`**Admin** > **Settings**`); a terminal would print the marks. Bold text never starts or ends
+// with a `/`, so a glob's `**/` stays.
+const MARKDOWN_BOLD = /\*\*([^\s*/](?:[^*\n]*[^\s*/])?)\*\*/g;
+
 // Citty renders multi-character flag aliases with a single leading dash (`-max-bytes`), a
 // form node's parser does not accept. Collapse a `-foo-bar, --fooBar` pair to the single
 // working `--foo-bar` form, re-padding so the right-aligned column keeps its width.
@@ -72,7 +77,10 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
     breadcrumb: breadcrumb ?? cittyName,
     hasSubCommands,
   });
-  const body = withDetails(transformed, details).join("\n").trimEnd();
+  const body = withDetails(transformed, details)
+    .join("\n")
+    .trimEnd()
+    .replaceAll(MARKDOWN_BOLD, "$1");
 
   const sections = [body];
   if (examples.length > 0) {

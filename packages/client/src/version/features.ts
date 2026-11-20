@@ -69,6 +69,9 @@ export const FEATURE_RULES = {
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
   dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
   dependencyAsyncBackfill: { since: 60, tokenFeature: "dependencies" },
+  // Archived upstream entities in `graph`, and dropped tables and archived sources in `unreferenced`
+  // and `breaking`; older servers leave them out.
+  dependencyKeepsArchivedSources: { since: 63, tokenFeature: "dependencies" },
   measureDependencyGraph: { since: 59 },
   actionDependencyGraph: { since: 65 },
   tableListAccessFilters: { since: 59 },

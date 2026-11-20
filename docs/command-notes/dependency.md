@@ -1,4 +1,4 @@
-Metabase records an edge from each card, dashboard, document, snippet, transform, sandbox, segment, measure or action to what it reads (a table, a card, a snippet, a transform's output), and analyzes each dependent's query for errors it traces back to what it reads. From Metabase v60, a background job recomputes the graph shortly after content changes, so a just-saved query can take a few seconds to appear.
+Metabase records an edge from each card, dashboard, document, snippet, transform, sandbox, segment, measure or action to what it reads (a table, a card, a snippet, a transform's output), and analyzes each dependent's query for errors it traces back to what it reads. With {feature:dependencyAsyncBackfill}, a background job recomputes the graph shortly after content changes, so a just-saved query can take a few seconds to appear.
 
 ## What each row holds
 
@@ -24,6 +24,6 @@ A transform's row carries no collection. `unreferenced` and `breaking`, which ma
 
 ## Archived and dropped content
 
-From Metabase v63, `graph` includes archived upstream entities; older servers leave them out. On every server, `dependents`, `broken` and `unreferenced` leave out archived cards, dashboards, documents, snippets, actions, segments and measures.
+With {feature:dependencyKeepsArchivedSources}, `graph` includes archived upstream entities; older servers leave them out. On every server, `dependents`, `broken` and `unreferenced` leave out archived cards, dashboards, documents, snippets, actions, segments and measures.
 
-From v63, `unreferenced` and `breaking` also keep dropped and hidden tables, and `breaking` keeps archived sources, so they report a dropped table or an archived card that broke its dependents. Older servers leave these out, and the CLI has no flag to bring them back.
+The same servers keep dropped and hidden tables in `unreferenced` and `breaking`, and archived sources in `breaking`, so they report a dropped table or an archived card that broke its dependents. Older servers leave these out, and the CLI has no flag to bring them back.

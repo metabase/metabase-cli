@@ -7,6 +7,7 @@ Notable changes to `@metabase/client`.
 - The `ConfigError` that `discoverLoginMetadata` and `discoverMetadata` throw for a server without OAuth login (`OAUTH_UNSUPPORTED_MESSAGE`) names Metabase v62.3.3 as the release it needs: the first whose discovery advertises the full-access scope. `OAUTH_MINIMUM_RELEASE` on `@metabase/client/http/oauth` is that release, `"v62.3.3"`.
 - `featureImplies(feature, other)` on `@metabase/client/version/features` says whether every supported server that holds `feature` also holds `other`: the majors its rule spans lie within the other's, and it needs the other's token feature, if the other needs one. Two features that imply each other hold on the same servers.
 - `CSV_BYTE_ORDER_MARK_FEATURE` on `@metabase/client/domain/query` is the feature `csv_include_bom` needs, `exportCsvByteOrderMark`, which `card.exportQuery` and `dataset.exportQuery` refuse the parameter without.
+- `dependencyKeepsArchivedSources` on `@metabase/client/version/features` holds on a server whose dependency graph keeps archived and dropped sources: `graph` includes archived upstream entities, and the unreferenced and breaking listings keep dropped and hidden tables and archived sources. It needs Metabase 63 and the `dependencies` token feature.
 - `TABLE_LIST_FILTER_FEATURES` on `@metabase/client/domain/table` pairs each `table.list` filter an older server drops unread with the feature it needs. `table.list` refuses a filter set to `true` on a server without that feature; a `false` one needs none.
 
 ## 0.1.9

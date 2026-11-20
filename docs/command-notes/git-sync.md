@@ -4,7 +4,7 @@ The git-sync commands import and export Metabase content against the git remote 
 
 ## Import and export use the tracked branch
 
-[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync export-preflight](#mb-git-sync-export-preflight) work on the branch that git-sync tracks: the `remote-sync-branch` setting, which the server's `MB_REMOTE_SYNC_BRANCH` environment variable can also set. On Metabase 63 and newer, `import` and `export` without `--branch` refuse (exit 2) when no branch is tracked or the setting isn't readable. Older servers don't check: `import` goes through, and `export` writes to the branch the server tracks. `export-preflight` without `--branch` refuses the same way on every server, before it contacts the remote.
+[mb git-sync import](#mb-git-sync-import), [mb git-sync export](#mb-git-sync-export) and [mb git-sync export-preflight](#mb-git-sync-export-preflight) work on the branch that git-sync tracks: the `remote-sync-branch` setting, which the server's `MB_REMOTE_SYNC_BRANCH` environment variable can also set. With {feature:remoteSyncBranchGuard}, `import` and `export` without `--branch` refuse (exit 2) when no branch is tracked or the setting isn't readable. Older servers don't check: `import` goes through, and `export` writes to the branch the server tracks. `export-preflight` without `--branch` refuses the same way on every server, before it contacts the remote.
 
 ## Import, export and stash wait for their task
 

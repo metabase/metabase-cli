@@ -115,6 +115,38 @@ describe("showUsage", () => {
     expect(usageIdx).toBeGreaterThan(detailIdx);
   });
 
+  it("prints Markdown bold text without its marks", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Open **Admin** settings" },
+      requires: [],
+      args: {},
+      details: "Find it in **Admin** > **Settings** > **API keys**.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Open Admin settings\n\nFind it in Admin > Settings > API keys.\n");
+  });
+
+  it("keeps the `**` of a glob", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Sync files" },
+      requires: [],
+      args: {},
+      details: "Reads `models/**/*.yaml` and `metrics/**/*.yaml`.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Reads `models/**/*.yaml` and `metrics/**/*.yaml`.\n");
+  });
+
   it("omits the details block when none is declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },

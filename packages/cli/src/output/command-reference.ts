@@ -4,6 +4,7 @@ import { ConfigError } from "@metabase/client/errors";
 import {
   featureAvailability,
   featureImplies,
+  isFeatureName,
   type FeatureName,
 } from "@metabase/client/version/features";
 
@@ -29,12 +30,11 @@ import {
   type CommandHelpSkill,
 } from "../runtime/command-help";
 
-// Folders relative to the repository root: the generated reference, and the hand-written notes
-// each of its pages may open with.
-export const REFERENCE_DIR = "docs/commands";
+// The folder, relative to the repository root, of the hand-written notes each page may open with.
 export const NOTES_DIR = "docs/command-notes";
 
-const INDEX_PAGE = "README.md";
+// The name the Metabase docs site serves as a folder's own page.
+const INDEX_PAGE = "index.md";
 const PAGE_EXTENSION = ".md";
 const INDEX_TITLE = "Metabase CLI command reference";
 const INDEX_SUMMARY =
@@ -58,6 +58,13 @@ const SENTENCE_END = /[.!?]$/;
 const ANCHOR_DROPPED = /[^a-z0-9 _-]/g;
 const ANCHOR_SPACE = / /g;
 const LIST_FORMAT = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
+// A note names a feature as `{feature:<name>}` rather than writing its version, so the servers it
+// reads stay those `FEATURE_RULES` gives.
+const FEATURE_TOKEN = /\{feature:([^}]*)\}/g;
+// The Metabase docs site runs Liquid over a page's body, which reads `{{snippet: Name}}` as a
+// variable and prints nothing in its place; a raw tag keeps the text as written.
+const LIQUID_OUTPUT = /\{\{[\s\S]*?\}\}/g;
+const LIQUID_RAW = "{% raw %}$&{% endraw %}";
 
 export interface SharedFlagSet {
   name: string;
@@ -125,12 +132,15 @@ export async function renderCommandReference(
 ): Promise<ReadonlyMap<string, string>> {
   const pages = await collectPages(input.root, input.sharedFlagSets);
   assertNotesNamePages(input.notes, pages);
+  const notes = new Map(
+    [...input.notes].map(([file, text]) => [file, expandFeatureTokens(file, text)]),
+  );
   const rootIndex = await buildHelpIndex(input.root, []);
   const files = new Map<string, string>([
     [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input.sharedFlagSets)],
   ]);
   for (const page of pages) {
-    files.set(page.file, renderPage(page, input.notes.get(page.file) ?? null));
+    files.set(page.file, renderPage(page, notes.get(page.file) ?? null));
   }
   return files;
 }
@@ -299,13 +309,21 @@ function assertNotesNamePages(
   }
 }
 
+function expandFeatureTokens(file: string, text: string): string {
+  return text.replaceAll(FEATURE_TOKEN, (_token, name: string) => {
+    if (!isFeatureName(name)) {
+      throw new ConfigError(`${NOTES_DIR}/${file} names no feature called ${name}`);
+    }
+    return featureMention(name);
+  });
+}
+
 function renderIndex(
   skills: readonly CommandHelpSkill[],
   pages: readonly ReferencePage[],
   sets: readonly SharedFlagSet[],
 ): string {
-  return joinBlocks([
-    frontMatter(INDEX_TITLE, INDEX_SUMMARY),
+  return pageText(frontMatter(INDEX_TITLE, INDEX_SUMMARY), [
     `# ${INDEX_TITLE}`,
     ...skillsBlocks(skills),
     "## Commands",
@@ -321,16 +339,14 @@ function renderPage(page: ReferencePage, notes: string | null): string {
   const title = commandName([page.name]);
   if (page.kind === "leaf") {
     const description = page.command.entry.description;
-    return joinBlocks([
-      frontMatter(title, description),
+    return pageText(frontMatter(title, description), [
       `# ${title}`,
       ...descriptionBlocks(description),
       ...notesBlocks(notes),
       ...commandBlocks(page.command, NOTHING_COMMON),
     ]);
   }
-  return joinBlocks([
-    frontMatter(title, page.description),
+  return pageText(frontMatter(title, page.description), [
     `# ${title}`,
     ...descriptionBlocks(page.description),
     ...aliasBlocks([], page.aliases),
@@ -529,9 +545,11 @@ function requirementBlocks(
 }
 
 function featureList(features: readonly FeatureName[]): string {
-  return LIST_FORMAT.format(
-    features.map((feature) => `${code(feature)} (${featureAvailability(feature)})`),
-  );
+  return LIST_FORMAT.format(features.map(featureMention));
+}
+
+function featureMention(feature: FeatureName): string {
+  return `${code(feature)} (${featureAvailability(feature)})`;
 }
 
 function exampleBlocks(examples: readonly string[]): string[] {
@@ -572,7 +590,9 @@ function sentence(text: string): string {
   return SENTENCE_END.test(text) ? text : `${text}.`;
 }
 
-function joinBlocks(blocks: readonly string[]): string {
+// Liquid reads the body only, so the YAML front matter keeps its text as it is.
+function pageText(front: string, body: readonly string[]): string {
+  const blocks = [front, ...body.map((block) => block.replaceAll(LIQUID_OUTPUT, LIQUID_RAW))];
   return `${blocks.join(BLOCK_SEPARATOR)}\n`;
 }
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineCommand } from "citty";
 import type { CommandDef, SubCommandsDef } from "citty";
 import * as fc from "fast-check";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ConfigError, errorMessage } from "@metabase/client/errors";
 import { featureAvailability } from "@metabase/client/version/features";
@@ -17,7 +17,6 @@ import { readMarkdownFiles } from "../runtime/markdown-files";
 import {
   anchorFor,
   NOTES_DIR,
-  REFERENCE_DIR,
   renderCommandReference,
   type SharedFlagSet,
 } from "./command-reference";
@@ -124,7 +123,7 @@ describe("renderCommandReference", () => {
         "| `<id>` | Thing id. |",
         "| `--interval <value>` | Polling interval in ms. Default: `2000`. |",
         "",
-        "Takes the [verbose](README.md#verbose-flags) flags.",
+        "Takes the [verbose](index.md#verbose-flags) flags.",
         "",
         `Needs \`transforms\` (${featureAvailability("transforms")}).`,
         "",
@@ -140,7 +139,7 @@ describe("renderCommandReference", () => {
   });
 
   it("lists the top-level commands, the schema commands and each shared flag set on the index page", async () => {
-    const index = await renderedPage(rootOf({ thing: groupOf({ list }) }), "README.md");
+    const index = await renderedPage(rootOf({ thing: groupOf({ list }) }), "index.md");
 
     expect(index).toBe(
       [
@@ -222,7 +221,7 @@ describe("renderCommandReference", () => {
       notes: new Map(),
     });
 
-    expect(files.get("thing.md")).toContain("Takes the [outer](README.md#outer-flags) flags.\n");
+    expect(files.get("thing.md")).toContain("Takes the [outer](index.md#outer-flags) flags.\n");
   });
 
   it("spells each flag the way citty binds it", async () => {
@@ -304,7 +303,7 @@ describe("renderCommandReference", () => {
         "",
         "Manage things.",
         "",
-        "Every command on this page takes the [verbose](README.md#verbose-flags) flags.",
+        "Every command on this page takes the [verbose](index.md#verbose-flags) flags.",
         "",
         `Every command on this page needs \`remoteSync\` (${featureAvailability("remoteSync")}).`,
         "",
@@ -320,7 +319,7 @@ describe("renderCommandReference", () => {
         "mb thing check [flags]",
         "```",
         "",
-        "Also takes the [region](README.md#region-flags) flags.",
+        "Also takes the [region](index.md#region-flags) flags.",
         "",
         `Also needs \`remoteSyncRemoteChanges\` (${featureAvailability("remoteSyncRemoteChanges")}).`,
         "",
@@ -425,7 +424,7 @@ describe("renderCommandReference", () => {
 
     const files = await renderFixture(rootOf({ thing: groupOf({ list, purge }), secret }));
 
-    expect([...files.keys()]).toEqual(["README.md", "thing.md"]);
+    expect([...files.keys()]).toEqual(["index.md", "thing.md"]);
     expect(files.get("thing.md")).not.toContain("mb thing purge");
   });
 
@@ -448,6 +447,65 @@ describe("renderCommandReference", () => {
 
     expect(error).toBeInstanceOf(ConfigError);
     expect(errorMessage(error)).toBe(`${NOTES_DIR}/gone.md names no top-level command`);
+  });
+
+  it("writes a feature the notes name as the feature and the servers that hold it", async () => {
+    const notes = new Map([["thing.md", "With {feature:transforms}, a thing runs.\n"]]);
+
+    const files = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes);
+
+    expect(files.get("thing.md")).toContain(
+      `With \`transforms\` (${featureAvailability("transforms")}), a thing runs.\n`,
+    );
+  });
+
+  it("refuses notes that name a feature that does not exist", async () => {
+    const notes = new Map([["thing.md", "With {feature:teleport}, a thing runs.\n"]]);
+
+    const error = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(ConfigError);
+    expect(errorMessage(error)).toBe(`${NOTES_DIR}/thing.md names no feature called teleport`);
+  });
+
+  it("wraps each `{{…}}` in a page's body in raw tags, and leaves the front matter as it is", async () => {
+    const tag = defineMetabaseCommand({
+      meta: { name: "tag", description: "Print {{tag}} as typed" },
+      requires: null,
+      args: {},
+      examples: ["mb tag '{{snippet: Name}}'"],
+      run() {
+        return;
+      },
+    });
+
+    const page = await renderedPage(rootOf({ tag }), "tag.md");
+
+    expect(page).toBe(
+      [
+        "---",
+        'title: "mb tag"',
+        'summary: "Print {{tag}} as typed."',
+        "---",
+        "",
+        "# mb tag",
+        "",
+        "Print {% raw %}{{tag}}{% endraw %} as typed.",
+        "",
+        "```sh",
+        "mb tag",
+        "```",
+        "",
+        "Examples:",
+        "",
+        "```sh",
+        "mb tag '{% raw %}{{snippet: Name}}{% endraw %}'",
+        "```",
+        "",
+      ].join("\n"),
+    );
   });
 });
 
@@ -523,28 +581,15 @@ function brokenLinks(files: ReadonlyMap<string, string>): string[] {
   return broken;
 }
 
-describe("the committed command reference", () => {
-  let rendered: ReadonlyMap<string, string>;
-
-  beforeAll(async () => {
+describe("the command reference", () => {
+  it("links only to pages and headings it holds", async () => {
     const notes = await readMarkdownFiles(join(REPO_ROOT, NOTES_DIR));
-    rendered = await renderCommandReference({
+    const rendered = await renderCommandReference({
       root: main,
       sharedFlagSets: SHARED_FLAG_SETS,
       notes,
     });
-  });
 
-  it("matches what the command tree renders", async () => {
-    const committed = await readMarkdownFiles(join(REPO_ROOT, REFERENCE_DIR));
-
-    expect(
-      Object.fromEntries(committed),
-      `${REFERENCE_DIR} is stale: run \`bun run docs\``,
-    ).toEqual(Object.fromEntries(rendered));
-  });
-
-  it("links only to pages and headings it holds", () => {
     expect(brokenLinks(rendered)).toEqual([]);
   });
 });
