@@ -255,6 +255,7 @@ const SyncRowV66 = z.object({
   model: InCollectionV66,
   card: InCollectionV66,
   transform: InCollectionV66,
+  segment: z.object({ table: NamedInCollectionV66 }).nullable().optional(),
   table: NamedInCollectionV66,
   field: z
     .object({
@@ -282,6 +283,9 @@ function rowCollectionV66(model: string, id: number, row: SyncRowV66): Collectio
   }
   if (model === "transformtest") {
     return row.transform?.collection;
+  }
+  if (model === "segmenttest") {
+    return row.segment?.table?.collection;
   }
   if (model === "segment" || model === "measure") {
     return row.table?.collection;
