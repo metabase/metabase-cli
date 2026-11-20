@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { InternalError } from "@metabase/client/errors";
+import { ResponseShapeError } from "@metabase/client/errors";
 import type { LintReport, LintResult } from "@metabase/client/domain/lint";
 
 import { lintReportLines } from "./lint";
@@ -121,7 +121,7 @@ describe("lintReportLines", () => {
       rules: {},
       results: [MISSING_COLUMN],
     };
-    expect(() => lintReportLines(report)).toThrow(InternalError);
+    expect(() => lintReportLines(report)).toThrow(ResponseShapeError);
     expect(() => lintReportLines(report)).toThrow(
       "Lint report from Metabase is missing rule missing-column.",
     );
@@ -135,7 +135,7 @@ describe("lintReportLines", () => {
       rules: RULES,
       results: [MISSING_COLUMN],
     };
-    expect(() => lintReportLines(report)).toThrow(InternalError);
+    expect(() => lintReportLines(report)).toThrow(ResponseShapeError);
     expect(() => lintReportLines(report)).toThrow(
       `Lint report from Metabase is missing entity ${CARD_ID}.`,
     );

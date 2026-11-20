@@ -64,7 +64,7 @@ export function readEnvCredentials(): EnvCredentials {
 }
 
 // No URL or no credential resolves for the profile. Distinct from other config errors so a caller
-// with findings of its own, such as `ci run`, can report them rather than stop.
+// that reports its own outcome, such as `ci run`, can end with that outcome rather than a config error.
 export class NotAuthenticatedError extends ConfigError {}
 
 export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig> {

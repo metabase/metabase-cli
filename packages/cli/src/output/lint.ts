@@ -1,11 +1,6 @@
-import type {
-  LintEntity,
-  LintReport,
-  LintResult,
-  LintSeverity,
-} from "@metabase/client/domain/lint";
-import { InternalError } from "@metabase/client/errors";
+import type { LintReport, LintResult, LintSeverity } from "@metabase/client/domain/lint";
 
+import { reportEntity, resultSeverity, resultsByEntity } from "../core/lint-report";
 import { pluralize } from "./pluralize";
 import { keyValueLines } from "./render";
 import { printable } from "./table";
@@ -13,42 +8,17 @@ import { printable } from "./table";
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
 
-function severityOf(report: LintReport, result: LintResult): LintSeverity {
-  const rule = report.rules[result.ruleId];
-  if (rule === undefined) {
-    throw new InternalError(`Lint report from Metabase is missing rule ${result.ruleId}.`);
-  }
-  return rule.severity;
-}
-
-function entityOf(report: LintReport, entityId: string): LintEntity {
-  const entity = report.entities[entityId];
-  if (entity === undefined) {
-    throw new InternalError(`Lint report from Metabase is missing entity ${entityId}.`);
-  }
-  return entity;
-}
-
-function groupByEntity(results: readonly LintResult[]): Map<string, LintResult[]> {
-  const groups = new Map<string, LintResult[]>();
-  for (const result of results) {
-    const group = groups.get(result.entity_id);
-    if (group === undefined) {
-      groups.set(result.entity_id, [result]);
-    } else {
-      group.push(result);
-    }
-  }
-  return groups;
-}
-
 function entityLines(report: LintReport, entityId: string, results: LintResult[]): string[] {
-  const entity = entityOf(report, entityId);
-  const hasError = results.some((result) => severityOf(report, result) === "error");
+  const entity = reportEntity(report, entityId);
+  const hasError = results.some((result) => resultSeverity(report, result) === "error");
   const severity: LintSeverity = hasError ? "error" : "warning";
   const head = `${SEVERITY_MARK[severity]} ${entity.type} "${printable(entity.data.name)}" ${entityId}`;
+  return [head, ...lintResultLines(results, RESULT_INDENT)];
+}
+
+export function lintResultLines(results: readonly LintResult[], indent: string): string[] {
   const pairs = results.map((result) => [result.ruleId, printable(result.message)] as const);
-  return [head, ...keyValueLines(pairs).map((line) => `${RESULT_INDENT}${line}`)];
+  return keyValueLines(pairs).map((line) => `${indent}${line}`);
 }
 
 function footer(report: LintReport): string {
@@ -65,7 +35,7 @@ function footer(report: LintReport): string {
 }
 
 export function lintReportLines(report: LintReport): string[] {
-  const groups = [...groupByEntity(report.results)];
+  const groups = [...resultsByEntity(report.results)];
   const entities = groups.flatMap(([entityId, results]) => entityLines(report, entityId, results));
   return [...entities, footer(report)];
 }
