@@ -575,6 +575,7 @@ export {
   DataTestColumn,
   DataTestCompact,
   DataTestDefinition,
+  DataTestDefinitionWithNow,
   DataTestExpectation,
   DataTestExpectationResult,
   DataTestInput,
@@ -587,7 +588,9 @@ export {
   DataTestRunResult,
   DataTestRunStatus,
   DataTestTable,
+  dataTestTakesNow,
   DataTestType,
+  DataTestWithNowCompact,
   isDataTestCode,
   testedEntityId,
 } from "./domain/data-test";
