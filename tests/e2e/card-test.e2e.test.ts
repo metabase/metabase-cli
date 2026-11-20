@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   DATA_TEST_SCHEMAS,
   DataTestCompact,
+  type DataTestRunCompact,
   DataTestRunDetailCompact,
   DataTestRunResult,
 } from "@metabase/client/domain/data-test";
@@ -218,7 +219,7 @@ describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
     expect(cliErrorMessage(run.stderr)).toBe(`card-test:${testId} failed`);
   });
 
-  it("gets a failed run by its run id, with the result it stored", async () => {
+  async function runFailingCardTest(): Promise<DataTestRunCompact> {
     const cardId = await createCard();
     const test = await mb(
       ["test", "create", "--id", `card:${cardId}`, "--json"],
@@ -236,6 +237,11 @@ describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
     expect(runs.exitCode, runs.stderr).toBe(0);
     const [listed] = parseJson(runs.stdout, TestRunListEnvelope).data;
     assert(listed !== undefined, "expected the run in the test's history");
+    return listed;
+  }
+
+  it("gets a failed run by its run id, with the result it stored", async () => {
+    const listed = await runFailingCardTest();
 
     const got = await mb(["test", "get-run", String(listed.id), "--json"]);
 
@@ -266,6 +272,24 @@ describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
       "Order totals",
       "public.orders",
     ]);
+  });
+
+  it("summarizes the stored result of a run under --format text", async () => {
+    const listed = await runFailingCardTest();
+
+    const got = await mb(["test", "get-run", String(listed.id), "--format", "text"]);
+
+    expect(got.exitCode, got.stderr).toBe(0);
+    expect(got.stdout).toBe(
+      [
+        `ID       ${listed.id}`,
+        `Test     ${listed.test_id}`,
+        "Status   failed",
+        `Started  ${listed.start_time}`,
+        `Ended    ${listed.end_time}`,
+        `Result   card-test:${listed.test_id} failed — failed: no rows.`,
+      ].join("\n"),
+    );
   });
 
   it("exits 2 on a run id that is not an integer", async () => {

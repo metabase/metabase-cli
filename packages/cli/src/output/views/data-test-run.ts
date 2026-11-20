@@ -5,6 +5,7 @@ import {
   DataTestRunDetailCompact,
 } from "@metabase/client/domain/data-test";
 
+import { storedResultSummary } from "../test-run";
 import type { ResourceView } from "../view";
 
 export const dataTestRunView: ResourceView<DataTestRun> = {
@@ -26,6 +27,6 @@ export const dataTestRunDetailView: ResourceView<DataTestRunDetail> = {
     { key: "status", label: "Status" },
     { key: "start_time", label: "Started" },
     { key: "end_time", label: "Ended" },
-    { key: "can_read_result", label: "Result readable" },
+    { key: "result", label: "Result", value: storedResultSummary },
   ],
 };

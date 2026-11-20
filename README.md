@@ -541,7 +541,7 @@ mb test runs --type transform --statuses failed,error --limit 50
 
 ### `mb test get-run <run-id>`
 
-Gets one run by its run id, with the `result` it stored: what each expectation found, or the `message` and `error-code` of the refusal that ended the run. `result` is null when the run stored none, and for a caller who may not run the test; `can_read_result` tells the two apart.
+Gets one run by its run id, with the `result` it stored: what each expectation found, or the `message` and `error-code` of the refusal that ended the run. `result` is null when the run stored none, and for a caller who may not read it: only the user who started the run and an admin may. `can_read_result` tells the two apart. As text, the run is printed with a one-line summary of the result.
 
 ```sh
 mb test get-run 31

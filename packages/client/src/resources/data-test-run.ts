@@ -53,7 +53,7 @@ export function dataTestRunResource(transport: Transport) {
 
   /**
    * Get one run with the result it stored: what each expectation found, or the refusal that ended
-   * the run. Only a caller who may run the test receives the result.
+   * the run. Only the user who started the run and an admin receive the result.
    */
   async function get(id: number, options: RequestOptions = {}): Promise<DataTestRunDetail> {
     return transport.requestParsed(DataTestRunDetail, `${DATA_TEST_RUN_PATH}/${id}`, {
