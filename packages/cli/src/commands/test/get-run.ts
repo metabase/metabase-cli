@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Get a data test run by run id, with the result it stored",
   },
   details:
-    "The positional id is a RUN id (from `test runs`), not a test. `result` holds what each expectation found, or the `message` and `error-code` of the refusal that ended the run. It is null when the run stored none, and for a caller who may not run the test, which `can_read_result` tells apart.",
+    "The positional id is a RUN id (from `test runs`), not a test. `result` holds what each expectation found, or the `message` and `error-code` of the refusal that ended the run. It is null when the run stored none, and for a caller who may not read it (only the user who started the run and an admin may), which `can_read_result` tells apart.",
   requires: ["dataTestRun.get"],
   args: {
     ...outputFlags,

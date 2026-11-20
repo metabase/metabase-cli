@@ -306,7 +306,6 @@ export const DataTestRunCompact = DataTestRun.pick({
 }).strip();
 export type DataTestRunCompact = z.infer<typeof DataTestRunCompact>;
 
-// What the server tells the caller of a run it refused after it started.
 export const DataTestRunRefusal = z
   .object({
     message: z.string(),
@@ -315,8 +314,6 @@ export const DataTestRunRefusal = z
   .loose();
 export type DataTestRunRefusal = z.infer<typeof DataTestRunRefusal>;
 
-// One run with the result it stored. `result` is null for a caller who may not run the test, and for
-// a run that stored none: one in flight, one that timed out, or one whose result the server cleared.
 export const DataTestRunDetail = DataTestRun.extend({
   result: z.union([DataTestRunResult, DataTestRunRefusal]).nullable(),
   can_read_result: z.boolean(),

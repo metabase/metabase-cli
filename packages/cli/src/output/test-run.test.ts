@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type {
   DataTestExpectationResult,
+  DataTestRunDetail,
   DataTestRunResult,
 } from "@metabase/client/domain/data-test";
 
-import { testRunSummary } from "./test-run";
+import { storedResultSummary, testRunSummary } from "./test-run";
 
 const PASSED: DataTestExpectationResult = {
   name: "no negatives",
@@ -57,5 +58,49 @@ describe("testRunSummary", () => {
 
   it("gives the bare status of a run that did not pass with no expectation to name", () => {
     expect(testRunSummary("card-test:34", run("error", []))).toBe("card-test:34 error.");
+  });
+});
+
+function stored(fields: Pick<DataTestRunDetail, "result" | "can_read_result">): DataTestRunDetail {
+  return {
+    id: 31,
+    test_type: "card",
+    test_id: 34,
+    status: "failed",
+    start_time: "2026-01-01T00:00:00Z",
+    end_time: "2026-01-01T00:00:01Z",
+    initiated_by: 1,
+    last_heartbeat: "2026-01-01T00:00:00Z",
+    ...fields,
+  };
+}
+
+describe("storedResultSummary", () => {
+  it("summarizes the stored result under the test the run belongs to", () => {
+    const result = run("failed", [PASSED, FAILED]);
+
+    expect(storedResultSummary(stored({ result, can_read_result: true }))).toBe(
+      "card-test:34 failed — failed: totals add up.",
+    );
+  });
+
+  it("gives the message and error code of a run that was refused", () => {
+    const result = { message: "The card has no query.", "error-code": "card-has-no-query" };
+
+    expect(storedResultSummary(stored({ result, can_read_result: true }))).toBe(
+      "The card has no query. (card-has-no-query)",
+    );
+  });
+
+  it("says a readable run stored no result", () => {
+    expect(storedResultSummary(stored({ result: null, can_read_result: true }))).toBe(
+      "none stored",
+    );
+  });
+
+  it("says the result is withheld from a caller who may not read it", () => {
+    expect(storedResultSummary(stored({ result: null, can_read_result: false }))).toBe(
+      "withheld from this user",
+    );
   });
 });
