@@ -25,7 +25,11 @@ export function lintResource(transport: Transport) {
     const deadlineMs = options.timeoutMs ?? REPORT_DEADLINE_MS;
     const deadlineAt = Date.now() + deadlineMs;
     while (true) {
-      const attemptMs = Math.min(ATTEMPT_TIMEOUT_MS, deadlineAt - Date.now());
+      const remainingMs = deadlineAt - Date.now();
+      const attemptMs = Math.min(ATTEMPT_TIMEOUT_MS, remainingMs);
+      // A timer can fire a little before the clock reaches it, so an attempt that held the whole
+      // remaining budget ends the report by itself, rather than leaving a sliver to resend into.
+      const lastAttempt = attemptMs === remainingMs;
       try {
         return await transport.requestParsed(LintReport, "/api/ee/lint", {
           ...options,
@@ -41,7 +45,7 @@ export function lintResource(transport: Transport) {
         if (!(error instanceof TimeoutError)) {
           throw error;
         }
-        if (Date.now() >= deadlineAt) {
+        if (lastAttempt || Date.now() >= deadlineAt) {
           throw new TimeoutError(`Request timed out after ${deadlineMs}ms`, {
             ...error.developerDetail,
             timeoutMs: deadlineMs,
