@@ -19,9 +19,7 @@ import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, serverHas } from "./server-gate";
-
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+import { requireServer, serverHas, DOWNGRADE_REMEDY } from "./server-gate";
 
 function sensitivityRefusal(serverTag: string): string {
   return `This operation requires Metabase v64+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`;

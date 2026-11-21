@@ -10,13 +10,11 @@ import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { serverHas } from "./server-gate";
+import { serverHas, DOWNGRADE_REMEDY } from "./server-gate";
 
 const DOC_NAME = "e2e_document";
 const RENAMED = "e2e_document_renamed";
 const COPY_NAME = "e2e_document_copy";
-
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 function copyRefusal(serverTag: string | undefined): string {
   return `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;

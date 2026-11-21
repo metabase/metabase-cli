@@ -1,8 +1,8 @@
 import { defineCommandGroup } from "../group";
 
 export default defineCommandGroup({
-  name: "transform-test",
-  description: "Manage transform tests — fixtures and expectations run against temp tables",
+  name: "test",
+  description: "Manage data tests — fixtures and expectations run against an entity's output",
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

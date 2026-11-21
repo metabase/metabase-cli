@@ -67,12 +67,12 @@ import {
   TransformSourceTableEntryInput,
   TransformTagCreateInput,
   TransformTagUpdateInput,
-  TransformTestCreateInput,
-  TransformTestInput,
-  TransformTestUpdateInput,
+  DataTestInput,
   TransformUpdateInput,
   UserCreateInput,
   WorkspaceCreateInput,
+  TestSuiteCreateInput,
+  TestSuiteUpdateInput,
 } from "./index";
 import type {
   ClientCredentials,
@@ -164,12 +164,12 @@ const writePath = {
   ),
   TransformTagCreateInput: pin<TransformTagCreateInput>(TransformTagCreateInput),
   TransformTagUpdateInput: pin<TransformTagUpdateInput>(TransformTagUpdateInput),
-  TransformTestCreateInput: pin<TransformTestCreateInput>(TransformTestCreateInput),
-  TransformTestInput: pin<TransformTestInput>(TransformTestInput),
-  TransformTestUpdateInput: pin<TransformTestUpdateInput>(TransformTestUpdateInput),
+  DataTestInput: pin<DataTestInput>(DataTestInput),
   TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
   UserCreateInput: pin<UserCreateInput>(UserCreateInput),
   WorkspaceCreateInput: pin<WorkspaceCreateInput>(WorkspaceCreateInput),
+  TestSuiteCreateInput: pin<TestSuiteCreateInput>(TestSuiteCreateInput),
+  TestSuiteUpdateInput: pin<TestSuiteUpdateInput>(TestSuiteUpdateInput),
 };
 
 const INPUT_SUFFIX = "Input";

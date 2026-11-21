@@ -1,6 +1,9 @@
 import { z } from "zod";
 
+import { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError } from "@metabase/client/errors";
+
+import { TEST_KINDS } from "./data-test";
 
 export const CI_EVENT_VERSION = 2;
 
@@ -25,17 +28,19 @@ export type CiWarning = z.infer<typeof CiWarning>;
 const StageStop = z.object({ code: z.string(), message: z.string() });
 export type StageStop = z.infer<typeof StageStop>;
 
-const CheckedTransform = z.object({ entity_id: z.string(), name: z.string() });
-export type CheckedTransform = z.infer<typeof CheckedTransform>;
+const CheckedEntity = z.object({ type: DataTestType, entity_id: z.string(), name: z.string() });
+export type CheckedEntity = z.infer<typeof CheckedEntity>;
 
 const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.enum(["yaml", "cycles", "broken-refs", "transform-test"]),
+  kind: z.enum(["yaml", "cycles", "broken-refs", ...TEST_KINDS]),
   id: z.string(),
   label: z.string(),
 });
+
+export type CheckKind = z.infer<typeof Check>["kind"];
 
 const EventEnvelope = z.object({
   seq: z.number().int().nonnegative(),
@@ -47,7 +52,7 @@ const JobStart = EventEnvelope.extend({
   type: z.literal("job.start"),
   v: z.literal(CI_EVENT_VERSION),
   snapshot: Snapshot,
-  checked: z.array(CheckedTransform),
+  checked: z.array(CheckedEntity),
   warnings: z.array(CiWarning),
 });
 

@@ -8,9 +8,13 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requirementFailure, requireServer, requireServerWithout } from "./server-gate";
+import {
+  requirementFailure,
+  requireServer,
+  requireServerWithout,
+  DOWNGRADE_REMEDY,
+} from "./server-gate";
 
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 const FORBIDDEN_MESSAGE = "You don't have permissions to do that.";
 const MODEL_NAME = "Lint model";
 const DEPENDENT_NAME = "Lint dependent";

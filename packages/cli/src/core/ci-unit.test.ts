@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  type TransformTestExpectationResult,
-  type TransformTestRunResult,
-  TransformTestRefusalCode,
-} from "@metabase/client/domain/transform-test";
+  type DataTestExpectationResult,
+  type DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 import {
   AbortError,
   InternalError,
@@ -16,17 +15,17 @@ import { HttpError } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import {
-  type TransformRequest,
+  type TestRequest,
   lookupStop,
   refusalVerdict,
   testRefusal,
   testVerdict,
-  transformFailure,
+  testFailure,
 } from "./ci-unit";
 
-type ExpectationStatus = TransformTestExpectationResult["status"];
+type ExpectationStatus = DataTestExpectationResult["status"];
 
-const EXPECTATION_BY_STATUS: Record<ExpectationStatus, TransformTestExpectationResult> = {
+const EXPECTATION_BY_STATUS: Record<ExpectationStatus, DataTestExpectationResult> = {
   passed: { name: "e", type: "empty", status: "passed" },
   failed: { name: "e", type: "empty", status: "failed", columns: [], sample: [], truncated: 0 },
   error: {
@@ -38,7 +37,7 @@ const EXPECTATION_BY_STATUS: Record<ExpectationStatus, TransformTestExpectationR
 };
 
 // Server-shaped: Metabase answers `passed` exactly when every expectation passed.
-function runResult(statuses: readonly ExpectationStatus[]): TransformTestRunResult {
+function runResult(statuses: readonly ExpectationStatus[]): DataTestRunResult {
   return {
     status: statuses.every((status) => status === "passed") ? "passed" : "failed",
     tables: {},
@@ -113,7 +112,15 @@ describe("testRefusal", () => {
     });
   });
 
-  it("does not treat an error code outside transform-test.* as a refusal", () => {
+  it("reads the refusal of any test type by its prefix", () => {
+    expect(testRefusal(refusalError("card-test.missing-inputs"))).toEqual({
+      error_code: "card-test.missing-inputs",
+      message: "m",
+      tables: null,
+    });
+  });
+
+  it("does not treat an error code outside a test type's prefix as a refusal", () => {
     expect(testRefusal(refusalError("some-other.code"))).toBeNull();
   });
 
@@ -137,17 +144,25 @@ describe("refusalVerdict", () => {
     ).toEqual(["failed", "failed"]);
   });
 
+  it("fails a test of any type whose query will not run, under the code Metabase 66 names it by", () => {
+    expect(
+      [
+        "transform-test.query-failed",
+        "card-test.query-failed",
+        "segment-test.unparseable-source",
+      ].map((code) => refusalVerdict({ error_code: code, message: "m", tables: null })),
+    ).toEqual(["failed", "failed", "failed"]);
+  });
+
   it("refuses the test for every other refusal code, known to the client or not", () => {
-    const changeFailures = new Set([
-      "transform-test.transform-failed",
-      "transform-test.unparseable-source",
-    ]);
     const others = [
-      ...TransformTestRefusalCode.options.filter((code) => !changeFailures.has(code)),
+      "transform-test.missing-inputs",
+      "card-test.unused-inputs",
+      "segment-test.archived-subject",
+      "action-test.invalid-parameters",
       "transform-test.some-new-refusal",
     ];
 
-    expect(others).toHaveLength(TransformTestRefusalCode.options.length - changeFailures.size + 1);
     expect(
       others.map((code) => refusalVerdict({ error_code: code, message: "m", tables: null })),
     ).toEqual(others.map(() => "refused"));
@@ -179,11 +194,11 @@ const UNLICENSED = new CapabilityError({
   serverVersion: "v1.65.0",
 });
 
-describe("transformFailure, a failure that ends the stage", () => {
+describe("testFailure, a failure that ends the stage", () => {
   it("stops the stage when Metabase rejects the credential, whichever request it rejected", () => {
-    const requests: TransformRequest[] = ["read", "list", "run"];
+    const requests: TestRequest[] = ["list", "run"];
 
-    expect(requests.map((request) => transformFailure(UNAUTHORIZED, request))).toEqual(
+    expect(requests.map((request) => testFailure(UNAUTHORIZED, request))).toEqual(
       requests.map(() => ({
         kind: "stop",
         stop: { code: "ci.unauthorized", message: UNAUTHORIZED.message },
@@ -192,26 +207,24 @@ describe("transformFailure, a failure that ends the stage", () => {
   });
 
   it("stops the stage when the server has no transform testing", () => {
-    expect(transformFailure(UNLICENSED, "list")).toEqual({
+    expect(testFailure(UNLICENSED, "list")).toEqual({
       kind: "stop",
       stop: { code: "ci.unsupported-server", message: UNLICENSED.message },
     });
   });
 
-  it("stops the stage when Metabase cannot be reached before any test runs", () => {
-    expect([transformFailure(UNREACHABLE, "read"), transformFailure(UNREACHABLE, "list")]).toEqual(
-      [0, 1].map(() => ({
-        kind: "stop",
-        stop: { code: "ci.network-error", message: UNREACHABLE.message },
-      })),
-    );
+  it("stops the stage when Metabase cannot be reached while listing tests", () => {
+    expect(testFailure(UNREACHABLE, "list")).toEqual({
+      kind: "stop",
+      stop: { code: "ci.network-error", message: UNREACHABLE.message },
+    });
   });
 });
 
-describe("transformFailure, a failure that costs one check", () => {
+describe("testFailure, a failure that costs one check", () => {
   it("reports a run that failed without a refusal as an error, with the HTTP status", () => {
     expect(
-      [SERVER_ERROR, RATE_LIMITED, NOT_FOUND].map((error) => transformFailure(error, "run")),
+      [SERVER_ERROR, RATE_LIMITED, NOT_FOUND].map((error) => testFailure(error, "run")),
     ).toEqual(
       [SERVER_ERROR, RATE_LIMITED, NOT_FOUND].map((error) => ({
         kind: "check",
@@ -222,7 +235,7 @@ describe("transformFailure, a failure that costs one check", () => {
   });
 
   it("reports a run that timed out or lost its connection as an error with no status", () => {
-    expect([transformFailure(TIMED_OUT, "run"), transformFailure(UNREACHABLE, "run")]).toEqual([
+    expect([testFailure(TIMED_OUT, "run"), testFailure(UNREACHABLE, "run")]).toEqual([
       {
         kind: "check",
         verdict: "error",
@@ -243,27 +256,15 @@ describe("transformFailure, a failure that costs one check", () => {
       value: null,
     });
 
-    expect(transformFailure(unreadable, "run")).toEqual({
+    expect(testFailure(unreadable, "run")).toEqual({
       kind: "check",
       verdict: "error",
       detail: { error_code: "ci.unreadable-answer", status: null, message: unreadable.message },
     });
   });
 
-  it("refuses a transform the CI identity cannot read, naming the permission", () => {
-    expect(transformFailure(FORBIDDEN, "read")).toEqual({
-      kind: "check",
-      verdict: "refused",
-      detail: {
-        error_code: "ci.transform-unreadable",
-        message:
-          "the CI identity cannot read this transform, so Metabase hides its tests: reading it needs query permission on every table it reads",
-      },
-    });
-  });
-
   it("refuses a test the CI identity may not run, naming the permission", () => {
-    expect(transformFailure(FORBIDDEN, "run")).toEqual({
+    expect(testFailure(FORBIDDEN, "run")).toEqual({
       kind: "check",
       verdict: "refused",
       detail: {
@@ -274,20 +275,8 @@ describe("transformFailure, a failure that costs one check", () => {
     });
   });
 
-  it("refuses a transform that left the instance after its lookup", () => {
-    expect(transformFailure(NOT_FOUND, "read")).toEqual({
-      kind: "check",
-      verdict: "refused",
-      detail: {
-        error_code: "ci.transform-not-on-instance",
-        message:
-          "the transform is in the branch but not on the Metabase instance; load the branch into it first",
-      },
-    });
-  });
-
   it("gives a run refusal its verdict", () => {
-    expect(transformFailure(refusalError("transform-test.transform-failed"), "run")).toEqual({
+    expect(testFailure(refusalError("transform-test.transform-failed"), "run")).toEqual({
       kind: "check",
       verdict: "failed",
       detail: { error_code: "transform-test.transform-failed", message: "m", tables: null },
@@ -295,7 +284,7 @@ describe("transformFailure, a failure that costs one check", () => {
   });
 
   it("reads a transform-test code only on a run", () => {
-    expect(transformFailure(refusalError("transform-test.unused-inputs"), "list")).toEqual({
+    expect(testFailure(refusalError("transform-test.unused-inputs"), "list")).toEqual({
       kind: "check",
       verdict: "error",
       detail: { error_code: "ci.http-error", status: 400, message: "m" },
@@ -303,14 +292,14 @@ describe("transformFailure, a failure that costs one check", () => {
   });
 });
 
-describe("transformFailure and lookupStop leave a bug or an interrupt to the caller", () => {
+describe("testFailure and lookupStop leave a bug or an interrupt to the caller", () => {
   it("answers null for an interrupt or a bug", () => {
     const interrupt = new AbortError();
     const bug = new InternalError("no lookup");
 
     expect([
-      transformFailure(interrupt, "run"),
-      transformFailure(bug, "run"),
+      testFailure(interrupt, "run"),
+      testFailure(bug, "run"),
       lookupStop(interrupt),
       lookupStop(bug),
     ]).toEqual([null, null, null, null]);

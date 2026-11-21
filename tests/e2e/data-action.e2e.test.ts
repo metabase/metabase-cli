@@ -16,9 +16,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, requireServerWithout } from "./server-gate";
-
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+import { requireServer, requireServerWithout, DOWNGRADE_REMEDY } from "./server-gate";
 
 const ACTION_NAME = "Touch customer";
 

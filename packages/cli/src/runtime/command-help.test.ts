@@ -391,12 +391,19 @@ const ALL_COMMANDS = [
   "transform-tag create",
   "transform-tag update",
   "transform-tag delete",
-  "transform-test list",
-  "transform-test get",
-  "transform-test create",
-  "transform-test update",
-  "transform-test delete",
-  "transform-test run",
+  "test list",
+  "test get",
+  "test create",
+  "test update",
+  "test delete",
+  "test run",
+  "test-suite list",
+  "test-suite get",
+  "test-suite create",
+  "test-suite update",
+  "test-suite delete",
+  "test-suite run",
+  "test-suite runs",
   "ci run",
   "lint",
   "setting list",
@@ -491,8 +498,10 @@ const BODY_COMMANDS = [
   "transform-job update",
   "transform-tag create",
   "transform-tag update",
-  "transform-test create",
-  "transform-test update",
+  "test create",
+  "test update",
+  "test-suite create",
+  "test-suite update",
   "setup",
   "snippet create",
   "snippet update",
@@ -651,20 +660,20 @@ describe("command tree contract", () => {
     });
   });
 
-  it("declares each transform-test command's single client method", async () => {
+  it("declares each test command's single client method", async () => {
     const entries = await allEntries();
     const requires = Object.fromEntries(
       entries
-        .filter((entry) => entry.command.startsWith("transform-test "))
+        .filter((entry) => entry.command.startsWith("test "))
         .map((entry) => [entry.command, entry.requires]),
     );
     expect(requires).toEqual({
-      "transform-test list": requiresOf("transformTest.list"),
-      "transform-test get": requiresOf("transformTest.get"),
-      "transform-test create": requiresOf("transformTest.create"),
-      "transform-test update": requiresOf("transformTest.update"),
-      "transform-test delete": requiresOf("transformTest.delete"),
-      "transform-test run": requiresOf("transformTest.run"),
+      "test list": requiresOf("dataTest.list"),
+      "test get": requiresOf("dataTest.get"),
+      "test create": requiresOf("dataTest.create"),
+      "test update": requiresOf("dataTest.update"),
+      "test delete": requiresOf("dataTest.delete"),
+      "test run": requiresOf("dataTest.run"),
     });
   });
 

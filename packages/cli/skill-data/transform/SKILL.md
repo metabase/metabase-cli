@@ -1,6 +1,6 @@
 ---
 name: transform
-description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, transform tests (fixtures and expectations run against temp tables), plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "test a transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …` / `mb transform-test …`.
+description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, transform tests (fixtures and expectations run against temp tables), plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "test a transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …` / `mb test … --id transform:…`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [transforms]
 ---
@@ -186,12 +186,12 @@ After a batch of transform changes, run `mb lint --profile <n> --json` (admin). 
 A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. The transform and the expectations read only the run's temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, and only on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server; otherwise `create`/`update`/`run` refuse with `transform-test.unsupported-transform` / `unsupported-driver` (422).
 
 ```bash
-mb transform-test list --transform-id <id> --profile <n> --json  # --transform-id is optional
-mb transform-test get <id> --full --profile <n> --json        # --full for inputs/expectations
-mb transform-test create --file ./.scratch/test.json --profile <n> --json
-mb transform-test update <id> --file ./.scratch/patch.json --profile <n> --json
-mb transform-test delete <id> --yes --profile <n>
-mb transform-test run <id> --profile <n> --json               # exits 1 unless it passes
+mb test list --id transform:<id> --profile <n> --json                  # --type transform for every transform's
+mb test get --id transform-test:<id> --full --profile <n> --json      # --full for inputs/expectations
+mb test create --id transform:<id> --file ./.scratch/test.json --profile <n> --json
+mb test update --id transform-test:<id> --file ./.scratch/patch.json --profile <n> --json
+mb test delete --id transform-test:<id> --yes --profile <n>
+mb test run --id transform-test:<id> --profile <n> --json            # exits 1 unless it passes
 ```
 
 **`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
@@ -204,7 +204,6 @@ mb transform-test run <id> --profile <n> --json               # exits 1 unless i
 
 ```json
 {
-  "transform_id": 1,
   "name": "adults only",
   "inputs": [
     {
@@ -237,7 +236,7 @@ mb transform-test run <id> --profile <n> --json               # exits 1 unless i
 }
 ```
 
-Create and update bodies are closed at every level (the top level is checked before sending; a stray nested key is a 400) — strip `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` body before sending it back.
+Create and update bodies are closed at every level (the top level is checked before sending; a stray nested key is a 400) — strip `id`, `entity_id`, `creator_id`, `created_at`, `updated_at`, `last_run` and `transform_id` from a `get --full` body before sending it back; `--id` names the transform instead.
 
 <!-- /requires -->
 

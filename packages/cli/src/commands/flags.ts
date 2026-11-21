@@ -1,5 +1,7 @@
 import type { StringArgDef } from "citty";
 
+import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
+
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
 
@@ -81,5 +83,14 @@ export const connectionFlags = {
     description:
       "Skip the client's version and license checks made before a request, and let the server answer",
     alias: "skip-preflight",
+  },
+} as const;
+
+// For a command whose one request is the whole of its work, such as a synchronous run.
+export const requestTimeoutFlag = {
+  timeout: {
+    type: "string",
+    description: "Request timeout in ms",
+    default: String(DEFAULT_TIMEOUT_MS),
   },
 } as const;
