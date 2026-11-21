@@ -314,7 +314,7 @@ function stoodInFor(member: TestSuiteRunEntry): string[] {
   if (member.result === undefined) {
     throw new Error(`member ${member.test_entity_id} has no result`);
   }
-  return Object.values(member.result.tables);
+  return Object.values(member.result.tables).toSorted();
 }
 
 function runRecord(id: number, status: Verdict, initiatedBy: number): object {
@@ -420,7 +420,10 @@ describe.skipIf(testSuitesSkipReason !== null)(
         status: "failed",
         members: [memberOutcome(passing, 0, PASSED), memberOutcome(failing, 1, MISCOUNTED)],
       });
-      expect(failedRun.members.map(stoodInFor)).toEqual([["public.orders"], ["public.orders"]]);
+      expect(failedRun.members.map(stoodInFor)).toEqual([
+        ["Orders by status", "public.orders"],
+        ["Orders by status", "public.orders"],
+      ]);
 
       const trimmed = await updateSuite(suite.id, {
         members: [{ test_type: "card", test_id: passing.id }],
@@ -483,7 +486,7 @@ describe.skipIf(testSuitesSkipReason !== null)(
       );
       const kept = await mb(["test", "get", "--id", `card-test:${test.id}`, "--json", "--full"]);
       expect(kept.exitCode, kept.stderr).toBe(0);
-      expect(parseJson(kept.stdout, DATA_TEST_SCHEMAS.card)).toEqual(test);
+      expect(parseJson(kept.stdout, DATA_TEST_SCHEMAS.card)).toEqual({ ...test, last_run: null });
     });
   },
 );
