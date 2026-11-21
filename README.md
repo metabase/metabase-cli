@@ -384,46 +384,48 @@ mb transform-tag delete 5 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
-## Transform tests
+## Data tests
 
-CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer with the `transforms-testing` premium feature. A transform test pins a transform's behaviour: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends. The transform and the expectations read only those temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
+CRUD and run on `/api/ee/<type>-test`, with the `transforms-testing` premium feature. A data test pins an entity's behaviour: every table the entity reads is replaced by an `input` fixture, the entity runs against those fixtures, and each `expectation` checks its output. The test types are `transform` (Metabase v65 or newer), `card` and `segment` (v66 or newer), and `measure` and `action`, which no released server serves yet. `--id` names the entity under test as `<type>:<id>` (`transform:12`) for `list` and `create`, and the test itself as `<type>-test:<id>` (`transform-test:34`) for `get`, `update`, `delete` and `run`. A `format: "sql"` input runs verbatim against the entity's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
 
 An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse accepts as a `CAST` target) and `rows`; every row carries exactly the declared columns.
 
-An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table, or a column qualified by a table name rather than an alias, is refused with `transform-test.unremapped-reference`.
+An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the entity's output and its declared input tables; any other table, or a column qualified by a table name rather than an alias, is refused with `<type>-test.unremapped-reference`.
 
-Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+Create and update bodies are closed at every level and never carry the entity's id, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at`, `last_run` and the entity's id before it can be sent back:
 
 ```sh
-mb transform-test get 1 --full --json \
-  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
-  | mb transform-test update 1
+mb test get --id transform-test:34 --full --json \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run, .transform_id)' \
+  | mb test update --id transform-test:34
 ```
 
-### `mb transform-test list`
+### `mb test list`
 
 ```sh
-mb transform-test list --json
-mb transform-test list --transform-id 1
+mb test list --json
+mb test list --id transform:12
+mb test list --type card
 ```
 
-| Flag                  | Description                          |
-| --------------------- | ------------------------------------ |
-| `--transform-id <id>` | Only the tests of this transform id. |
+| Flag                 | Description                                            |
+| -------------------- | ------------------------------------------------------ |
+| `--id <ref>`         | Only the tests of this entity, such as `transform:12`. |
+| `--type <type>`      | Only tests of this type.                               |
+| `--include-archived` | Also the tests of archived cards and segments.         |
 
-### `mb transform-test get <id>`
+### `mb test get --id <ref>`
 
-The compact form carries the id, transform, name and description; `--full` adds the `inputs` and `expectations` themselves.
+The compact form carries the id, name and description; `--full` adds the `inputs` and `expectations` themselves.
 
 ```sh
-mb transform-test get 1
-mb transform-test get 1 --full --json
+mb test get --id transform-test:34 --full --json
 ```
 
-### `mb transform-test create`
+### `mb test create --id <ref>`
 
 ```sh
-mb transform-test create --file transform-test.json
+mb test create --id transform:12 --file test.json
 ```
 
 | Flag            | Description             |
@@ -431,37 +433,42 @@ mb transform-test create --file transform-test.json
 | `--body <json>` | Inline JSON body.       |
 | `--file <path>` | Path to JSON body file. |
 
-### `mb transform-test update <id>`
+### `mb test update --id <ref>`
 
 Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored rather than merging into it.
 
 ```sh
-mb transform-test update 1 --body '{"name":"renamed"}'
+mb test update --id transform-test:34 --body '{"name":"renamed"}'
 ```
 
-### `mb transform-test delete <id>`
+### `mb test delete --id <ref>`
 
 ```sh
-mb transform-test delete 1 --yes
+mb test delete --id transform-test:34 --yes
 ```
 
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+### `mb test run --id <ref>`
 
-### `mb transform-test run <id>`
-
-Runs the transform against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI.
+Runs the entity against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI.
 
 ```sh
-mb transform-test run 1
-mb transform-test run 1 --json
-mb transform-test run 1 --timeout 300000
+mb test run --id transform-test:34 --json
+mb test run --id transform-test:34 --timeout 300000
 ```
 
 | Flag             | Description                                                                |
 | ---------------- | -------------------------------------------------------------------------- |
 | `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+
+### `mb test-suite`
+
+A test suite names transform, card and segment tests to run together (Metabase v66 or newer). Every command but `list` and `create` takes the suite's numeric `--id`; a body carries a `name` and its `members`, each `{ "test_type": "card", "test_id": 34 }` or `{ "test_type": "card", "test_entity_id": "…" }`. `run` exits 1 unless the suite run's `status` is `passed`; `runs` lists its past runs.
+
+```sh
+mb test-suite create --file suite.json
+mb test-suite run --id 5 --json
+mb test-suite runs --id 5
+```
 
 ## Lint
 

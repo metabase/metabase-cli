@@ -241,6 +241,7 @@ export const METHOD_REQUIREMENTS = {
   "testSuite.update": ["testSuites"],
   "testSuite.delete": ["testSuites"],
   "testSuite.run": ["testSuites"],
+  "testSuite.runPages": ["testSuites"],
   "upload.createFromCsv": [],
   "user.current": [],
   "user.list": [],

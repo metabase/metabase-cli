@@ -72,6 +72,8 @@ function resolveServerProfile(): ServerProfile {
 // `lane` names the describe or test the caller guards with the returned reason. It is what the
 // closing report prints, so an unmet gate says which coverage went dark rather than adding one
 // more anonymous digit to vitest's skip count.
+export const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+
 export function requireServer(lane: string, required: readonly FeatureName[]): string | null {
   const failure = requirementFailure(required);
   if (failure === null) {

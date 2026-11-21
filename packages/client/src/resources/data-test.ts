@@ -6,7 +6,7 @@ import {
   type DataTestDefinition,
   type DataTestPatch,
   DataTestRunResult,
-  type DataTestType,
+  DataTestType,
 } from "../domain/data-test";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
@@ -25,30 +25,40 @@ const TYPE_REQUIREMENTS: Record<DataTestType, readonly ParameterRequirement[]> =
 };
 
 function typeRequirements(type: DataTestType): readonly ParameterRequirement[] {
-  return TYPE_REQUIREMENTS[type];
+  return TYPE_REQUIREMENTS[DataTestType.parse(type)];
 }
 
+// A caller outside TypeScript can pass any string as the type, and it lands in the path.
 function testsPath(type: DataTestType): string {
-  return `/api/ee/${type}-test`;
+  return `/api/ee/${DataTestType.parse(type)}-test`;
 }
 
-// Every path parameter here is a numeric id or a test type, so no fragment needs
+export interface DataTestListParams {
+  "include-archived"?: boolean;
+}
+
+// Every path parameter here is a numeric id or a parsed test type, so no fragment needs
 // `encodeURIComponent`.
 export function dataTestResource(transport: Transport) {
   const { explain } = explainer(transport, "dataTest");
 
   /**
-   * List the tests of one type the caller can read, optionally only those of one entity. The server
-   * answers a bare array, so the count is the array's own length and the server reports none.
+   * List the tests of one type the caller can read, optionally only those of one entity. The tests of
+   * an archived card or segment are left out unless `include-archived` is true; the other types take
+   * no such filter and refuse it with a 400. The server reports no total.
    */
   async function list<T extends DataTestType>(
     type: T,
     entityId: number | null = null,
+    params: DataTestListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<DataTest<T>>> {
     const data = await transport.requestParsed(z.array(SCHEMAS[type]), testsPath(type), {
       ...options,
-      query: { [`${type}-id`]: entityId === null ? undefined : entityId },
+      query: {
+        [`${type}-id`]: entityId === null ? undefined : entityId,
+        "include-archived": params["include-archived"],
+      },
     });
     return { data, total: null };
   }

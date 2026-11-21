@@ -22,7 +22,7 @@ export function testVerdict(result: DataTestRunResult): TestVerdict {
   return result.status;
 }
 
-export interface TestRefusal {
+interface TestRefusal {
   error_code: string;
   message: string;
   tables: string[] | null;
@@ -85,6 +85,12 @@ export const NO_TESTS_ON_INSTANCE: CiRefusal = {
     "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
 };
 
+export const TYPE_NOT_ON_INSTANCE: CiRefusal = {
+  error_code: "ci.test-type-unsupported",
+  message:
+    "the branch has a test for this entity, but the Metabase instance cannot run tests of its type, so no test ran",
+};
+
 const ENTITY_UNREADABLE: CiRefusal = {
   error_code: "ci.entity-unreadable",
   message:
@@ -98,7 +104,7 @@ const TEST_RUN_FORBIDDEN: CiRefusal = {
 };
 
 // A request that failed without a refusal. `status` is the HTTP status, or null when no answer came.
-export interface RequestFailure {
+interface RequestFailure {
   error_code: string;
   status: number | null;
   message: string;

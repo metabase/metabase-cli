@@ -341,6 +341,47 @@ describe("ciEventLines", () => {
     ]);
   });
 
+  it("prints a test's expectation names, errors, cells and refusal escaped, so server text cannot forge a line", () => {
+    const run: DataTestRunResult = {
+      status: "failed",
+      tables: {},
+      expectations: [
+        {
+          name: `rules${FORGED_LINE}`,
+          type: "empty",
+          status: "failed",
+          columns: [{ name: "note", database_type: "text" }],
+          sample: [{ note: FORGED_LINE }],
+          truncated: 0,
+        },
+        {
+          name: "unique",
+          type: "empty",
+          status: "error",
+          error: { type: "query-error", message: `boom${FORGED_LINE}` },
+        },
+      ],
+    };
+    const refused: CiEventBody = {
+      type: "check.result",
+      stage: "unit",
+      check: { kind: "card-test", id: "2", label: "orders: order rules" },
+      verdict: "refused",
+      warnings: [],
+      ms: 0,
+      detail: { error_code: "card-test.missing-inputs", message: `no input${FORGED_LINE}` },
+    };
+
+    expect(render([unitCheck("failed", run), refused], DEFAULT_MAX_ROWS)).toEqual([
+      "  ✗ orders: order rules  250ms",
+      `      ✗ rules${ESCAPED_FORGED_LINE}  1 row, expected none`,
+      `          row  note=${ESCAPED_FORGED_LINE}`,
+      `      ! unique  error: boom${ESCAPED_FORGED_LINE}`,
+      "  ! orders: order rules  refused",
+      `      no input${ESCAPED_FORGED_LINE}`,
+    ]);
+  });
+
   it("shows --max-rows row lines and counts the rest, including the rows Metabase left out", () => {
     const extra = Array.from({ length: 12 }, (_, index) => ({ id: index, status: "paid" }));
 

@@ -216,7 +216,7 @@ export const DATA_TEST_SCHEMAS = {
   segment: z.object({ ...dataTestFields, segment_id: entityId }).loose(),
   measure: z.object({ ...dataTestFields, measure_id: entityId }).loose(),
   action: z
-    .object({ ...dataTestFields, action_id: entityId, parameters: DataTestParameters })
+    .object({ ...dataTestFields, action_id: entityId, parameters: DataTestParameters.nullable() })
     .loose(),
 } satisfies Record<DataTestType, z.ZodType>;
 
@@ -262,7 +262,9 @@ const DATA_TEST_DEFINITIONS = {
   card: DataTestDefinition,
   segment: DataTestDefinition,
   measure: DataTestDefinition,
-  action: DataTestDefinition.extend({ parameters: DataTestParameters }).strict(),
+  action: DataTestDefinition.extend({
+    parameters: DataTestParameters.nullable().optional(),
+  }).strict(),
 } satisfies Record<DataTestType, z.ZodType>;
 
 type DataTestDefinitions = { [T in DataTestType]: z.infer<(typeof DATA_TEST_DEFINITIONS)[T]> };

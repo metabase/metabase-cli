@@ -15,8 +15,6 @@ const UNSENT_INPUTS: Readonly<Record<string, string>> = {
   TipTapNodeInput: "nested in the document inputs, unchecked",
   TransformSourceTableEntryInput: "nested in the transform and Python test-run inputs, unchecked",
   DataTestInput: "nested in the data test inputs, unchecked",
-  TransformTestCreateInput: "the CLI's transform-test create sends it through dataTest.create",
-  TransformTestUpdateInput: "the CLI's transform-test update sends it through dataTest.update",
 };
 
 interface UncheckedBody extends UnpairedBody {

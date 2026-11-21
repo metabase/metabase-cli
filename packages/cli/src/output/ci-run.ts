@@ -46,7 +46,13 @@ const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
 // A failed expectation shows at most `maxRows` row lines; the rest are in the --results file.
+// Every line carries text that a branch or the server wrote, and a CI runner reads a log line as a
+// command (`::error`), so each is escaped whole.
 export function ciEventLines(event: CiEvent, maxRows: number): string[] {
+  return eventLines(event, maxRows).map(printable);
+}
+
+function eventLines(event: CiEvent, maxRows: number): string[] {
   switch (event.type) {
     case "job.start": {
       const checked = pluralize(event.checked.length, "entity", "entities");
@@ -98,16 +104,14 @@ function jobExitCode(state: JobState): number {
 }
 
 function checkLines(event: CheckResult, maxRows: number): string[] {
-  const parts = [`${CHECK_INDENT}${VERDICT_MARK[event.verdict]} ${printable(event.check.label)}`];
+  const parts = [`${CHECK_INDENT}${VERDICT_MARK[event.verdict]} ${event.check.label}`];
   if (event.verdict === "error" || event.verdict === "refused") {
     parts.push(event.verdict);
   }
   if (event.ms > 0) {
     parts.push(duration(event.ms));
   }
-  const warnings = event.warnings.map(
-    (warning) => `${DETAIL_INDENT}⚠ ${printable(warning.message)}`,
-  );
+  const warnings = event.warnings.map((warning) => `${DETAIL_INDENT}⚠ ${warning.message}`);
   const detail = event.verdict === "passed" ? [] : detailLines(event, maxRows);
   return [parts.join("  "), ...warnings, ...detail];
 }

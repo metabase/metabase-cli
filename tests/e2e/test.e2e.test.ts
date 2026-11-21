@@ -7,9 +7,7 @@ import { TestListEnvelope } from "../../packages/cli/src/commands/test/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { requirementFailure, requireServerWithout } from "./server-gate";
-
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+import { requirementFailure, requireServerWithout, DOWNGRADE_REMEDY } from "./server-gate";
 
 let bootstrap: E2EBootstrap;
 const tempDirs: string[] = [];
@@ -65,7 +63,7 @@ describe("test e2e, refs", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      "--id card:12 is not a segment; drop --type or --id",
+      "--id card:12 is not of type segment; drop --type or --id",
     );
   });
 });

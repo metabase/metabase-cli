@@ -269,9 +269,8 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const full = await mb(["transform", "get", String(transformId), "--full", "--json"]);
     const entityId = parseJson(full.stdout, WithEntityId).entity_id;
     const test = await mb(
-      ["transform-test", "create", "--json"],
+      ["test", "create", "--id", `transform:${transformId}`, "--json"],
       JSON.stringify({
-        transform_id: transformId,
         name: "total adds tax",
         inputs: [
           {

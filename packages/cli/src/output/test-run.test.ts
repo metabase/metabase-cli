@@ -47,6 +47,14 @@ describe("testRunSummary", () => {
     );
   });
 
+  it("prints expectation names escaped, so a name cannot forge a line", () => {
+    const forged = { ...FAILED, name: "totals\nPASSED" };
+
+    expect(testRunSummary("card-test:34", run("failed", [forged]))).toBe(
+      "card-test:34 failed — failed: totals\\u000aPASSED.",
+    );
+  });
+
   it("gives the bare status of a run that did not pass with no expectation to name", () => {
     expect(testRunSummary("card-test:34", run("error", []))).toBe("card-test:34 error.");
   });

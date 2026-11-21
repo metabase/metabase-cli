@@ -17,6 +17,7 @@ import {
   ENTITY_NOT_ON_INSTANCE,
   testFailure,
   testVerdict,
+  TYPE_NOT_ON_INSTANCE,
 } from "../../core/ci-unit";
 import { isUnsupportedTestType, testKind } from "../../core/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
@@ -32,7 +33,7 @@ interface MissingEntity {
   kind: "not-found" | "invalid-entity-id";
 }
 
-export type EntityLookup = FoundEntity | MissingEntity;
+type EntityLookup = FoundEntity | MissingEntity;
 
 export interface UnitStagePort {
   // Keyed by `entityKey`.
@@ -67,6 +68,10 @@ function entityLookup(entityId: string, entry: EidTranslateEntry | undefined): E
   return { kind };
 }
 
+function entityCheck(entity: CheckedEntity): TestCheck {
+  return { kind: testKind(entity.type), id: entity.entity_id, label: entity.name };
+}
+
 function checkedKey(entity: CheckedEntity): string {
   return entityKey({ type: entity.type, entityId: entity.entity_id });
 }
@@ -97,30 +102,17 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
       return lookups;
     },
     readEntity: async (type, id) => {
-      switch (type) {
-        case "transform": {
-          await client.transform.get(id, options);
-          return;
-        }
-        case "card": {
-          await client.card.get(id, options);
-          return;
-        }
-        case "segment": {
-          await client.segment.get(id, options);
-          return;
-        }
-        case "measure": {
-          await client.measure.get(id, options);
-          return;
-        }
-        case "action": {
-          await client.dataAction.get(id, options);
-          return;
-        }
-      }
+      const readers: Record<DataTestType, (entityId: number) => Promise<unknown>> = {
+        transform: (entityId) => client.transform.get(entityId, options),
+        card: (entityId) => client.card.get(entityId, options),
+        segment: (entityId) => client.segment.get(entityId, options),
+        measure: (entityId) => client.measure.get(entityId, options),
+        action: (entityId) => client.dataAction.get(entityId, options),
+      };
+      await readers[type](id);
     },
-    listTests: async (type, entityId) => (await client.dataTest.list(type, entityId, options)).data,
+    listTests: async (type, entityId) =>
+      (await client.dataTest.list(type, entityId, {}, options)).data,
     runTest: (type, testId) => client.dataTest.run(type, testId, runOptions),
     nowMs: () => performance.now(),
   };
@@ -182,7 +174,7 @@ const MISSING_ENTITY_DETAIL: Record<MissingEntity["kind"], CiRefusal> = {
 
 // The test list leaves out the tests the CI identity cannot read, so the entity is read first: once
 // that succeeds, an empty list means the entity has no tests, rather than hidden ones. A type the
-// server cannot test holds none, which an entity the branch tests cannot accept.
+// server cannot test holds none, which refuses an entity the branch tests and costs no other.
 async function checkEntity(
   entity: CheckedEntity,
   id: number,
@@ -190,7 +182,7 @@ async function checkEntity(
   port: UnitStagePort,
   report: Report,
 ): Promise<StageStop | null> {
-  const check = { kind: testKind(entity.type), id: entity.entity_id, label: entity.name };
+  const check = entityCheck(entity);
   const started = port.nowMs();
   try {
     await port.readEntity(entity.type, id);
@@ -201,7 +193,11 @@ async function checkEntity(
   try {
     tests = await port.listTests(entity.type, id);
   } catch (error) {
-    if (isUnsupportedTestType(error) && !testedInBranch) {
+    if (isUnsupportedTestType(entity.type, error)) {
+      if (testedInBranch) {
+        const ms = port.nowMs() - started;
+        report({ check, verdict: "refused", warnings: [], ms, detail: TYPE_NOT_ON_INSTANCE });
+      }
       return null;
     }
     return reportFailure(error, "list", check, port.nowMs() - started, report);
@@ -238,7 +234,7 @@ async function runChanged(
     }
     if (lookup.kind !== "found") {
       report({
-        check: { kind: testKind(entity.type), id: entity.entity_id, label: entity.name },
+        check: entityCheck(entity),
         verdict: "refused",
         warnings: [],
         ms: 0,

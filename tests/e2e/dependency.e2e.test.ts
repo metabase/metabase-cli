@@ -20,11 +20,10 @@ import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { requirementFailure, requireServer, serverHas } from "./server-gate";
+import { requirementFailure, requireServer, serverHas, DOWNGRADE_REMEDY } from "./server-gate";
 
 const DEPENDENCIES_REFUSAL =
   "This operation requires the 'dependencies' premium feature (not enabled on this server).";
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 const DEPENDENCY_TYPES =
   "table, card, snippet, transform, dashboard, document, sandbox, segment, measure, action";
 const CARD_TYPES = "question, model, metric";

@@ -564,15 +564,6 @@ export {
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
 export {
-  isTransformTestCode,
-  isTransformTestRefusalCode,
-  TransformTest,
-  TransformTestCompact,
-  TransformTestCreateInput,
-  TransformTestRefusalCode,
-  TransformTestUpdateInput,
-} from "./domain/transform-test";
-export {
   DATA_TEST_SCHEMAS,
   DATA_TEST_TYPES,
   type DataTest,
@@ -599,8 +590,12 @@ export {
   TestSuiteCompact,
   TestSuiteCreateInput,
   TestSuiteMember,
+  TestSuiteMemberStatus,
   TestSuiteRun,
   TestSuiteRunEntry,
+  TestSuiteRunRecord,
+  TestSuiteRunRecordCompact,
+  TestSuiteTestType,
   TestSuiteUpdateInput,
 } from "./domain/test-suite";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";

@@ -4,7 +4,6 @@ import {
   type DataTestExpectationResult,
   type DataTestRunResult,
 } from "@metabase/client/domain/data-test";
-import { TransformTestRefusalCode } from "@metabase/client/domain/transform-test";
 import {
   AbortError,
   InternalError,
@@ -156,16 +155,14 @@ describe("refusalVerdict", () => {
   });
 
   it("refuses the test for every other refusal code, known to the client or not", () => {
-    const changeFailures = new Set([
-      "transform-test.transform-failed",
-      "transform-test.unparseable-source",
-    ]);
     const others = [
-      ...TransformTestRefusalCode.options.filter((code) => !changeFailures.has(code)),
+      "transform-test.missing-inputs",
+      "card-test.unused-inputs",
+      "segment-test.archived-subject",
+      "action-test.invalid-parameters",
       "transform-test.some-new-refusal",
     ];
 
-    expect(others).toHaveLength(TransformTestRefusalCode.options.length - changeFailures.size + 1);
     expect(
       others.map((code) => refusalVerdict({ error_code: code, message: "m", tables: null })),
     ).toEqual(others.map(() => "refused"));

@@ -2,7 +2,7 @@ import { DataTestRunResult } from "@metabase/client/domain/data-test";
 
 import { renderVerdict, type VerdictFailure } from "../../output/render";
 import { testRunSummary } from "../../output/test-run";
-import { transformTestRunResultView } from "../../output/views/transform-test";
+import { testRunResultView } from "../../output/views/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag, requestTimeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -39,7 +39,7 @@ export default defineMetabaseCommand({
     renderVerdict(
       {
         item: result,
-        view: transformTestRunResultView,
+        view: testRunResultView,
         summaryText: summary,
         failure: result.status === "passed" ? null : failure,
       },

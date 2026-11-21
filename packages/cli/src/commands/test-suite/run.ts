@@ -1,8 +1,7 @@
 import { TestSuiteRun } from "@metabase/client/domain/test-suite";
 
-import { pluralize } from "../../output/pluralize";
 import { renderVerdict, type VerdictFailure } from "../../output/render";
-import { testSuiteRunView } from "../../output/views/test-suite";
+import { testSuiteRunSummary, testSuiteRunView } from "../../output/views/test-suite";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag, requestTimeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -11,7 +10,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Run every test in a test suite" },
   details:
-    "Runs each test in the suite as its own test runs, in one synchronous request, so --timeout bounds the whole of it. --json reports each test's result. A suite with a test that does not pass exits 1, also when its report is over --max-bytes and is not printed.",
+    "Runs the suite's members in order, each as its own test run would run it, in one synchronous request that the server records as a run, so --timeout bounds the whole of it. Each member reports `passed`, `failed`, `refused` (its own run would have been refused), `error`, `forbidden` (you may not run it) or `missing` (the test, or what it tests, is gone). The suite passes only when every member passed; a suite that failed, or that the server timed out, exits 1, also when its report is over --max-bytes and is not printed. --json reports each member's outcome, with its test's result when it passed or failed.",
   requires: ["testSuite.run"],
   args: {
     ...outputFlags,
@@ -27,20 +26,16 @@ export default defineMetabaseCommand({
     const timeoutMs = parseId(args.timeout, "timeout");
     const client = await getClient();
     const result = await client.testSuite.run(id, { timeoutMs, signal: interruptSignal });
-    const tests = pluralize(result.results.length, "test", "tests");
-    const failed = result.results.filter((entry) => entry.result.status !== "passed").length;
-    const summary =
-      failed === 0
-        ? `Test suite ${id} passed ${tests}.`
-        : `Test suite ${id} did not pass ${failed} of ${tests}.`;
+    const label = `Test suite ${id}`;
+    const summary = testSuiteRunSummary(label, result);
     const failure: VerdictFailure = (oversize) =>
-      oversize === null ? `test suite ${id} failed` : `${summary} Its ${oversize}`;
+      oversize === null ? `test suite ${id} ${result.status}` : `${summary}\nIts ${oversize}`;
     renderVerdict(
       {
         item: result,
         view: testSuiteRunView,
         summaryText: summary,
-        failure: failed === 0 ? null : failure,
+        failure: result.status === "passed" ? null : failure,
       },
       ctx,
     );

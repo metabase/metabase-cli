@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { DataTestCompact, DataTestType } from "@metabase/client/domain/data-test";
+import {
+  DataTestCompact,
+  DataTestRunResult,
+  DataTestType,
+} from "@metabase/client/domain/data-test";
 
 import type { AnyTest } from "../../core/data-test";
 import type { ResourceView } from "../view";
@@ -35,4 +39,9 @@ export const testListItemView: ResourceView<TestListItem> = {
     { key: "name", label: "Name" },
     { key: "description", label: "Description" },
   ],
+};
+
+export const testRunResultView: ResourceView<DataTestRunResult> = {
+  compactPick: DataTestRunResult,
+  tableColumns: [{ key: "status", label: "Status" }],
 };

@@ -9,7 +9,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a test suite by id" },
-  details: "Pass --full for the `tests` the suite runs, each named by `test_type` and `test_id`.",
+  details:
+    "Pass --full for the `members` the suite runs, in order. A member's `status` is `readable`, `unreadable` when you cannot read its test, or `missing` when this instance lacks the test; only a `readable` member has `test_id` and `name`.",
   requires: ["testSuite.get"],
   args: {
     ...outputFlags,

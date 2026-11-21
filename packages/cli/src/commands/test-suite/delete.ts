@@ -6,7 +6,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a test suite by id" },
-  details: "The tests the suite names are kept.",
+  details:
+    "Deleting a suite keeps the tests in it. On an instance where remote sync keeps synced content read-only, the server refuses every suite write with a plain 400 that carries no error code.",
   requires: ["testSuite.delete"],
   args: {
     ...outputFlags,

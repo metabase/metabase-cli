@@ -20,7 +20,7 @@ import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { serverHas } from "./server-gate";
+import { serverHas, DOWNGRADE_REMEDY } from "./server-gate";
 
 const CUSTOMERS_COMPACT: TableCompact = {
   id: SEEDED.tables.customers,
@@ -118,8 +118,6 @@ const ORDER_TABLES = SEEDED_WAREHOUSE_TABLES.filter((table) => table.name.starts
 const ALL_BUT_REVIEWS = SEEDED_WAREHOUSE_TABLES.filter((table) => table.name !== "reviews");
 
 const REVIEWS_OWNER_EMAIL = "dba@example.com";
-
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 function bulkEditRefusal(serverTag: string | undefined): string {
   return `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;

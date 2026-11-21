@@ -12,6 +12,7 @@ export const TestSuiteListEnvelope = listEnvelopeSchema(TestSuiteCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List test suites" },
+  details: "Suites are listed in name order.",
   requires: ["testSuite.list"],
   args: {
     ...outputFlags,

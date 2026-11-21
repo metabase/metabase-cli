@@ -8,7 +8,7 @@ import type { DataTestRef } from "../test-ref";
 // A test's body without the id of the entity under test, which `--id` names instead. `parameters`
 // belongs to an action test alone.
 export const TestBody = DataTestDefinition.extend({
-  parameters: DataTestParameters.optional(),
+  parameters: DataTestParameters.nullable().optional(),
 }).strict();
 
 export const TestPatch = TestBody.partial().strict();

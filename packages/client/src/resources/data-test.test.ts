@@ -1,8 +1,13 @@
 import { assert, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { createClient } from "../client";
-import { DATA_TEST_TYPES, type DataTestDefinition } from "../domain/data-test";
-import { isTransformTestCode, isTransformTestRefusalCode } from "../domain/transform-test";
+import {
+  DATA_TEST_TYPES,
+  type DataTestDefinition,
+  type DataTestType,
+  isDataTestCode,
+} from "../domain/data-test";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import {
@@ -125,21 +130,6 @@ function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
 }
 
 describe("data-test resource wire requests for a transform test", () => {
-  it("sends the list request narrowed to one transform", async () => {
-    const { mb, capture } = clientOver([jsonResponse([TEST])]);
-
-    await mb.dataTest.list("transform", 7);
-
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/transform-test?transform-id=7",
-        method: "GET",
-        headers: JSON_READ_HEADERS,
-        body: null,
-      },
-    ]);
-  });
-
   it("reports no total for the listing, which the server does not count", async () => {
     const { mb } = clientOver([jsonResponse([TEST])]);
 
@@ -157,21 +147,6 @@ describe("data-test resource wire requests for a transform test", () => {
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
-      },
-    ]);
-  });
-
-  it("sends the create request with the body it was given", async () => {
-    const { mb, capture } = clientOver([jsonResponse(TEST)]);
-
-    await mb.dataTest.create("transform", 7, DEFINITION);
-
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/transform-test",
-        method: "POST",
-        headers: JSON_REQUEST_HEADERS,
-        body: JSON.stringify({ ...DEFINITION, transform_id: 7 }),
       },
     ]);
   });
@@ -206,21 +181,7 @@ describe("data-test resource wire requests for a transform test", () => {
     ]);
   });
 
-  it("sends the run request as a bodiless POST and answers the run result", async () => {
-    const { mb, capture } = clientOver([jsonResponse(RUN_RESULT)]);
-
-    expect(await mb.dataTest.run("transform", 12)).toEqual(RUN_RESULT);
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/transform-test/12/run",
-        method: "POST",
-        headers: JSON_READ_HEADERS,
-        body: null,
-      },
-    ]);
-  });
-
-  it("surfaces a run refusal as an HttpError whose code is in the refusal vocabulary", async () => {
+  it("surfaces a run refusal as an HttpError carrying a data test code", async () => {
     const { mb } = clientOver([jsonResponse(REFUSAL, UNSUPPORTED_DRIVER_STATUS)]);
 
     const error = await thrownBy(() => mb.dataTest.run("transform", 12));
@@ -229,7 +190,7 @@ describe("data-test resource wire requests for a transform test", () => {
     expect(error.status).toBe(UNSUPPORTED_DRIVER_STATUS);
     expect(error.errorCode).toBe("transform-test.unsupported-driver");
     assert(error.errorCode !== null, "expected an error code");
-    expect(isTransformTestRefusalCode(error.errorCode)).toBe(true);
+    expect(isDataTestCode(error.errorCode)).toBe(true);
     expect(error.userMessage).toBe(
       "The h2 database of this transform does not support transform testing.",
     );
@@ -253,12 +214,15 @@ describe("data-test resource wire requests for a transform test", () => {
     expect(error.tables).toEqual(["PUBLIC.PEOPLE"]);
   });
 
-  it("recognises a transform-test code newer than the refusal vocabulary by its prefix", () => {
+  it("recognises a data test code by its type's prefix, including one newer than this client", () => {
     expect(
-      ["transform-test.some-new-refusal", "transform-test.unused-inputs", "some-other.code"].map(
-        isTransformTestCode,
-      ),
-    ).toEqual([true, true, false]);
+      [
+        "transform-test.some-new-refusal",
+        "card-test.unused-inputs",
+        "dashboard-test.missing-inputs",
+        "some-other.code",
+      ].map(isDataTestCode),
+    ).toEqual([true, true, false, false]);
   });
 
   it("surfaces a create rejection without a code as the field errors it carries", async () => {
@@ -325,8 +289,6 @@ describe("data-test resource wire requests for a transform test", () => {
   });
 });
 
-const LICENSED_65 = SERVER;
-
 describe.each(DATA_TEST_TYPES)("data-test resource wire requests for a %s test", (type) => {
   const { transform_id: _transformId, ...shared } = TEST;
   const stored = { ...shared, [`${type}_id`]: 7, parameters: {} };
@@ -338,6 +300,15 @@ describe.each(DATA_TEST_TYPES)("data-test resource wire requests for a %s test",
     await mb.dataTest.list(type, 7);
 
     expect(capture.calls.map((call) => call.url)).toEqual([`${base}?${type}-id=7`]);
+  });
+
+  it("asks for the tests of archived entities only when told to", async () => {
+    const { mb, capture } = clientOver([jsonResponse([stored]), jsonResponse([stored])]);
+
+    await mb.dataTest.list(type, null, { "include-archived": true });
+    await mb.dataTest.list(type, null);
+
+    expect(capture.calls.map((call) => call.url)).toEqual([`${base}?include-archived=true`, base]);
   });
 
   it("creates a test with the entity's id under the type's own key", async () => {
@@ -361,14 +332,22 @@ describe.each(DATA_TEST_TYPES)("data-test resource wire requests for a %s test",
   });
 });
 
+describe("data-test resource path", () => {
+  it("refuses a type outside the vocabulary before sending, so a caller outside TypeScript cannot reach another path", async () => {
+    const { mb, capture } = clientOver([]);
+    // Stands for a caller with no type checker, whose type is any string.
+    const unchecked = z.custom<DataTestType>(() => true).parse("../../api/card/1#");
+
+    await expect(mb.dataTest.delete(unchecked, 1)).rejects.toThrow(z.ZodError);
+    expect(capture.calls).toEqual([]);
+  });
+});
+
 describe.each(["card", "segment", "measure", "action"] as const)(
   "data-test resource refusals for a %s test",
   (type) => {
     it("explains an unrouted call on a server without the type as the type's own feature", async () => {
-      const { mb, capture } = clientOver(
-        [routeMissingResponse(), probeResponse(LICENSED_65)],
-        LICENSED_65,
-      );
+      const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(SERVER)], SERVER);
 
       const error = await thrownBy(() => mb.dataTest.get(type, 12));
 

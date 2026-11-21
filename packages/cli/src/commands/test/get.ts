@@ -8,7 +8,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a data test" },
-  details: "Pass --full for the `inputs` and `expectations`, the fields `update` takes.",
+  details:
+    "Pass --full for every field. To send it back to `update`, keep `name`, `description`, `inputs`, `expectations`, and `now` or `parameters` where the type has them; `update` refuses the rest.",
   requires: ["dataTest.get"],
   args: {
     ...outputFlags,

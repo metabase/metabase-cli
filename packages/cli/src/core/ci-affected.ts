@@ -308,7 +308,7 @@ export const TESTED_MODEL_PATTERN = [...TEST_MODELS.keys()]
   .map((model) => model.slice(0, -TEST_MODEL_SUFFIX.length))
   .join("|");
 
-export interface HeadEntities {
+interface HeadEntities {
   byKey: Map<string, EntityFile>;
   // The entities a test with expectations at head covers, by `entityKey`.
   tested: Set<string>;

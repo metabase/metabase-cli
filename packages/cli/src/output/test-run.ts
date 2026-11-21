@@ -4,11 +4,14 @@ import type {
 } from "@metabase/client/domain/data-test";
 
 import { pluralize } from "./pluralize";
+import { printable } from "./table";
 
 type ExpectationStatus = DataTestExpectationResult["status"];
 
 function namesOf(expectations: DataTestExpectationResult[], status: ExpectationStatus): string[] {
-  return expectations.filter((expectation) => expectation.status === status).map((e) => e.name);
+  return expectations
+    .filter((expectation) => expectation.status === status)
+    .map((e) => printable(e.name));
 }
 
 export function testRunSummary(label: string, result: DataTestRunResult): string {

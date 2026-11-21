@@ -72,16 +72,32 @@ const REFUSED = httpError(
   JSON.stringify({ message: "no input for orders", "error-code": "card-test.missing-inputs" }),
 );
 
-function unsupported(type: DataTestType): CapabilityError {
-  return new CapabilityError({
-    reason: "version-too-old",
-    detail: `no ${type} tests`,
-    feature: "cardTests",
-    since: 66,
-    tokenFeature: "transforms-testing",
-    serverVersion: "v1.65.0",
-  });
-}
+const TOO_OLD_FOR_CARD_TESTS = new CapabilityError({
+  reason: "version-too-old",
+  detail: "no card tests",
+  feature: "cardTests",
+  since: 66,
+  tokenFeature: "transforms-testing",
+  serverVersion: "v1.65.0",
+});
+
+const UNLICENSED_FOR_CARD_TESTS = new CapabilityError({
+  reason: "missing-token-feature",
+  detail: "no transforms-testing",
+  feature: "cardTests",
+  since: 66,
+  tokenFeature: "transforms-testing",
+  serverVersion: "v1.66.0",
+});
+
+const TOO_OLD_FOR_DATA_TESTS = new CapabilityError({
+  reason: "version-too-old",
+  detail: "no data tests",
+  feature: "transformTests",
+  since: 65,
+  tokenFeature: "transforms-testing",
+  serverVersion: "v1.64.0",
+});
 
 const TESTS: Readonly<Record<DataTestType, readonly InstanceTest[]>> = {
   transform: [
@@ -238,7 +254,7 @@ describe("unitStage", () => {
   });
 
   it.each([
-    ["the client explains as unsupported", unsupported("card")],
+    ["the server is too old for", TOO_OLD_FOR_CARD_TESTS],
     ["the server has no route for yet", ROUTE_MISSING],
   ])("reports nothing for an entity whose type %s", async (_case, error) => {
     const result = await runStage(
@@ -258,19 +274,74 @@ describe("unitStage", () => {
     ]);
   });
 
-  it("stops when the server cannot test an entity the branch tests", async () => {
+  it("refuses an entity the branch tests whose type the server cannot test, and runs the others", async () => {
     const result = await runStage(
       port({
         listTests: async (type) => {
-          throw unsupported(type);
+          if (type === "card") {
+            throw TOO_OLD_FOR_CARD_TESTS;
+          }
+          return TESTS[type];
         },
       }),
-      changed([ORDERS_TRANSFORM], [`transform:${ORDERS_TRANSFORM.entity_id}`]),
+      changed([ORDERS_TRANSFORM, REVENUE_CARD], [`card:${REVENUE_CARD.entity_id}`]),
+    );
+
+    expect(result).toEqual({
+      checks: [
+        testCheck("transform-test", "4", "orders: first", "passed", PASSED_RUN),
+        testCheck("transform-test", "9", "orders: second", "passed", PASSED_RUN),
+        testCheck("card-test", REVENUE_CARD.entity_id, "revenue", "refused", {
+          error_code: "ci.test-type-unsupported",
+          message:
+            "the branch has a test for this entity, but the Metabase instance cannot run tests of its type, so no test ran",
+        }),
+      ],
+      stopped: null,
+    });
+  });
+
+  it.each([
+    ["is unlicensed", REVENUE_CARD, UNLICENSED_FOR_CARD_TESTS],
+    ["has no data tests", ORDERS_TRANSFORM, TOO_OLD_FOR_DATA_TESTS],
+  ])("stops when the server %s", async (_case, entity, error) => {
+    const result = await runStage(
+      port({
+        listTests: async () => {
+          throw error;
+        },
+      }),
+      changed([entity]),
     );
 
     expect(result).toEqual({
       checks: [],
-      stopped: { code: "ci.unsupported-server", message: unsupported("transform").message },
+      stopped: { code: "ci.unsupported-server", message: error.message },
+    });
+  });
+
+  it("errors a transform whose test list has no route, rather than passing it", async () => {
+    const result = await runStage(
+      port({
+        listTests: async (type) => {
+          if (type === "transform") {
+            throw ROUTE_MISSING;
+          }
+          return TESTS[type];
+        },
+      }),
+      changed([ORDERS_TRANSFORM]),
+    );
+
+    expect(result).toEqual({
+      checks: [
+        testCheck("transform-test", ORDERS_TRANSFORM.entity_id, "orders", "error", {
+          error_code: "ci.http-error",
+          status: 404,
+          message: ROUTE_MISSING.message,
+        }),
+      ],
+      stopped: null,
     });
   });
 
