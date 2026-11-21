@@ -72,6 +72,9 @@ export const FEATURE_RULES = {
   // Archived upstream entities in `graph`, and dropped tables and archived sources in `unreferenced`
   // and `breaking`; older servers leave them out.
   dependencyKeepsArchivedSources: { since: 63, tokenFeature: "dependencies" },
+  // Query analysis traces an error back to a transform. A 60 server does so from 60.10.1 on, a 61
+  // one from 61.5, a 62 one from 62.2, and a 63 one always does.
+  dependencyTransformErrorSources: { since: 63, tokenFeature: "dependencies" },
   measureDependencyGraph: { since: 59 },
   actionDependencyGraph: { since: 65 },
   tableListAccessFilters: { since: 59 },
@@ -92,6 +95,8 @@ export const FEATURE_RULES = {
   metricDimensionListing: { since: 64 },
   oauthFullAccessScopeUnadvertised: { since: 64 },
   exportCsvByteOrderMark: { since: 63 },
+  // A timeline or timeline event takes the icons mail_at, info, note and event.
+  timelineExtendedIcons: { since: 64 },
   workspaces: { since: 66, tokenFeature: "workspaces" },
   taskRuns: { since: 59 },
   // A 60 server reports both switches from 60.1 on, and a 61 one always does.
