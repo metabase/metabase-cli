@@ -3,6 +3,10 @@ import { defineCommandGroup } from "../group";
 export default defineCommandGroup({
   name: "table",
   description: "Manage Metabase tables",
+  details: [
+    "## Publish status shows on the table",
+    "[`mb table get`](#mb-table-get) and [`mb table list`](#mb-table-list) carry a table's `is_published`, and its `collection_id` under `--full`. [`mb library publish`](library.md#mb-library-publish) publishes tables to the Library.",
+  ].join("\n\n"),
   skills: [{ skill: "metadata", purpose: "table and column metadata, semantic types, visibility" }],
   subCommands: {
     list: () => import("./list").then((m) => m.default),

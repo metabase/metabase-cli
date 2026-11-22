@@ -64,6 +64,7 @@ type CommandIndexEntry = z.infer<typeof CommandIndexEntry>;
 
 export const CommandHelpIndex = z.object({
   description: z.string().nullable(),
+  details: z.string().optional(),
   skills: z.array(CommandHelpSkill),
   commands: z.array(CommandIndexEntry),
 });
@@ -105,11 +106,15 @@ export async function buildHelpIndex<T extends ArgsDef = ArgsDef>(
 ): Promise<CommandHelpIndex> {
   const meta = await resolveCitty(cmd.meta);
   const augment = getMetabaseAugment(cmd) ?? EMPTY_AUGMENT;
-  return {
+  const index: CommandHelpIndex = {
     description: readDescription(meta),
     skills: Array.from(augment.skills),
     commands: await walk(cmd, path),
   };
+  if (augment.details !== null) {
+    index.details = augment.details;
+  }
+  return index;
 }
 
 export async function resolveCommandPath(

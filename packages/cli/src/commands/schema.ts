@@ -135,7 +135,16 @@ export default defineMetabaseCommand({
     name: "schema",
     description: "Print the schema of a command's JSON body or output",
   },
-  details: `Prints the JSON Schema of the body another command reads, or with \`--output\` of what it prints. A body field that only some servers take names its feature in its description (\`needs fieldDataSensitivity (${featureAvailability("fieldDataSensitivity")})\`), and the profile's cached probe, read with no request, adds a verdict: \`this server lacks it\`, \`this server reads it differently\`, or \`this server ignores it\`. A field holding an MBQL 5 query names \`mb schema query\`, the schema such queries are checked against.`,
+  details: [
+    `Prints the JSON Schema of the body another command reads, or with \`--output\` of what it prints. A body field that only some servers take names its feature in its description (\`needs fieldDataSensitivity (${featureAvailability("fieldDataSensitivity")})\`), and the profile's cached probe, read with no request, adds a verdict: \`this server lacks it\`, \`this server reads it differently\`, or \`this server ignores it\`. A field holding an MBQL 5 query names \`mb schema query\`, the schema such queries are checked against.`,
+    "The schema is JSON Schema (draft 2020-12), printed as JSON only: `--format text` is refused. A command path resolves aliases as the command line does.",
+    "A defaulted body field isn't `required`. A schema that recurs across commands, such as a dashboard parameter, is declared once under `$defs`. A tuple keeps its arity (`minItems`, and `items: false` when it takes no more), and a rule that JSON Schema can't express is noted in the `description` as `refined: <message>`.",
+    `A note can name the values or the state it applies to: \`needs tableUserValueWithdrawal (${featureAvailability("tableUserValueWithdrawal")}) for null\`, \`needs dashboardSubscriptionFilters (${featureAvailability("dashboardSubscriptionFilters")}) when non-empty\`. A value that some servers take as something else reads \`read differently under tableDataLayerTiers (${featureAvailability("tableDataLayerTiers")}) for "gold", …\`, and a field they drop unread reads \`dropped by tableFromDefinition (${featureAvailability("tableFromDefinition")})\`.`,
+    "Without a cached probe for the server (the profile has none, or `--url` names another server), the notes have no verdict. Either way, the server decides what it accepts. An output schema has no feature notes.",
+    "A field holding a query the CLI checks names the check in its `description`: ``MBQL 5 query checked against `mb schema query` ``.",
+    "`mb schema query` prints the MBQL 5 query schema as a bundle, `{ schema, defs }`, whose `$ref`s point into `defs` by file name (`id.yaml`, `ref.yaml`, …). To validate with a validator such as Ajv, call `addSchema(defs[name], name)` for each file, then `compile(schema)`. [`mb query`](query.md) describes the check.",
+    "`0` on success. `2` when the path names no command, or a group (the error lists its commands); when the command has no body schema, or with `--output` no output schema; or with `--format text`.",
+  ].join("\n\n"),
   requires: null,
   args: {
     ...formatFlags,

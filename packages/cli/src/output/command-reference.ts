@@ -4,7 +4,6 @@ import { ConfigError } from "@metabase/client/errors";
 import {
   featureAvailability,
   featureImplies,
-  isFeatureName,
   type FeatureName,
 } from "@metabase/client/version/features";
 
@@ -29,9 +28,6 @@ import {
   type CommandHelpEntry,
   type CommandHelpSkill,
 } from "../runtime/command-help";
-
-// The folder, relative to the repository root, of the hand-written notes each page may open with.
-export const NOTES_DIR = "docs/command-notes";
 
 // The name the Metabase docs site serves as a folder's own page.
 const INDEX_PAGE = "index.md";
@@ -58,9 +54,8 @@ const SENTENCE_END = /[.!?]$/;
 const ANCHOR_DROPPED = /[^a-z0-9 _-]/g;
 const ANCHOR_SPACE = / /g;
 const LIST_FORMAT = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
-// A note names a feature as `{feature:<name>}` rather than writing its version, so the servers it
-// reads stay those `FEATURE_RULES` gives.
-const FEATURE_TOKEN = /\{feature:([^}]*)\}/g;
+// A command's details sit inside its own `##` section, so only a group's may head a section.
+const MARKDOWN_HEADING = /^#{1,6} /m;
 // The Metabase docs site runs Liquid over a page's body, which reads `{{snippet: Name}}` as a
 // variable and prints nothing in its place; a raw tag keeps the text as written.
 const LIQUID_OUTPUT = /\{\{[\s\S]*?\}\}/g;
@@ -75,8 +70,6 @@ interface ReferenceInput {
   root: CommandDef;
   // Largest first: a set is credited to a command only when no earlier set claimed its flags.
   sharedFlagSets: readonly SharedFlagSet[];
-  // Notes by page file name (`transform.md`).
-  notes: ReadonlyMap<string, string>;
 }
 
 interface ReferenceCommand {
@@ -102,6 +95,7 @@ interface GroupPage {
   file: string;
   name: string;
   description: string | null;
+  details: string | null;
   aliases: readonly string[];
   defaultCommand: string | null;
   skills: readonly CommandHelpSkill[];
@@ -125,22 +119,18 @@ interface CommandNode {
 
 /**
  * The command reference as Markdown pages by file name: an index, then one page per top-level
- * command of `root`, each opening with the notes named after it.
+ * command of `root`.
  */
 export async function renderCommandReference(
   input: ReferenceInput,
 ): Promise<ReadonlyMap<string, string>> {
   const pages = await collectPages(input.root, input.sharedFlagSets);
-  assertNotesNamePages(input.notes, pages);
-  const notes = new Map(
-    [...input.notes].map(([file, text]) => [file, expandFeatureTokens(file, text)]),
-  );
   const rootIndex = await buildHelpIndex(input.root, []);
   const files = new Map<string, string>([
     [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input.sharedFlagSets)],
   ]);
   for (const page of pages) {
-    files.set(page.file, renderPage(page, notes.get(page.file) ?? null));
+    files.set(page.file, renderPage(page));
   }
   return files;
 }
@@ -183,6 +173,7 @@ async function collectPage(
     file,
     name: node.key,
     description: index.description,
+    details: index.details ?? null,
     aliases: toAliasArray(meta?.alias),
     defaultCommand: defaultCommand ?? null,
     skills: index.skills,
@@ -214,6 +205,11 @@ async function collectCommand(
   sets: readonly SharedFlagSet[],
 ): Promise<ReferenceCommand> {
   const entry = await buildHelpEntry(command, [...path]);
+  if (entry.details !== undefined && MARKDOWN_HEADING.test(entry.details)) {
+    throw new ConfigError(
+      `${commandName(path)} has a heading in its details, which only a group's details may hold`,
+    );
+  }
   const meta = await resolveCitty(command.meta);
   const argsDef = await resolveCitty(command.args);
   const sharedSets = argsDef === undefined ? [] : takenSharedSets(argsDef, sets);
@@ -297,27 +293,6 @@ async function isGroup(cmd: CommandDef): Promise<boolean> {
   return subCommands !== undefined && Object.keys(subCommands).length > 0;
 }
 
-function assertNotesNamePages(
-  notes: ReadonlyMap<string, string>,
-  pages: readonly ReferencePage[],
-): void {
-  const files = new Set(pages.map((page) => page.file));
-  for (const name of notes.keys()) {
-    if (!files.has(name)) {
-      throw new ConfigError(`${NOTES_DIR}/${name} names no top-level command`);
-    }
-  }
-}
-
-function expandFeatureTokens(file: string, text: string): string {
-  return text.replaceAll(FEATURE_TOKEN, (_token, name: string) => {
-    if (!isFeatureName(name)) {
-      throw new ConfigError(`${NOTES_DIR}/${file} names no feature called ${name}`);
-    }
-    return featureMention(name);
-  });
-}
-
 function renderIndex(
   skills: readonly CommandHelpSkill[],
   pages: readonly ReferencePage[],
@@ -335,14 +310,13 @@ function renderIndex(
   ]);
 }
 
-function renderPage(page: ReferencePage, notes: string | null): string {
+function renderPage(page: ReferencePage): string {
   const title = commandName([page.name]);
   if (page.kind === "leaf") {
     const description = page.command.entry.description;
     return pageText(frontMatter(title, description), [
       `# ${title}`,
       ...descriptionBlocks(description),
-      ...notesBlocks(notes),
       ...commandBlocks(page.command, NOTHING_COMMON),
     ]);
   }
@@ -353,7 +327,7 @@ function renderPage(page: ReferencePage, notes: string | null): string {
     ...defaultCommandBlocks(page.name, page.defaultCommand),
     ...pageCommonBlocks(page.common),
     ...skillsBlocks(page.skills),
-    ...notesBlocks(notes),
+    ...detailsBlocks(page.details),
     ...page.commands.flatMap((command) => [
       `## ${commandName(command.path)}`,
       ...descriptionBlocks(command.entry.description),
@@ -369,7 +343,7 @@ function commandBlocks(command: ReferenceCommand, common: PageCommon): string[] 
   const takesFlags = flags.length > 0 || command.sharedSets.length > 0;
   return [
     ...aliasBlocks(command.path.slice(0, -1), command.aliases),
-    ...(entry.details === undefined ? [] : [escapeText(entry.details)]),
+    ...detailsBlocks(entry.details ?? null),
     usageBlock(command.path, positionals, takesFlags),
     ...(command.ownArgs.length === 0 ? [] : [argTable([...positionals, ...flags])]),
     ...sharedSetBlocks(command.sharedSets, common.sets),
@@ -422,8 +396,8 @@ function pageCommonBlocks(common: PageCommon): string[] {
   return blocks;
 }
 
-function notesBlocks(notes: string | null): string[] {
-  return notes === null ? [] : [notes.trim()];
+function detailsBlocks(details: string | null): string[] {
+  return details === null ? [] : [escapeText(details)];
 }
 
 function skillsBlocks(skills: readonly CommandHelpSkill[]): string[] {

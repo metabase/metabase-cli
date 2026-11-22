@@ -8,6 +8,9 @@ interface CommandGroupDef {
   description: string;
   alias?: string;
   defaultCommand?: string;
+  // Unlike a command's, a group's details may hold `##` headings: its reference page prints them
+  // before the commands, each of which opens a `##` section of its own.
+  details?: string;
   skills?: readonly SkillPointer[];
   subCommands: SubCommandsDef;
 }
@@ -24,7 +27,7 @@ export function defineCommandGroup(def: CommandGroupDef): CommandDef {
   const cmd = defineCommand(commandDef);
   setMetabaseAugment(cmd, {
     examples: [],
-    details: null,
+    details: def.details ?? null,
     skills: def.skills ?? [],
     input: null,
     outputSchema: null,

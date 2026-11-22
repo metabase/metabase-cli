@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
+import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
 import { getMetabaseAugment } from "./command-augment";
@@ -69,6 +70,32 @@ describe("buildHelpIndex", () => {
       description: null,
       skills: [],
       commands: [{ command: "visible", description: "visible" }],
+    });
+  });
+
+  it("carries a group's details", async () => {
+    const leaf = defineMetabaseCommand({
+      meta: { name: "leaf", description: "a leaf" },
+      requires: [],
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const group = defineCommandGroup({
+      name: "group",
+      description: "a group",
+      details: "## Rows\n\nA group holds rows.",
+      subCommands: { leaf: () => Promise.resolve(leaf) },
+    });
+
+    const index = await buildHelpIndex(group, ["group"]);
+
+    expect(index).toEqual({
+      description: "a group",
+      details: "## Rows\n\nA group holds rows.",
+      skills: [],
+      commands: [{ command: "group leaf", description: "a leaf" }],
     });
   });
 

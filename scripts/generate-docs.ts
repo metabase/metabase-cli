@@ -1,27 +1,21 @@
 // Writes the command reference into `packages/cli/dist/reference/`, which it owns: the folder is
-// removed and written again from the command tree and `docs/command-notes/`. The CLI build runs it
-// after each bundle, so the pages ship in the npm package that the Metabase docs site copies them
-// from. The folder is fixed rather than taken as an argument, so the removal can't reach another.
+// removed and written again from the command tree. The CLI build runs it after each bundle, so the
+// pages ship in the npm package that the Metabase docs site copies them from. The folder is fixed
+// rather than taken as an argument, so the removal can't reach another.
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SHARED_FLAG_SETS } from "../packages/cli/src/commands/flags";
 import main from "../packages/cli/src/main";
-import { NOTES_DIR, renderCommandReference } from "../packages/cli/src/output/command-reference";
-import { readMarkdownFiles } from "../packages/cli/src/runtime/markdown-files";
+import { renderCommandReference } from "../packages/cli/src/output/command-reference";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCE_DIR = "packages/cli/dist/reference";
 
 async function generate(): Promise<void> {
   const outDir = join(REPO_ROOT, REFERENCE_DIR);
-  const notes = await readMarkdownFiles(join(REPO_ROOT, NOTES_DIR));
-  const pages = await renderCommandReference({
-    root: main,
-    sharedFlagSets: SHARED_FLAG_SETS,
-    notes,
-  });
+  const pages = await renderCommandReference({ root: main, sharedFlagSets: SHARED_FLAG_SETS });
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   await Promise.all([...pages].map(([name, text]) => writeFile(join(outDir, name), text, "utf8")));

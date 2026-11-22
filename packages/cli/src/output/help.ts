@@ -26,6 +26,10 @@ const TRAILING_WHITESPACE = /[ \t]+$/;
 // (`**Admin** > **Settings**`); a terminal would print the marks. Bold text never starts or ends
 // with a `/`, so a glob's `**/` stays.
 const MARKDOWN_BOLD = /\*\*([^\s*/](?:[^*\n]*[^\s*/])?)\*\*/g;
+// The same pages link commands to each other's sections (`[mb db get](#mb-db-get)`), and a group
+// heads the sections of its details with `##`; a terminal keeps the link's text and the heading's.
+const MARKDOWN_LINK = /\[([^\]\n]+)\]\([^)\s]+\)/g;
+const MARKDOWN_HEADING = /^#{1,6} /gm;
 
 // Citty renders multi-character flag aliases with a single leading dash (`-max-bytes`), a
 // form node's parser does not accept. Collapse a `-foo-bar, --fooBar` pair to the single
@@ -80,7 +84,9 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const body = withDetails(transformed, details)
     .join("\n")
     .trimEnd()
-    .replaceAll(MARKDOWN_BOLD, "$1");
+    .replaceAll(MARKDOWN_BOLD, "$1")
+    .replaceAll(MARKDOWN_LINK, "$1")
+    .replaceAll(MARKDOWN_HEADING, "");
 
   const sections = [body];
   if (examples.length > 0) {

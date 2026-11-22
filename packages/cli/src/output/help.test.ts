@@ -131,6 +131,27 @@ describe("showUsage", () => {
     expect(out).toContain("Open Admin settings\n\nFind it in Admin > Settings > API keys.\n");
   });
 
+  it("prints a group's details with each link as its text and each heading without its marks", async () => {
+    const list = defineMetabaseCommand({
+      meta: { name: "list", description: "List things" },
+      requires: [],
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const group = defineCommandGroup({
+      name: "demo",
+      description: "Manage demos",
+      details: "## Rows\n\nSee [`mb demo list`](#mb-demo-list) and [rows](rows.md#more).",
+      subCommands: { list: () => Promise.resolve(list) },
+    });
+
+    await showUsage(group);
+    const out = chunks.join("");
+    expect(out).toContain("Manage demos\n\nRows\n\nSee `mb demo list` and rows.\n");
+  });
+
   it("keeps the `**` of a glob", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Sync files" },

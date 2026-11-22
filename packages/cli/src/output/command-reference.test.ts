@@ -1,6 +1,3 @@
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { defineCommand } from "citty";
 import type { CommandDef, SubCommandsDef } from "citty";
 import * as fc from "fast-check";
@@ -13,15 +10,7 @@ import { SHARED_FLAG_SETS } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
-import { readMarkdownFiles } from "../runtime/markdown-files";
-import {
-  anchorFor,
-  NOTES_DIR,
-  renderCommandReference,
-  type SharedFlagSet,
-} from "./command-reference";
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+import { anchorFor, renderCommandReference, type SharedFlagSet } from "./command-reference";
 
 const verboseFlags = {
   verbose: { type: "boolean", description: "Say more" },
@@ -53,11 +42,8 @@ const list = defineMetabaseCommand({
   },
 });
 
-function renderFixture(
-  root: CommandDef,
-  notes: ReadonlyMap<string, string> = new Map(),
-): Promise<ReadonlyMap<string, string>> {
-  return renderCommandReference({ root, sharedFlagSets: FIXTURE_SETS, notes });
+function renderFixture(root: CommandDef): Promise<ReadonlyMap<string, string>> {
+  return renderCommandReference({ root, sharedFlagSets: FIXTURE_SETS });
 }
 
 async function renderedPage(root: CommandDef, file: string): Promise<string> {
@@ -218,7 +204,6 @@ describe("renderCommandReference", () => {
     const files = await renderCommandReference({
       root: rootOf({ thing: groupOf({ list: outerList }) }),
       sharedFlagSets: sets,
-      notes: new Map(),
     });
 
     expect(files.get("thing.md")).toContain("Takes the [outer](index.md#outer-flags) flags.\n");
@@ -428,46 +413,40 @@ describe("renderCommandReference", () => {
     expect(files.get("thing.md")).not.toContain("mb thing purge");
   });
 
-  it("opens a page with its notes, after the header and before the commands", async () => {
-    const notes = new Map([["thing.md", "A thing holds rows.\n"]]);
+  it("opens a group page with the group's details, after the header and before the commands", async () => {
+    const thing = defineCommandGroup({
+      name: "thing",
+      description: "Manage things",
+      details: "## Rows\n\nA thing holds rows.",
+      subCommands: { list: () => Promise.resolve(list) },
+    });
 
-    const files = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes);
+    const page = await renderedPage(rootOf({ thing }), "thing.md");
 
-    expect(files.get("thing.md")).toContain(
-      "# mb thing\n\nManage things.\n\nA thing holds rows.\n\n## mb thing list\n",
+    expect(page).toContain(
+      "# mb thing\n\nManage things.\n\n## Rows\n\nA thing holds rows.\n\n## mb thing list\n",
     );
   });
 
-  it("refuses notes that name no top-level command", async () => {
-    const notes = new Map([["gone.md", "Stale notes.\n"]]);
+  it("refuses a command whose details hold a heading", async () => {
+    const headed = defineMetabaseCommand({
+      meta: { name: "list" },
+      details: "## Rows\n\nA thing holds rows.",
+      requires: null,
+      args: {},
+      run() {
+        return;
+      },
+    });
 
-    const error = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes).catch(
+    const error = await renderFixture(rootOf({ thing: groupOf({ list: headed }) })).catch(
       (caught: unknown) => caught,
     );
 
     expect(error).toBeInstanceOf(ConfigError);
-    expect(errorMessage(error)).toBe(`${NOTES_DIR}/gone.md names no top-level command`);
-  });
-
-  it("writes a feature the notes name as the feature and the servers that hold it", async () => {
-    const notes = new Map([["thing.md", "With {feature:transforms}, a thing runs.\n"]]);
-
-    const files = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes);
-
-    expect(files.get("thing.md")).toContain(
-      `With \`transforms\` (${featureAvailability("transforms")}), a thing runs.\n`,
+    expect(errorMessage(error)).toBe(
+      "mb thing list has a heading in its details, which only a group's details may hold",
     );
-  });
-
-  it("refuses notes that name a feature that does not exist", async () => {
-    const notes = new Map([["thing.md", "With {feature:teleport}, a thing runs.\n"]]);
-
-    const error = await renderFixture(rootOf({ thing: groupOf({ list }) }), notes).catch(
-      (caught: unknown) => caught,
-    );
-
-    expect(error).toBeInstanceOf(ConfigError);
-    expect(errorMessage(error)).toBe(`${NOTES_DIR}/thing.md names no feature called teleport`);
   });
 
   it("wraps each `{{…}}` in a page's body in raw tags, and leaves the front matter as it is", async () => {
@@ -583,11 +562,9 @@ function brokenLinks(files: ReadonlyMap<string, string>): string[] {
 
 describe("the command reference", () => {
   it("links only to pages and headings it holds", async () => {
-    const notes = await readMarkdownFiles(join(REPO_ROOT, NOTES_DIR));
     const rendered = await renderCommandReference({
       root: main,
       sharedFlagSets: SHARED_FLAG_SETS,
-      notes,
     });
 
     expect(brokenLinks(rendered)).toEqual([]);
