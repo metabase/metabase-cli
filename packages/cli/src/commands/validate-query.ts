@@ -14,7 +14,7 @@ export const skipValidateFlag = {
   "skip-validate": {
     type: "boolean",
     description:
-      "Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts.",
+      "Send an MBQL 5 query without the check against `mb schema query`. Use only when that schema disagrees with the server.",
   },
 } as const;
 

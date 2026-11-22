@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Create a measure (saved aggregation) from JSON",
   },
   details:
-    "A measure is a saved aggregation on a table, which cards and metrics reuse. The JSON body needs `name`, `table_id` and a `definition` (an MBQL query with exactly one aggregation). An MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.",
+    "A measure is a saved aggregation on a table, which cards and metrics reuse. The JSON body needs `name`, `table_id` and a `definition` (an MBQL query with exactly one aggregation).",
   skills: [{ skill: "mbql", purpose: "the definition aggregation" }],
   requires: ["measure.create"],
   args: {

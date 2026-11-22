@@ -82,13 +82,15 @@ interface ReferenceCommand {
   features: readonly FeatureName[];
 }
 
-// What every command on a page takes and needs, which the page says once.
+// What every command on a page takes and needs, and the skills its header points to, which the
+// page says once.
 interface PageCommon {
   sets: readonly SharedFlagSet[];
   features: readonly FeatureName[];
+  skills: readonly string[];
 }
 
-const NOTHING_COMMON: PageCommon = { sets: [], features: [] };
+const NOTHING_COMMON: PageCommon = { sets: [], features: [], skills: [] };
 
 interface GroupPage {
   kind: "group";
@@ -177,7 +179,7 @@ async function collectPage(
     aliases: toAliasArray(meta?.alias),
     defaultCommand: defaultCommand ?? null,
     skills: index.skills,
-    common: pageCommon(commands, sets),
+    common: pageCommon(commands, sets, index.skills),
     commands,
   };
 }
@@ -252,12 +254,16 @@ function essentialFeatures(features: readonly FeatureName[]): FeatureName[] {
   );
 }
 
+// Terminal help shows a command's skills without its group's, so a command repeats the group's
+// pointers there; the page lists them once, in its header.
 function pageCommon(
   commands: readonly ReferenceCommand[],
   sets: readonly SharedFlagSet[],
+  pageSkills: readonly CommandHelpSkill[],
 ): PageCommon {
+  const skills = pageSkills.map((pointer) => pointer.skill);
   if (commands.length < MIN_COMMANDS_TO_HOIST) {
-    return NOTHING_COMMON;
+    return { ...NOTHING_COMMON, skills };
   }
   const candidates = [...new Set(commands.flatMap((command) => command.features))];
   const features = candidates.filter((feature) =>
@@ -266,6 +272,7 @@ function pageCommon(
   return {
     sets: sets.filter((set) => commands.every((command) => command.sharedSets.includes(set))),
     features: essentialFeatures(features),
+    skills,
   };
 }
 
@@ -348,7 +355,7 @@ function commandBlocks(command: ReferenceCommand, common: PageCommon): string[] 
     ...(command.ownArgs.length === 0 ? [] : [argTable([...positionals, ...flags])]),
     ...sharedSetBlocks(command.sharedSets, common.sets),
     ...requirementBlocks(command.features, common.features),
-    ...skillsBlocks(entry.skills),
+    ...skillsBlocks(entry.skills.filter((pointer) => !common.skills.includes(pointer.skill))),
     ...exampleBlocks(entry.examples),
   ];
 }

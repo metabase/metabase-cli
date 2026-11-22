@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     description: "Write a data app's actions as its collection's files, from the repository root",
   },
   details:
-    "Run it after `npm install` in the app. Loads the `defineAction` exports of `src/metabase.actions.ts`, has Metabase build each one's implicit action (named after the export, with its `entityId`), and replaces the action files of the app's collection with them. Question files stay as they are, and Metabase changes only when you import the repository.",
+    "Run it after `npm install` in the app. Loads the `defineAction` exports of `src/metabase.actions.ts`, has Metabase build each one's implicit action (named after the export, with its `entityId`), and replaces the action files of the app's collection with them. Question files stay as they are.",
   skills: [{ skill: "data-app-actions", purpose: "the actions the app defines" }],
   requires: ["dataApp.generateActions"],
   args: { ...profileFlag, ...connectionFlags, ...slugArg },

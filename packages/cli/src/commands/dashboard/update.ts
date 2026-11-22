@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Update a dashboard (and optionally its dashcards/tabs) by id",
   },
   details:
-    "Every dashcard needs a `card_id` (a card ID, or `null` for a virtual card), existing ones included, and each positive `card_id` must name a card you can read that isn't archived. `dashcards` and `tabs` each replace the whole list: one the list leaves out is deleted, and a negative `id` creates a new one. With `dashcards` and no `tabs`, the tabs stay, and on a dashboard with several tabs every dashcard needs its `dashboard_tab_id`. To remove all tabs, send `tabs: []` with every `dashboard_tab_id` set to `null`.",
+    "Every dashcard needs a `card_id` (a card ID, or `null` for a virtual card), existing ones included. `dashcards` and `tabs` each replace the whole list: one the list leaves out is deleted, and a negative `id` creates a new one. With `dashcards` and no `tabs`, the tabs stay, and on a dashboard with several tabs every dashcard needs its `dashboard_tab_id`. To remove all tabs, send `tabs: []` with every `dashboard_tab_id` set to `null`.",
   skills: [
     { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },

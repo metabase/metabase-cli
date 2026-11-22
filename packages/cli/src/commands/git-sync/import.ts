@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
-  details: `A plain import is refused while Metabase has changes it hasn't exported: \`--force\` discards them, and \`--merge\` keeps them and merges the remote's changes in. A merge ends in \`conflict\`, with local content untouched, when entities changed on both sides or there's no merge base (the remote history was rewritten, or the instance never synced). ${mergeRefusal("import")}`,
+  details: `A plain import is refused while Metabase has changes it hasn't exported. A merge ends in \`conflict\`, with local content untouched, when entities changed on both sides or there's no merge base (the remote history was rewritten, or the instance never synced). ${mergeRefusal("import")}`,
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,

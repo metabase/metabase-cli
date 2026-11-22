@@ -4,8 +4,8 @@ export default defineCommandGroup({
   name: "table",
   description: "Manage Metabase tables",
   details: [
-    "## Publish status shows on the table",
-    "[`mb table get`](#mb-table-get) and [`mb table list`](#mb-table-list) carry a table's `is_published`, and its `collection_id` under `--full`. [`mb library publish`](library.md#mb-library-publish) publishes tables to the Library.",
+    "## Bulk commands act on a selection",
+    'A `bulk-` command acts on every table its selectors pick out. The server doesn\'t say which tables matched, so the output restates the request, as `{ accepted: true, schema_ids: ["1:public"] }`. Only admins and data analysts can run [`mb table bulk-sync-schema`](#mb-table-bulk-sync-schema), [`mb table bulk-rescan-values`](#mb-table-bulk-rescan-values) and [`mb table bulk-discard-values`](#mb-table-bulk-discard-values) (403 otherwise).',
   ].join("\n\n"),
   skills: [{ skill: "metadata", purpose: "table and column metadata, semantic types, visibility" }],
   subCommands: {

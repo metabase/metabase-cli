@@ -6,19 +6,15 @@ import {
 import { confirmDestructive } from "../delete-runtime";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  parseTableSelectors,
-  SELECTION_DETAILS,
-  selectionSummary,
-  tableSelectorFlags,
-} from "../table-selector-flags";
+import { parseTableSelectors, selectionSummary, tableSelectorFlags } from "../table-selector-flags";
 
 export default defineMetabaseCommand({
   meta: {
     name: "bulk-discard-values",
     description: "Discard the cached field values of every table a selector picks out",
   },
-  details: `Deletes the cached filter values of every selected table, with their custom display values. No scan brings them back: Metabase rebuilds the values, without display values, the next time something reads them. Pass \`--yes\` to skip the confirmation, which a non-interactive run must; a declined confirmation sends nothing and returns \`accepted: false, aborted: true\`. ${SELECTION_DETAILS}`,
+  details:
+    "Runs [`mb table discard-values`](#mb-table-discard-values) on every selected table. A declined confirmation sends nothing and returns `accepted: false, aborted: true`.",
   requires: ["table.bulkDiscardValues"],
   args: {
     ...outputFlags,

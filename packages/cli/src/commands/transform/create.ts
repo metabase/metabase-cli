@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Create a transform from JSON",
   },
   details:
-    "The JSON body needs a `name`, a `source` (the native SQL or MBQL query to run, under `source.query`), and a `target` (the warehouse table to write: `database`, `schema` and `name`). An MBQL 5 `source.query` is checked against the bundled schema (`mb schema query`) before it's sent.",
+    "The JSON body needs a `name`, a `source` (the native SQL or MBQL query to run, under `source.query`), and a `target` (the warehouse table to write: `database`, `schema` and `name`).",
   skills: [{ skill: "mbql", purpose: "MBQL source.query bodies" }],
   requires: ["transform.create"],
   args: {

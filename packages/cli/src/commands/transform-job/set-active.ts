@@ -23,8 +23,7 @@ const transformJobActiveView: ResourceView<TransformJobActiveResult> = {
 
 export default defineMetabaseCommand({
   meta: { name: "set-active", description: "Activate or deactivate every transform job" },
-  details:
-    "Flips the active flag on every transform job at once. Inactive jobs don't run on schedule; manual runs ignore the flag. Needs an admin.",
+  details: "Inactive jobs don't run on schedule; manual runs ignore the flag. Needs an admin.",
   requires: ["transformJob.setActive"],
   args: {
     ...outputFlags,

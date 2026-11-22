@@ -312,6 +312,57 @@ describe("renderCommandReference", () => {
     );
   });
 
+  it("leaves out of a command's skills the ones its page's header points to", async () => {
+    const create = defineMetabaseCommand({
+      meta: { name: "create" },
+      skills: [
+        { skill: "mbql", purpose: "author the query" },
+        { skill: "native-sql", purpose: "author a native query" },
+      ],
+      requires: null,
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const thing = defineCommandGroup({
+      name: "thing",
+      description: "Manage things",
+      skills: [{ skill: "mbql", purpose: "query bodies" }],
+      subCommands: { create: () => Promise.resolve(create) },
+    });
+
+    const page = await renderedPage(rootOf({ thing }), "thing.md");
+
+    expect(page).toBe(
+      [
+        "---",
+        'title: "mb thing"',
+        'summary: "Manage things."',
+        "---",
+        "",
+        "# mb thing",
+        "",
+        "Manage things.",
+        "",
+        "Agent skills:",
+        "",
+        "- `mb skills get mbql`: query bodies",
+        "",
+        "## mb thing create",
+        "",
+        "```sh",
+        "mb thing create",
+        "```",
+        "",
+        "Agent skills:",
+        "",
+        "- `mb skills get native-sql`: author a native query",
+        "",
+      ].join("\n"),
+    );
+  });
+
   it("names no default for a flag that is off unless given", async () => {
     const reset = defineMetabaseCommand({
       meta: { name: "reset" },

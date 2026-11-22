@@ -8,8 +8,6 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "get-run", description: "Get a transform run by run id (not the transform id)" },
   requires: ["transform.getRun"],
-  details:
-    "The positional id is a RUN id (from `transform runs`), not a transform id. To fetch a transform itself, use `transform get <id>`.",
   args: {
     ...outputFlags,
     ...profileFlag,

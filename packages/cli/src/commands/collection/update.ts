@@ -19,10 +19,9 @@ export default defineMetabaseCommand({
     description: "Rename, describe, move, trash, or restore a collection by id (partial)",
   },
   details: [
-    "Changes only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use flags or a body, not both (exit 2). An archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash` and entity IDs are refused.",
-    '[mb collection update](#mb-collection-update) with `--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the trash.',
+    "Changes only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use flags or a body, not both (exit 2). Takes the integer ID only; `root`, `trash` and entity IDs are refused.",
+    '`--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the trash. A `--parent-id` that names the trash is refused, except with `--archived true`, where it only trashes the collection.',
     "`--archived true` with `--parent-id` moves the collection and then trashes it, in two requests, since the server ignores `parent_id` when it trashes. If the second request fails, the error says that the collection moved but isn't in the trash.",
-    "A `--parent-id` that names the trash is refused, except with `--archived true`, where it only trashes the collection.",
   ].join("\n\n"),
   requires: ["collection.get", "collection.update", "collection.archive"],
   args: {

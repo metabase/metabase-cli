@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Update a card by id (partial)",
   },
   details:
-    "Changes only the fields you send, such as `name`, `display`, `dataset_query`, `visualization_settings`, `description`, `collection_id`, `dashboard_id`, `parameters` or `archived`. An MBQL 5 `dataset_query` is checked against the bundled schema (`mb schema query`) before it's sent; pass `--skip-validate` to skip the check.",
+    "Changes only the fields you send, such as `name`, `display`, `dataset_query`, `visualization_settings`, `description`, `collection_id`, `dashboard_id`, `parameters` or `archived`.",
   skills: [
     { skill: "mbql", purpose: "author the dataset_query" },
     { skill: "visualization", purpose: "choose display and visualization_settings" },

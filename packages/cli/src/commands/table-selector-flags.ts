@@ -24,9 +24,6 @@ const SELECTOR_FLAGS: Record<keyof TableSelectors, keyof TableSelectorFlags> = {
   schema_ids: "schemas",
 };
 
-export const SELECTION_DETAILS =
-  'Select tables with `--table-ids`, `--db-ids` and `--schemas`; the command acts on all of them. Only admins and data analysts can run it (403 otherwise). The output restates the request, as `{ accepted: true, schema_ids: ["1:public"] }`, since the server doesn\'t say which tables matched.';
-
 export function selectionSummary(action: string, selectors: TableSelectors): string {
   const flags = TableSelectors.keyof()
     .options.filter((key) => selectors[key] !== undefined)

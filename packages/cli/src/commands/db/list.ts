@@ -12,7 +12,7 @@ export const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List databases" },
   details:
-    "`--saved` adds the Saved Questions virtual database: id `-1337`, no `engine`, and under `--include tables` its tables are the saved questions, each with a `card__<id>` string id. To map one database, prefer `mb db get <id> --include tables`.",
+    "`--saved` adds the Saved Questions virtual database: id `-1337`, no `engine`, and under `--include tables` its tables are the saved questions, each with a `card__<id>` string id.",
   requires: ["database.list"],
   args: {
     ...outputFlags,

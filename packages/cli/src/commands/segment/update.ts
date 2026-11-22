@@ -12,8 +12,7 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a segment by id (body must include revision_message)",
   },
-  details:
-    "Patches only the fields you send, and needs a `revision_message` for the audit log. A new MBQL 5 `definition` is checked against the bundled schema (`mb schema query`) before it's sent.",
+  details: "Patches only the fields you send, and needs a `revision_message` for the audit log.",
   skills: [{ skill: "mbql", purpose: "the definition filter clause" }],
   requires: ["segment.update"],
   args: {

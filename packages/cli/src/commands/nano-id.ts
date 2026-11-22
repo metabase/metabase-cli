@@ -39,7 +39,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     count: {
       type: "string",
-      description: `How many NanoIDs to mint (default 1, max ${MAX_COUNT})`,
+      description: `How many NanoIDs to mint (max ${MAX_COUNT})`,
       default: "1",
     },
   },

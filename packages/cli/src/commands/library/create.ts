@@ -9,8 +9,6 @@ export default defineMetabaseCommand({
     name: "create",
     description: "Create the Library (Data + Metrics collections); idempotent",
   },
-  details:
-    "Creates the Library subtree if it doesn't exist and returns it; a no-op that returns the existing Library when it's already there.",
   requires: ["library.create"],
   args: {
     ...outputFlags,

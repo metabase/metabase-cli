@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Replace the complete content translation dictionary from CSV",
   },
   details:
-    "Uploads one complete dictionary and replaces every active content translation on the server. Keep the canonical full CSV in version control and download the current dictionary before replacing it. Metabase accepts dictionaries up to 1.5 MiB.",
+    "Replaces every active content translation. Download the current dictionary first, and keep the full CSV in version control. Metabase accepts dictionaries up to 1.5 MiB.",
   requires: ["contentTranslation.upload"],
   args: {
     ...outputFlags,

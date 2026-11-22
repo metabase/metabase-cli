@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Copy a dashboard, with its tabs and dashcards, into a collection",
   },
   details:
-    "The copy references the source cards; `--deep` duplicates its questions and metrics into the target collection instead, and keeps referencing its models. A dashboard with dashboard questions (cards saved in the dashboard) needs `--deep`. Without `--collection-id`, the copy goes to the root collection, and in the source's own collection a duplicated card's name ends in \" - Duplicate\", in your Metabase language. Archived cards and cards you can't read are left out, with their dashcard when they're its main card, and listed by ID in `uncopied`, once for each dashcard they were on. Action, link and placeholder dashcards aren't copied.",
+    "The copy references the source cards; `--deep` duplicates its questions and metrics into the target collection instead, and keeps referencing its models. A dashboard with dashboard questions (cards saved in the dashboard) needs `--deep`. A card duplicated into the source's own collection gets a name ending in \" - Duplicate\", in your Metabase language. Archived cards and cards you can't read are left out, with their dashcard when they're its main card, and listed by ID in `uncopied`, once for each dashcard they were on. Action, link and placeholder dashcards aren't copied.",
   requires: ["dashboard.copy"],
   args: {
     ...outputFlags,

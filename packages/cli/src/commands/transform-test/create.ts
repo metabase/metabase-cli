@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform test from JSON" },
   details: [
     'The JSON body needs a `transform_id`, a `name`, `inputs` that stand in for every table the transform reads, and `expectations` to check against its output. An input names its `table` and has either `format: "sql"` with a `sql` query, or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse can `CAST` to) and `rows` that carry exactly those columns.',
-    'An expectation is either `type: "empty"` with `sql` that must return nothing, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. The body is closed at every level, so a test read with `get --full` must drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it\'s sent.',
+    'An expectation is either `type: "empty"` with `sql` that must return nothing, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly.',
   ].join("\n\n"),
   requires: ["transformTest.create"],
   args: {

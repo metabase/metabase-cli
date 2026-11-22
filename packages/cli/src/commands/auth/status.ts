@@ -53,8 +53,7 @@ const authStatusView: ResourceView<AuthStatusJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "status", description: "Show authentication status for a profile" },
-  details:
-    "Reads what the last probe cached in the profile and never contacts the server. Shows the auth method (`OAuth` or `API key`) with the cached user, role, server version and skew.",
+  details: "Never contacts the server. Also shows the auth method, `OAuth` or `API key`.",
   requires: null,
   args: { ...outputFlags, ...profileFlag },
   outputSchema: AuthStatus,

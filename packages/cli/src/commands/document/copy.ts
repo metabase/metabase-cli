@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Copy a document, with the cards saved inside it, into a collection",
   },
   details:
-    "Duplicates the cards saved inside the document into the target collection, and points the copy's embeds at the duplicates. Without `--collection-id`, the copy lands in the root collection. An archived source isn't found.",
+    "Duplicates the cards saved inside the document into the target collection, and points the copy's embeds at the duplicates. An archived source isn't found.",
   requires: ["document.copy"],
   args: {
     ...outputFlags,

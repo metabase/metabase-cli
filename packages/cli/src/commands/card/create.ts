@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Create a card (question, model, or metric) from JSON",
   },
   details:
-    "The JSON body needs `name`, `display` (the visualization, such as `table`, `bar` or `scalar`), `dataset_query`, and `visualization_settings` (`{}` is fine). An MBQL 5 `dataset_query` is checked against the bundled schema (`mb schema query`) before it's sent: fix the errors it reports, or pass `--skip-validate`. Native SQL and legacy queries are sent unchecked.",
+    "The JSON body needs `name`, `display` (the visualization, such as `table`, `bar` or `scalar`), `dataset_query`, and `visualization_settings` (`{}` is fine).",
   skills: [
     { skill: "mbql", purpose: "author an MBQL dataset_query" },
     { skill: "native-sql", purpose: "author a native SQL dataset_query with parameters" },

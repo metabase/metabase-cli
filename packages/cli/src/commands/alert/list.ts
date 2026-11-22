@@ -11,8 +11,6 @@ export const AlertListEnvelope = listEnvelopeSchema(NotificationCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List question alerts" },
-  details:
-    "Archived (inactive) alerts are hidden unless you pass --include-inactive. System-event notifications, which share the same API, are never listed here.",
   requires: ["notification.list"],
   args: {
     ...outputFlags,

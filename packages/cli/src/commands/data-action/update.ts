@@ -18,7 +18,7 @@ const TABLE_FEATURE = DATA_ACTION_TABLE_GATE.feature;
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data action by id" },
-  details: `The JSON body carries only the fields to change: any of \`name\`, \`parameters\`, \`collection_id\`, \`description\`, \`visualization_settings\` and \`archived\`, plus a query action's \`dataset_query\` or a table action's \`kind\` and \`table_id\`, never both. \`collection_id\` needs \`${COLLECTION_FEATURE}\` (${featureAvailability(COLLECTION_FEATURE)}) and \`table_id\` needs \`${TABLE_FEATURE}\` (${featureAvailability(TABLE_FEATURE)}); the CLI refuses them on an older server, which would ignore them but answer as if it had applied them. A new MBQL 5 \`dataset_query\` is checked against the bundled schema (\`mb schema query\`) before it's sent.`,
+  details: `The JSON body carries only the fields to change: any of \`name\`, \`parameters\`, \`collection_id\`, \`description\`, \`visualization_settings\` and \`archived\`, plus a query action's \`dataset_query\` or a table action's \`kind\` and \`table_id\`, never both. \`collection_id\` needs \`${COLLECTION_FEATURE}\` (${featureAvailability(COLLECTION_FEATURE)}) and \`table_id\` needs \`${TABLE_FEATURE}\` (${featureAvailability(TABLE_FEATURE)}); the CLI refuses them on an older server, which would ignore them but answer as if it had applied them.`,
   skills: [{ skill: "data-action", purpose: "the fields of a data action" }],
   requires: ["dataAction.update"],
   args: {

@@ -13,7 +13,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
   details:
-    'Body keys: `name` (required), `description`, `parent_id` (omit it, or pass `null`, for the top level), `authority_level` and `namespace`. Leave out `namespace` for a regular collection. A transform\'s `collection_id` must point at a collection made with `namespace: "transforms"` (or `--namespace transforms`).',
+    'Body keys: `name` (required), `description`, `parent_id` (omit it, or pass `null`, for the top level), `authority_level` and `namespace`. A transform\'s `collection_id` must point at a collection made with `namespace: "transforms"` (or `--namespace transforms`).',
   requires: ["collection.create"],
   args: {
     ...outputFlags,

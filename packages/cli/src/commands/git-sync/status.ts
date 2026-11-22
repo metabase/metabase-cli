@@ -38,7 +38,7 @@ const syncStatusView: ResourceView<SyncStatus> = {
 export default defineMetabaseCommand({
   meta: {
     name: "status",
-    description: "Show current git-sync state (remote, sync type, branch, dirty, current task)",
+    description: "Show current git-sync state",
   },
   details:
     "Shows whether a remote is set up, the sync type (`read-only` or `read-write`), the tracked branch, the dirty flag, the most recent task (`null` when none has run) and the collections marked for sync. Refused (exit 2) on a server without the `remote_sync` token feature, where the sync scope would read as empty.",

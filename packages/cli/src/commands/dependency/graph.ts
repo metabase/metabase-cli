@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Show everything an entity depends on, directly or transitively",
   },
   details:
-    "`nodes` holds the entity and every table, card, snippet, transform or other entity it reads from, each with its `dependents_count` by kind; `edges` run from a dependent to what it depends on. `--full` adds the heavier fields to each node (a table's `fields`, a card's `result_metadata`).",
+    "`nodes` holds the entity and every table, card, snippet, transform or other entity it reads from, each with its `dependents_count` by kind; `edges` run from a dependent to what it depends on.",
   requires: ["dependency.graph"],
   args: {
     ...outputFlags,

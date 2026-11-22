@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   details: [
     "A data action writes to a database. It's filed in a collection and has no model (no `model_id`). Data actions are off by default: an admin turns them on for the database first (`mb db set-data-actions <id> true`).",
     'A table action inserts, updates or deletes one row: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update` or `row/delete`) and the `table_id` of a table with exactly one primary key. Metabase derives its parameters from the table\'s columns.',
-    'A query action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`): the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` it writes to, and `parameters` that target those tags. An MBQL 5 `dataset_query` is checked against the bundled schema (`mb schema query`) before it\'s sent.',
+    'A query action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`): the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` it writes to, and `parameters` that target those tags.',
     "`collection_id` picks a collection in the `data-actions` or `data-apps` namespace; leave it out for the data actions root. A regular collection is refused, and a data app's collection takes a table action only on a table published to the Library.",
   ].join("\n\n"),
   skills: [
