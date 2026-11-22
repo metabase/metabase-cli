@@ -24,6 +24,9 @@ const SELECTOR_FLAGS: Record<keyof TableSelectors, keyof TableSelectorFlags> = {
   schema_ids: "schemas",
 };
 
+export const SELECTION_DETAILS =
+  "Admins and data analysts only (403 otherwise). The output restates the request, since the server doesn't say which tables matched.";
+
 export function selectionSummary(action: string, selectors: TableSelectors): string {
   const flags = TableSelectors.keyof()
     .options.filter((key) => selectors[key] !== undefined)

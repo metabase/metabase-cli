@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     description: "Create a dashboard from JSON",
   },
   details: [
-    "Every dashcard needs a `card_id` (a card ID, or `null` for a virtual card), and a negative dashcard `id` creates a new dashcard. With `dashcards` or `tabs` in the body, a follow-up update applies them, and the command prints the dashboard as that update left it.",
+    "Every dashcard needs a `card_id` (a card ID, or `null` for a virtual card), and a negative dashcard `id` creates a new dashcard. Before anything is sent, each positive `card_id` must name a card you can read that isn't archived. With `dashcards` or `tabs` in the body, a follow-up update applies them, and the command prints the dashboard as that update left it.",
     "If that follow-up update fails, the error reads `dashboard <id> created but the follow-up update to dashboard <id> failed: <reason>; dashcards not applied`. The dashboard exists: send the layout again with `mb dashboard update <id> --body '{\"dashcards\":[…]}'`, or archive it with [`mb dashboard archive`](#mb-dashboard-archive).",
   ].join("\n\n"),
   skills: [

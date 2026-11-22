@@ -4,15 +4,19 @@ import { renderSummary } from "../../output/render";
 import { tableSelectionResultView } from "../../output/views/table";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import { parseTableSelectors, selectionSummary, tableSelectorFlags } from "../table-selector-flags";
+import {
+  parseTableSelectors,
+  SELECTION_DETAILS,
+  selectionSummary,
+  tableSelectorFlags,
+} from "../table-selector-flags";
 
 export default defineMetabaseCommand({
   meta: {
     name: "bulk-rescan-values",
     description: "Trigger a rescan of cached field values for every table a selector picks out",
   },
-  details:
-    "Runs [`mb table rescan-values`](#mb-table-rescan-values) on every selected table, and returns at once.",
+  details: `Runs [\`mb table rescan-values\`](#mb-table-rescan-values) on every selected table, and returns at once. ${SELECTION_DETAILS}`,
   requires: ["table.bulkRescanValues"],
   args: {
     ...outputFlags,

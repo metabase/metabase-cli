@@ -4,15 +4,19 @@ import { renderSummary } from "../../output/render";
 import { tableSelectionResultView } from "../../output/views/table";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import { parseTableSelectors, selectionSummary, tableSelectorFlags } from "../table-selector-flags";
+import {
+  parseTableSelectors,
+  SELECTION_DETAILS,
+  selectionSummary,
+  tableSelectorFlags,
+} from "../table-selector-flags";
 
 export default defineMetabaseCommand({
   meta: {
     name: "bulk-sync-schema",
     description: "Trigger a schema sync for every table a selector picks out",
   },
-  details:
-    "Runs [`mb table sync-schema`](#mb-table-sync-schema) on every selected table, and returns at once. Refused with a 422 unless every database behind the selection passes a connection test.",
+  details: `Runs [\`mb table sync-schema\`](#mb-table-sync-schema) on every selected table, and returns at once. Refused with a 422 unless every database behind the selection passes a connection test. ${SELECTION_DETAILS}`,
   requires: ["table.bulkSyncSchema"],
   args: {
     ...outputFlags,

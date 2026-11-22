@@ -47,7 +47,7 @@ export default defineMetabaseCommand({
     description: "Print one or more skills' `SKILL.md` content",
   },
   details:
-    "A named skill prints whole unless you pass `--max-bytes`, but `--all` keeps the default cap, which one long skill can fill, so pass `--max-bytes 0` to print every skill. `--full` adds references and templates.",
+    "A skill the profile's server can't use is reported under `unavailable`, and a section it can't use is left out. A named skill prints whole unless you pass `--max-bytes`, but `--all` keeps the default cap, which one long skill can fill, so pass `--max-bytes 0` to print every skill. `--full` adds references and templates.",
   requires: null,
   args: {
     ...outputFlags,

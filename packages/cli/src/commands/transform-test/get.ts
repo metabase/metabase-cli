@@ -9,7 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a transform test by id" },
   details:
-    "The compact form carries the id, transform, name and description, and `--full` adds the `inputs` and `expectations`.",
+    "The compact form carries the id, transform, name and description, and `--full` adds the `inputs` and `expectations` that `create` and `update` take.",
   requires: ["transformTest.get"],
   args: {
     ...outputFlags,

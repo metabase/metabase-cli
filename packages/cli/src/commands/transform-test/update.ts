@@ -10,7 +10,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform test from JSON" },
   details:
-    "Patches only the fields the body carries; `inputs` and `expectations` replace what's stored.",
+    "Patches only the fields the body carries; `inputs` and `expectations` replace what's stored. Drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` read before you send it: the body is closed at every level.",
   requires: ["transformTest.update"],
   args: {
     ...outputFlags,

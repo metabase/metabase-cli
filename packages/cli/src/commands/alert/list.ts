@@ -11,6 +11,7 @@ export const AlertListEnvelope = listEnvelopeSchema(NotificationCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List question alerts" },
+  details: "System-event notifications, which share the same API, are never listed here.",
   requires: ["notification.list"],
   args: {
     ...outputFlags,

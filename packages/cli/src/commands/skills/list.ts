@@ -41,6 +41,7 @@ export default defineMetabaseCommand({
     name: "list",
     description: "List CLI-bundled skills",
   },
+  details: "Skills the profile's server can't use are left out.",
   requires: null,
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...unfilteredFlag },
   outputSchema: SkillListEnvelope,

@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create an API key acting as a member of a group" },
   details:
-    "The JSON body needs `name` and `group_id` (`2` is Administrators). The key is printed once, as `unmasked_key` under `--json`, and no later read returns it: store it where it's needed and never paste it into chat.",
+    "Admins only. The JSON body needs `name` and `group_id` (`2` is Administrators). The key is printed once, as `unmasked_key` under `--json`, and no later read returns it: store it where it's needed and never paste it into chat.",
   requires: ["apiKey.create"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   inputSchema: ApiKeyCreateInput,
