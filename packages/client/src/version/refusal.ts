@@ -4,10 +4,10 @@ import type { SessionProperties } from "../domain/session-properties";
 import { InternalError, isNonInterruptFailure } from "../errors";
 import {
   BAD_REQUEST_STATUS,
-  FIELD_PATH_SEPARATOR,
   HttpError,
   NOT_FOUND_STATUS,
   PAYMENT_REQUIRED_STATUS,
+  topLevelField,
 } from "../http/errors";
 import type { RequestOptions, Transport, WaitOptions } from "../http/transport";
 import { isPlainObject } from "../predicates";
@@ -248,15 +248,9 @@ function pointsElsewhere(
   return named.some((field) => !gated.has(field));
 }
 
-// The top-level request field of every rejection the server listed; a nested one is keyed by its
-// dot-joined path.
+// The top-level request field of every rejection the server listed.
 function rejectedFields(refusal: HttpError): string[] {
   return [refusal.fieldErrors, refusal.specificFieldErrors].flatMap((errors) =>
     errors === null ? [] : Object.keys(errors).map(topLevelField),
   );
-}
-
-function topLevelField(path: string): string {
-  const end = path.indexOf(FIELD_PATH_SEPARATOR);
-  return end === -1 ? path : path.slice(0, end);
 }

@@ -9,7 +9,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, serverRejectedMessage } from "./server-gate";
+import { emptyStagesRejection, requireServer } from "./server-gate";
 
 const FIRST_NEW_MEASURE_ID = 1;
 const MEASURE_NAME = "OrderCount";
@@ -167,7 +167,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe(serverRejectedMessage());
+    expect(cliErrorMessage(result.stderr)).toContain(emptyStagesRejection());
     expect(result.stdout).toBe("");
   });
 

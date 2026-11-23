@@ -9,7 +9,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { serverRejectedMessage } from "./server-gate";
+import { emptyStagesRejection } from "./server-gate";
 
 const FIRST_NEW_SEGMENT_ID = 1;
 const SEGMENT_NAME = "PositiveIdOrders";
@@ -165,7 +165,7 @@ describe("segment e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe(serverRejectedMessage());
+    expect(cliErrorMessage(result.stderr)).toContain(emptyStagesRejection());
     expect(result.stdout).toBe("");
   });
 

@@ -113,7 +113,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
   });
   ```
 
-  A feature the suite needs that no rule names yet is added to `FEATURE_RULES` in `packages/client/src/version/features.ts`, named after the behaviour and verified against the Metabase release branches — never as a version comparison in the test. `serverRejectedMessage()` and `invalidDatabaseRejection(...)` in `server-gate.ts` are the shared branches for two such facts.
+  A feature the suite needs that no rule names yet is added to `FEATURE_RULES` in `packages/client/src/version/features.ts`, named after the behaviour and verified against the Metabase release branches — never as a version comparison in the test. `emptyStagesRejection()` in `server-gate.ts` is the shared branch for one such fact.
 
 - A suite that needs the CLI to see a particular server version — the skew notices, the re-probe — seeds a profile record with `seedProbedProfile` / `seedProbedProfileAt` from `tests/e2e/seed-profile.ts` rather than talking to a different server.
 
