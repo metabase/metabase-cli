@@ -2,7 +2,8 @@ import { assert, describe, expect, it } from "vitest";
 
 import { ChainedRequestError, ConfigError } from "../errors";
 
-import { chainRequestFailure, HttpError, isHttpNotFound } from "./errors";
+import { ERROR_BODY_BYTE_CAP } from "./error-body";
+import { chainRequestFailure, HttpError, isHttpNotFound, topLevelField } from "./errors";
 import type { RedactionContext } from "./sanitize";
 
 interface HttpErrorFixtureOverrides {
@@ -41,6 +42,35 @@ function jsonHeaders(): Headers {
 function textHeaders(): Headers {
   return new Headers({ "content-type": "text/plain" });
 }
+
+// The shape of Metabase's answer to an aggregation over `["field", {}, 0]`: Malli's explanation
+// mirrors the query, `null` where an item fits, and repeats a sentence for each alternative the
+// value failed the same way.
+const FIELD_REF_ID_ZERO_400_BODY = JSON.stringify({
+  errors: { stages: { aggregation: "function" } },
+  "specific-errors": {
+    stages: [
+      {
+        aggregation: [
+          null,
+          [
+            null,
+            null,
+            [
+              null,
+              null,
+              [
+                "should be a string, received: 0",
+                "should be a positive int, received: 0",
+                "should be a string, received: 0",
+              ],
+            ],
+          ],
+        ],
+      },
+    ],
+  },
+});
 
 describe("HttpError message extraction", () => {
   it("uses a text/plain body as the message when there is no envelope", () => {
@@ -224,6 +254,81 @@ describe("HttpError message extraction", () => {
     expect(buildHttpError({ rawBody: body }).message).toBe("real: actual problem");
   });
 
+  it("names each refused part of a query by its index path, keeping a repeated sentence once", () => {
+    const error = buildHttpError({ rawBody: FIELD_REF_ID_ZERO_400_BODY });
+    expect(error.message).toBe(
+      "stages[0].aggregation[1][2][2]: should be a string, received: 0; should be a positive int, received: 0",
+    );
+    expect(error.specificFieldErrors).toEqual({
+      "stages[0].aggregation[1][2][2]":
+        "should be a string, received: 0; should be a positive int, received: 0",
+    });
+  });
+
+  it("cuts each sentence to 200 characters so one long value leaves room for the parts after it", () => {
+    const body = JSON.stringify({
+      "specific-errors": {
+        filter: [`should be a string, received: "${"a".repeat(600)}"`],
+        limit: ["should be a positive int, received: 0"],
+      },
+    });
+    expect(buildHttpError({ rawBody: body }).message).toBe(
+      `filter: should be a string, received: "${"a".repeat(168)}…; limit: should be a positive int, received: 0`,
+    );
+  });
+
+  it("lists whole parts while they fit in 500 characters and counts the rest", () => {
+    const sentence = "s".repeat(160);
+    const body = JSON.stringify({
+      "specific-errors": {
+        p1: [sentence],
+        p2: [sentence],
+        p3: [sentence],
+        p4: [sentence],
+        p5: [sentence],
+      },
+    });
+    expect(buildHttpError({ rawBody: body }).message).toBe(
+      `p1: ${sentence}; p2: ${sentence}; and 3 more`,
+    );
+  });
+
+  it("cuts only a first part that alone runs past 500 characters, keeping room for the count", () => {
+    const body = JSON.stringify({
+      "specific-errors": {
+        filter: ["a".repeat(190), "b".repeat(190), "c".repeat(190)],
+        limit: ["should be a positive int, received: 0"],
+      },
+    });
+    expect(buildHttpError({ rawBody: body }).message).toBe(
+      `filter: ${"a".repeat(190)}; ${"b".repeat(190)}; ${"c".repeat(95)}…; and 1 more`,
+    );
+  });
+
+  it("reads the reason from a body past 64 KB and quotes only its first 64 KB", () => {
+    const body = JSON.stringify({
+      errors: { stages: "s".repeat(2 * ERROR_BODY_BYTE_CAP) },
+      "specific-errors": {
+        stages: [{ "source-table": ["should be a positive int, received: 0"] }],
+      },
+    });
+    const reason = "stages[0].source-table: should be a positive int, received: 0";
+    const error = buildHttpError({ rawBody: body });
+    expect(error.message).toBe(reason);
+    expect(error.serverMessage).toBe(reason);
+    expect(error.developerDetail.body).toBe(body.slice(0, ERROR_BODY_BYTE_CAP));
+  });
+
+  it("reads the message beside an error key of an unexpected type", () => {
+    const body = JSON.stringify({
+      message: "Value does not match schema",
+      error: { definition: ["invalid MBQL"] },
+    });
+    expect(buildHttpError({ status: 500, rawBody: body }).message).toBe(
+      "Value does not match schema",
+    );
+  });
+
   it("respects overrideUserMessage and skips body extraction", () => {
     const body = JSON.stringify({ message: "would be extracted otherwise" });
     expect(
@@ -287,6 +392,20 @@ describe("HttpError field errors", () => {
     });
     expect(buildHttpError({ rawBody: body }).specificFieldErrors).toEqual({
       "prefs.site_locale": 'valid locale, received: "eng-USA"',
+    });
+  });
+
+  it("keys a rejection inside a list by its index, skipping the items that fit", () => {
+    const body = JSON.stringify({ errors: { "12": [null, { created_at: "must be a date" }] } });
+    expect(buildHttpError({ rawBody: body }).fieldErrors).toEqual({
+      "12[1].created_at": "must be a date",
+    });
+  });
+
+  it("cuts a field message to 4,096 characters", () => {
+    const body = JSON.stringify({ errors: { stages: "s".repeat(5000) } });
+    expect(buildHttpError({ rawBody: body }).fieldErrors).toEqual({
+      stages: `${"s".repeat(4095)}…`,
     });
   });
 
@@ -460,6 +579,14 @@ describe("HttpError 404 messages", () => {
       serverTag: "v0.58.7",
     });
     expect(error.message).toBe("Not found: GET /api/database/9999.");
+  });
+});
+
+describe("topLevelField", () => {
+  it("reads the request field a rejection's path starts at", () => {
+    expect(
+      ["stages[0].aggregation", "prefs.site_locale", "12[1].created_at", "name"].map(topLevelField),
+    ).toEqual(["stages", "prefs", "12", "name"]);
   });
 });
 
