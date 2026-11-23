@@ -12,11 +12,15 @@ import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstr
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
-import { requirementFailure, requireServer, requireServerWithout } from "./server-gate";
+import {
+  requirementFailure,
+  requireServer,
+  requireServerWithout,
+  DOWNGRADE_REMEDY,
+} from "./server-gate";
 
 const REMOTE_SYNC_REFUSAL =
   "This operation requires the 'remote_sync' premium feature (not enabled on this server).";
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync endpoints", [
   "remoteSync",
