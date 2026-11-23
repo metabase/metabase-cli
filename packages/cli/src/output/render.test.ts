@@ -3,7 +3,7 @@ import { Writable } from "node:stream";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { ConfigError } from "@metabase/client/errors";
+import { ConfigError, FailedResultError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
 import { capListEnvelope } from "./cap";
@@ -12,6 +12,7 @@ import {
   renderList,
   renderListWithExtras,
   renderSummary,
+  renderVerdict,
   writeJson,
   writeText,
   jsonLineWriter,
@@ -237,6 +238,59 @@ describe("renderSummary", () => {
       fields: ["id", "archived"],
     });
     expect(parseJson(streams.stdout, CardProjected)).toEqual({ id: 1, archived: false });
+  });
+});
+
+function verdictFailure(oversize: string | null): string {
+  return `failed; ${oversize ?? "printed"}`;
+}
+
+describe("renderVerdict", () => {
+  const SALES: Card = { id: 1, name: "Sales", archived: false };
+  const textOpts: RenderOptions = { ...baseOpts, format: "text" };
+  const capped: RenderOptions = { ...textOpts, maxBytes: 3 };
+  const OVERSIZE =
+    "output is 6 bytes, over the 3-byte --max-bytes cap; narrow with --fields or raise the cap with --max-bytes <n>";
+
+  function verdict(failed: boolean, opts: RenderOptions): unknown {
+    const report = {
+      item: SALES,
+      view: cardView,
+      summaryText: "Sales",
+      failure: failed ? verdictFailure : null,
+    };
+    try {
+      renderVerdict(report, opts);
+    } catch (error: unknown) {
+      return error;
+    }
+    return null;
+  }
+
+  it("prints a passed verdict and throws nothing", () => {
+    expect(verdict(false, textOpts)).toBe(null);
+    expect(streams.stdout).toBe("Sales\n");
+  });
+
+  it("prints a failed verdict, then throws FailedResultError", () => {
+    const error = verdict(true, textOpts);
+    expect(error).toBeInstanceOf(FailedResultError);
+    expect(error).toHaveProperty("message", "failed; printed");
+    expect(streams.stdout).toBe("Sales\n");
+  });
+
+  it("withholds a passed verdict over the cap and throws ConfigError", () => {
+    const error = verdict(false, capped);
+    expect(error).toBeInstanceOf(ConfigError);
+    expect(error).toHaveProperty("message", OVERSIZE);
+    expect(streams.stdout).toBe("");
+  });
+
+  it("withholds a failed verdict over the cap and throws FailedResultError naming the cap", () => {
+    const error = verdict(true, capped);
+    expect(error).toBeInstanceOf(FailedResultError);
+    expect(error).toHaveProperty("message", `failed; ${OVERSIZE}`);
+    expect(streams.stdout).toBe("");
   });
 });
 

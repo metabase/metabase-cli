@@ -11,8 +11,6 @@ import { z } from "zod";
 import { type CiEvent, type CiStage, CiEvent as CiEventSchema } from "../../core/ci-events";
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
-import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
-
 import { RUN_LOG_DIR, runJob } from "./job";
 import { type UnitStagePort, unitStage } from "./unit-stage";
 
@@ -79,7 +77,7 @@ describe("runJob", () => {
         ...envelope,
         seq: 0,
         type: "job.start",
-        v: 1,
+        v: 2,
         snapshot: { base, head },
         checked: [{ entity_id: TRANSFORM_ID, name: "Daily" }],
         warnings: [
@@ -102,7 +100,15 @@ describe("runJob", () => {
         ms: 2000,
         detail: null,
       },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed", stopped: null },
+      {
+        ...envelope,
+        seq: 3,
+        type: "stage.end",
+        stage: "unit",
+        status: "failed",
+        stopped: null,
+        skipped: null,
+      },
       { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 2 } },
     ]);
   });
@@ -341,7 +347,7 @@ const INSTANCE_WITH_NO_TESTS: UnitStagePort = {
   nowMs: () => 0,
 };
 
-describe("runJob, with the stages ci run builds", () => {
+describe("runJob, with the unit stage ci run builds", () => {
   it("does not pass an edited transform whose test the instance does not list", async () => {
     const transform = (query: string) =>
       `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\n  query: ${query}\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`;
@@ -361,12 +367,7 @@ describe("runJob, with the stages ci run builds", () => {
       base: "main",
       head: "HEAD",
       stages: async (plan) => [
-        coverageStage(plan.coverage),
-        unitStage(
-          plan.checked,
-          untestedTransforms(plan.coverage),
-          async () => INSTANCE_WITH_NO_TESTS,
-        ),
+        unitStage(plan.checked, plan.untested, async () => INSTANCE_WITH_NO_TESTS),
       ],
       job: "job-1",
       now: () => NOW,
@@ -383,7 +384,7 @@ describe("runJob, with the stages ci run builds", () => {
       {
         job: "job-1",
         at: AT,
-        seq: 5,
+        seq: 2,
         type: "check.result",
         stage: "unit",
         check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
