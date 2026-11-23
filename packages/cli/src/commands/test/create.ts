@@ -12,7 +12,7 @@ import { printable } from "../../output/table";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a data test from JSON" },
   details:
-    "The body needs a `name`, the `inputs` standing in for every table the entity reads, and the `expectations` checked against its output. `now` fixes the time the entity reads as the current time; `parameters`, an action test's alone, are the values it calls its action with. The entity comes from --id, so the body names no `<type>_id`.",
+    "The body needs a `name`, the `inputs` standing in for every table the entity reads, and the `expectations` checked against its output. `now` fixes the time the entity reads as the current time; `parameters`, an action test's alone, are the values it gives its action's parameters, by parameter id or slug. An action has no output: its test's `inputs` stand in for the tables its SQL modifies, and the expectations read those tables after it ran, by their real names. The entity comes from --id, so the body names no `<type>_id`.",
   requires: ["dataTest.create"],
   args: {
     ...outputFlags,

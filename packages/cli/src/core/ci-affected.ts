@@ -180,6 +180,7 @@ const TEST_MODELS: ReadonlyMap<string, DataTestType> = new Map([
   ["TransformTest", "transform"],
   ["CardTest", "card"],
   ["SegmentTest", "segment"],
+  ["ActionTest", "action"],
 ]);
 const TestDocument = z.object({ expectations: z.array(z.unknown()).nullish() }).loose();
 const EntityReference = z.string().min(1);

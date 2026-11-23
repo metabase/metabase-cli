@@ -392,6 +392,8 @@ An input names its `table` and carries either `format: "sql"` with a `sql` query
 
 An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the entity's output and its declared input tables; any other table, or a column qualified by a table name rather than an alias, is refused with `<type>-test.unremapped-reference`.
 
+An action test runs a query action, whose SQL is one `INSERT`, `UPDATE` or `DELETE`. Its `parameters` give the action's parameters their values, by parameter id or slug, and a parameter left out takes its default. Its `inputs` stand in for the tables the SQL reads or modifies, and its expectations read those tables after the action ran, by their real names. An action has no `{{output}}`, so an `equals` expectation is refused. The run is rolled back, so the real tables do not change.
+
 Create and update bodies are closed at every level and never carry the entity's id, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at`, `last_run` and the entity's id before it can be sent back:
 
 ```sh

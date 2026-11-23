@@ -546,3 +546,189 @@ describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tes
     );
   });
 });
+
+const actionUnitSkipReason = requireServer("ci › unit stage › action tests", [
+  "actionTests",
+  "dataActionsWithoutModel",
+]);
+
+describe.skipIf(actionUnitSkipReason !== null)("ci e2e › unit stage › action tests", () => {
+  const tempDirs: string[] = [];
+  let repo: TempGitRepo;
+  let bootstrap: E2EBootstrap;
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  beforeEach(async () => {
+    repo = await createTempGitRepo();
+  });
+
+  afterEach(async () => {
+    await repo.remove();
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function mb(args: string[], stdin?: string): Promise<RunCliResult> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return runCli({
+      args,
+      configHome: dir,
+      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      ...(stdin === undefined ? {} : { stdin }),
+    });
+  }
+
+  it("runs the action test of an action the branch changed, as an action-test check", async () => {
+    const enabled = await mb(["db", "set-data-actions", String(SEEDED.warehouseDbId), "true"]);
+    expect(enabled.exitCode, enabled.stderr).toBe(0);
+    const action = await mb(
+      ["data-action", "create", "--json"],
+      JSON.stringify({
+        name: "Rename customer",
+        type: "query",
+        collection_id: null,
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: SEEDED.warehouseDbId,
+          stages: [
+            {
+              "lib/type": "mbql.stage/native",
+              native: "UPDATE customers SET full_name = {{full_name}} WHERE id = {{customer_id}}",
+              "template-tags": {
+                customer_id: {
+                  id: "customer_id",
+                  name: "customer_id",
+                  "display-name": "Customer ID",
+                  type: "number",
+                  required: true,
+                },
+                full_name: {
+                  id: "full_name",
+                  name: "full_name",
+                  "display-name": "Full name",
+                  type: "text",
+                  required: true,
+                },
+              },
+            },
+          ],
+        },
+        parameters: [
+          {
+            id: "customer_id",
+            slug: "customer_id",
+            name: "Customer ID",
+            type: "number/=",
+            target: ["variable", ["template-tag", "customer_id"]],
+            required: true,
+          },
+          {
+            id: "full_name",
+            slug: "full_name",
+            name: "Full name",
+            type: "string/=",
+            target: ["variable", ["template-tag", "full_name"]],
+            required: true,
+          },
+        ],
+      }),
+    );
+    expect(action.exitCode, action.stderr).toBe(0);
+    const actionId = parseJson(action.stdout, Created).id;
+    const full = await mb(["data-action", "get", String(actionId), "--full", "--json"]);
+    const entityId = parseJson(full.stdout, WithEntityId).entity_id;
+    const test = await mb(
+      ["test", "create", "--id", `action:${actionId}`, "--json"],
+      JSON.stringify({
+        name: "renames one customer",
+        parameters: { customer_id: 1, full_name: "Ada Lovelace" },
+        inputs: [
+          {
+            table: { schema: "public", name: "customers" },
+            format: "rows",
+            columns: [
+              { name: "id", cast_type: "INTEGER" },
+              { name: "full_name", cast_type: "TEXT" },
+            ],
+            rows: [
+              { id: 1, full_name: "Ada" },
+              { id: 2, full_name: "Grace" },
+            ],
+          },
+        ],
+        expectations: [
+          {
+            type: "empty",
+            name: "only customer 1 is renamed",
+            sql: "SELECT * FROM public.customers WHERE (id = 1 AND full_name <> 'Ada Lovelace') OR (id = 2 AND full_name <> 'Grace')",
+          },
+        ],
+      }),
+    );
+    expect(test.exitCode, test.stderr).toBe(0);
+    const testId = String(parseJson(test.stdout, Created).id);
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "actions/rename_customer.yaml",
+      `name: Rename customer\nentity_id: ${entityId}\nserdes/meta:\n- model: Action\n`,
+    );
+    await repo.put(
+      "actions/rename_customer/renames_one_customer.yaml",
+      `entity_id: cRvM7DLesF1fOV4kRHidq\naction_id: ${entityId}\nparameters:\n  customer_id: 1\n  full_name: Ada Lovelace\nexpectations:\n- name: only customer 1 is renamed\n  type: empty\nserdes/meta:\n- model: ActionTest\n`,
+    );
+    const head = await repo.commitAll("add action and its test");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events).toEqual(
+      sequenced(
+        [
+          {
+            type: "job.start",
+            v: 2,
+            snapshot: { base, head },
+            checked: [{ type: "action", entity_id: entityId, name: "Rename customer" }],
+            warnings: [],
+          },
+          ...lintStage(),
+          { type: "stage.start", stage: "unit" },
+          {
+            type: "check.result",
+            stage: "unit",
+            check: {
+              kind: "action-test",
+              id: testId,
+              label: "Rename customer: renames one customer",
+            },
+            verdict: "passed",
+            warnings: [],
+            ms: expect.any(Number),
+            detail: {
+              status: "passed",
+              expectations: [
+                { name: "only customer 1 is renamed", type: "empty", status: "passed" },
+              ],
+              tables: expect.any(Object),
+            },
+          },
+          { type: "stage.end", stage: "unit", status: "passed", stopped: null, skipped: null },
+          {
+            type: "job.end",
+            state: "passed",
+            counts: { checks: 1 + LINT_CHECKS, warnings: 0 },
+          },
+        ],
+        0,
+      ),
+    );
+  });
+});

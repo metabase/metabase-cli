@@ -343,6 +343,33 @@ describe("data-test resource path", () => {
   });
 });
 
+describe("data-test resource wire requests for an action test's parameters", () => {
+  const { transform_id: _transformId, ...shared } = TEST;
+  const stored = { ...shared, action_id: 7, parameters: { id: 1, name: "Wood" } };
+
+  it("sends the values the test gives its action's parameters", async () => {
+    const { mb, capture } = clientOver([jsonResponse(stored)]);
+    const definition = { ...DEFINITION, parameters: { id: 1, name: "Wood" } };
+
+    await mb.dataTest.create("action", 7, definition);
+
+    expect(capture.calls.map(({ method, url, body }) => ({ method, url, body }))).toEqual([
+      {
+        method: "POST",
+        url: "https://mb.example.com/metabase/api/ee/action-test",
+        body: JSON.stringify({ ...definition, action_id: 7 }),
+      },
+    ]);
+  });
+
+  it("reads a saved test that gives its action no parameter values", async () => {
+    const withoutValues = { ...stored, parameters: null };
+    const { mb } = clientOver([jsonResponse(withoutValues)]);
+
+    expect(await mb.dataTest.get("action", 12)).toEqual(withoutValues);
+  });
+});
+
 describe.each(["card", "segment", "measure", "action"] as const)(
   "data-test resource refusals for a %s test",
   (type) => {
