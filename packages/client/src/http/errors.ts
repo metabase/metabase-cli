@@ -101,21 +101,50 @@ interface FieldErrorBranch {
   [field: string]: FieldErrorNode;
 }
 
-type FieldErrorNode = string | string[] | FieldErrorBranch;
+// `specific-errors` is Malli's humanized explanation, which mirrors the value it explains: a map
+// per map, and per list a list holding `null` where an item fits. A value that does not fit is a
+// list of sentences.
+type FieldErrorNode = string | null | FieldErrorNode[] | FieldErrorBranch;
 
 const FieldErrorNodeSchema: z.ZodType<FieldErrorNode> = z.lazy(() =>
-  z.union([z.string(), z.array(z.string()), z.record(z.string(), FieldErrorNodeSchema)]),
+  z.union([
+    z.string(),
+    z.null(),
+    z.array(FieldErrorNodeSchema),
+    z.record(z.string(), FieldErrorNodeSchema),
+  ]),
 );
 
 const FieldErrorTree = z.record(z.string(), FieldErrorNodeSchema);
 
-// Field name to the message Metabase rejected it with. A nested rejection is keyed by its
-// dot-joined path (`prefs.site_locale`), and a field the server gave several reasons for carries
-// them joined, so one string always answers "what is wrong with this field".
+// Field name to the message Metabase rejected it with. A nested rejection is keyed by its path, map
+// keys dot-joined and list items by index (`prefs.site_locale`, `stages[0].aggregation[1][2]`), and
+// a field the server gave several reasons for carries them joined, so one string always answers
+// "what is wrong with this field".
 export type FieldErrors = Record<string, string>;
 
 const FIELD_MESSAGE_SEPARATOR = "; ";
 export const FIELD_PATH_SEPARATOR = ".";
+const TOP_LEVEL_FIELD_END = /[.[]/;
+
+type FieldPathSegment = string | number;
+
+// The request field a rejection's path starts at: `stages` for `stages[0].aggregation`.
+export function topLevelField(path: string): string {
+  const end = path.search(TOP_LEVEL_FIELD_END);
+  return end === -1 ? path : path.slice(0, end);
+}
+
+function formatFieldPath(path: ReadonlyArray<FieldPathSegment>): string {
+  return path
+    .map((segment, position) => {
+      if (typeof segment === "number") {
+        return `[${segment}]`;
+      }
+      return position === 0 ? segment : `${FIELD_PATH_SEPARATOR}${segment}`;
+    })
+    .join("");
+}
 
 const MAX_EXTRACTED_MESSAGE_LEN = 500;
 const ELLIPSIS = "…";
@@ -188,7 +217,8 @@ export class HttpError extends MetabaseError {
   }
 
   // The same fields from the envelope's `specific-errors` map, which names what arrived
-  // ("missing required key, received: nil") rather than what was required.
+  // ("missing required key, received: nil") rather than what was required, and for a query each
+  // refused part inside it (`stages[0].aggregation[1][2]`).
   get specificFieldErrors(): FieldErrors | null {
     return this.developerDetail.specificFieldErrors;
   }
@@ -233,23 +263,21 @@ function partsOf(error: HttpError, restatedAs: string | undefined): HttpErrorPar
   };
 }
 
-// Everything structured is read off the whole body: a body cut first does not parse, and its field
-// errors, error code and refusal go with it. The message is read off the kept text alone, because a
-// body past the cap is a stack trace around a schema dump (a malformed MBQL query's runs over
-// 64 KB), and its envelope's message is that dump, not a sentence for a person. All of it is read
-// off the sanitized body rather than the raw one, so a secret quoted back inside a field message is
-// already redacted by the time it reaches a typed surface.
+// Everything is read off the whole body: a body cut first does not parse, and its field errors,
+// error code, refusal and message go with it. A malformed MBQL query's body runs past 1 MB, its
+// `specific-errors`, the part naming what was wrong, coming last. Only the quoted body is capped.
+// All of it is read off the sanitized body rather than the raw one, so a secret quoted back inside a
+// field message is already redacted by the time it reaches a typed surface.
 function readParts(input: HttpErrorInput): HttpErrorParts {
   const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
-  const quotedBody = storedBody(sanitizedBody);
   const redactedHeaders = redactHeaders(input.responseHeaders);
   const bodyJson = parseBodyJson(sanitizedBody);
   const envelope = parseOrNull(ErrorEnvelope, bodyJson);
   const answer: SanitizedAnswer = { body: sanitizedBody, headers: redactedHeaders, envelope };
   const kind = classifyKind(input.status, answer);
   const said: ServerSaid = {
-    envelope: parseEnvelopeMessage(parseOrNull(ErrorEnvelope, parseBodyJson(quotedBody))),
-    text: plainTextMessage(quotedBody, redactedHeaders),
+    envelope: parseEnvelopeMessage(envelope),
+    text: plainTextMessage(sanitizedBody, redactedHeaders),
   };
   const fields = extractEnvelopeViews(envelope);
   return {
@@ -262,7 +290,7 @@ function readParts(input: HttpErrorInput): HttpErrorParts {
       method: input.method,
       url: input.url,
       responseHeaders: redactedHeaders,
-      body: quotedBody,
+      body: storedBody(sanitizedBody),
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
       errorCode: fields.errorCode,
@@ -597,21 +625,15 @@ function formatLeafEntry(entry: LeafEntry): string {
   return entry.path === "" ? entry.message : `${entry.path}: ${entry.message}`;
 }
 
-function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEntry[] {
+function collectLeafEntries(value: unknown, path: ReadonlyArray<FieldPathSegment>): LeafEntry[] {
   if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed === "" ? [] : [{ path: path.join(FIELD_PATH_SEPARATOR), message: trimmed }];
+    return leafEntry([value], path);
   }
   if (Array.isArray(value)) {
-    const messages = value.filter(
-      (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
-    );
-    if (messages.length === 0) {
-      return [];
+    if (value.every((entry) => typeof entry === "string")) {
+      return leafEntry(value, path);
     }
-    return [
-      { path: path.join(FIELD_PATH_SEPARATOR), message: messages.join(FIELD_MESSAGE_SEPARATOR) },
-    ];
+    return value.flatMap((item, index) => collectLeafEntries(item, [...path, index]));
   }
   if (isPlainObject(value)) {
     return Object.entries(value).flatMap(([key, child]) =>
@@ -619,6 +641,21 @@ function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEn
     );
   }
   return [];
+}
+
+// Malli names each schema a value failed, so a value failing two alternatives the same way repeats
+// the sentence.
+function leafEntry(
+  sentences: ReadonlyArray<string>,
+  path: ReadonlyArray<FieldPathSegment>,
+): LeafEntry[] {
+  const distinct = [...new Set(sentences.map((sentence) => sentence.trim()))].filter(
+    (sentence) => sentence !== "",
+  );
+  if (distinct.length === 0) {
+    return [];
+  }
+  return [{ path: formatFieldPath(path), message: distinct.join(FIELD_MESSAGE_SEPARATOR) }];
 }
 
 function condenseMessage(message: string): string {

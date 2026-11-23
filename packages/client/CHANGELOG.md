@@ -2,6 +2,13 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.10
+
+- `HttpError.specificFieldErrors` reads Metabase's `specific-errors` for a query: Malli's explanation, which mirrors the value it explains and holds `null` where a list item fits. Each refused part is keyed by its path, map keys dot-joined and list items by index (`stages[0].aggregation[1][2]`), and a sentence Metabase repeats for one part is kept once. A field the server rejects as a whole is keyed as before (`name`, `prefs.site_locale`). `fieldErrors` still reads `errors`, which names only map keys and describes the schema each part had to fit.
+- The message of a 400 refusing a query names each refused part and what Metabase said arrived there (`stages[0].aggregation[1][2][2]: should be a string, received: 0; should be a positive int, received: 0`), up to 500 characters, rather than the schema the part had to fit (`stages.aggregation: function`).
+- An `HttpError` reads its message and `serverMessage` from the whole error body, like every other view, so a 400 whose body runs past 64 KB, such as the 1 MB answer to a query with a bad field ref, keeps the server's reason, and so does a longer stack trace's `message`, cut to 500 characters. `developerDetail.body` is still the first 64 KB.
+- A consumer matching `specificFieldErrors` keys, or `fieldErrors` keys, against request fields reads the field a key starts at up to its first `.` or `[`; `topLevelField` on `@metabase/client/http/errors` answers it.
+
 ## 0.1.9
 
 - `task.run` reads one background-job run with its tasks as `TaskRunWithTasks`: the `TaskRun` and its `tasks`, oldest first, each a `TaskHistory` (`id`, `task`, `db_id`, `started_at`, `ended_at`, `duration`, `status` and `task_details`). `status` is a `TaskHistoryStatus`: `started`, `success`, `failed` or `unknown`. `task_details` is the task's own record, `TaskHistoryDetails`, whose `message`, when the task failed, holds the first 250 characters of the exception's message, or null when the exception had none. It needs `taskRuns`, which holds from Metabase 59, and the monitoring application permission.
