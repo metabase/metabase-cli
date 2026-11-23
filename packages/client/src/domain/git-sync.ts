@@ -253,6 +253,10 @@ const SyncRowV66 = z.object({
   collection: CollectionOrRootV66,
   model_id: z.number().int().positive().nullable().optional(),
   model: InCollectionV66,
+  action: z
+    .object({ model: InCollectionV66, collection: CollectionOrRootV66 })
+    .nullable()
+    .optional(),
   card: InCollectionV66,
   transform: InCollectionV66,
   table: NamedInCollectionV66,
@@ -276,6 +280,9 @@ function rowCollectionV66(model: string, id: number, row: SyncRowV66): Collectio
   }
   if (model === "action") {
     return row.model?.collection ?? row.collection;
+  }
+  if (model === "actiontest") {
+    return row.action?.model?.collection ?? row.action?.collection;
   }
   if (model === "cardtest") {
     return row.card?.collection;
