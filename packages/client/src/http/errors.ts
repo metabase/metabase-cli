@@ -127,6 +127,17 @@ const FIELD_MESSAGE_SEPARATOR = "; ";
 export const FIELD_PATH_SEPARATOR = ".";
 const TOP_LEVEL_FIELD_END = /[.[]/;
 
+// Malli files an error about a map as a whole under this key beside the map's own keys, so it names
+// the map it sits in rather than a field of it.
+const MAP_ERROR_KEY = "malli/error";
+
+// Metabase words every Malli sentence as the requirement, then this, then the value as EDN.
+const RECEIVED_SEPARATOR = ", received: ";
+
+// A field message is a sentence or a few, each quoting one value. `errors` describes the whole
+// schema a part had to fit instead, past 1 MB for a field ref, which no caller reads whole.
+const MAX_FIELD_MESSAGE_LEN = 4096;
+
 type FieldPathSegment = string | number;
 
 // The request field a rejection's path starts at: `stages` for `stages[0].aggregation`.
@@ -151,9 +162,10 @@ const ELLIPSIS = "…";
 
 // A Metabase schema error quotes the rejected value after `got: `, and for a reference error that
 // value is the whole normalized stage. The error sits inside a quoted EDN string, so the value runs
-// to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole.
+// to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole, and
+// so does a short `received: ` value in a Malli sentence.
 const GOT_VALUE_PATTERN = /got: ((?:[^"\\]|\\.)*)/g;
-const MAX_GOT_VALUE_LEN = 60;
+const MAX_QUOTED_VALUE_LEN = 60;
 
 export interface HttpErrorDetail {
   status: number;
@@ -543,11 +555,16 @@ function parseFieldErrors(value: unknown): FieldErrors | null {
   if (!parsed.success) {
     return null;
   }
-  const entries = collectLeafEntries(parsed.data, []);
-  if (entries.length === 0) {
+  const parts = collectRefusedParts(parsed.data);
+  if (parts.length === 0) {
     return null;
   }
-  return Object.fromEntries(entries.map((entry) => [entry.path, entry.message]));
+  return Object.fromEntries(
+    parts.map((part) => [
+      part.path,
+      cutToLength(describeRefusal(part.sentences, wholeValue), MAX_FIELD_MESSAGE_LEN),
+    ]),
+  );
 }
 
 function parseEnvelopeMessage(envelope: ErrorEnvelope | null): string | null {
@@ -562,15 +579,7 @@ function parseEnvelopeMessage(envelope: ErrorEnvelope | null): string | null {
   if (viaMessage) {
     return condenseMessage(viaMessage);
   }
-  const specific = formatErrorTree(envelope["specific-errors"]);
-  if (specific) {
-    return condenseMessage(specific);
-  }
-  const generic = formatErrorTree(envelope.errors);
-  if (generic) {
-    return condenseMessage(generic);
-  }
-  return null;
+  return formatErrorTree(envelope["specific-errors"]) ?? formatErrorTree(envelope.errors);
 }
 
 // The server's sentence says a remote-sync move was refused but not over which content, which the
@@ -601,76 +610,179 @@ function formatRemoteSyncedDependent(dependent: RemoteSyncedDependent): string {
 function listRemoteSyncEntries(entries: ReadonlyArray<string>): string {
   const listed = entries.slice(0, MAX_LISTED_REMOTE_SYNC_ENTRIES).join(REMOTE_SYNC_ENTRY_SEPARATOR);
   const unlisted = entries.length - MAX_LISTED_REMOTE_SYNC_ENTRIES;
-  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}and ${unlisted} more` : listed;
+  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}${andMore(unlisted)}` : listed;
+}
+
+function andMore(unlisted: number): string {
+  return `and ${unlisted} more`;
 }
 
 function withoutTrailingPeriod(message: string): string {
   return message.endsWith(".") ? message.slice(0, -1) : message;
 }
 
-interface LeafEntry {
+// One refused part of a request: where it sits, and each distinct sentence Metabase said of it.
+interface RefusedPart {
   path: string;
-  message: string;
+  sentences: string[];
 }
 
-function formatErrorTree(value: unknown): string | null {
-  const entries = collectLeafEntries(value, []);
-  if (entries.length === 0) {
-    return null;
+interface ErrorLeaf {
+  path: FieldPathSegment[];
+  sentences: ReadonlyArray<string>;
+}
+
+function collectRefusedParts(value: unknown): RefusedPart[] {
+  const sentencesByPath = new Map<string, string[]>();
+  for (const leaf of collectLeaves(value, [])) {
+    const path = formatFieldPath(withoutMapErrorKey(leaf.path));
+    const known = sentencesByPath.get(path);
+    if (known === undefined) {
+      sentencesByPath.set(path, [...leaf.sentences]);
+    } else {
+      known.push(...leaf.sentences);
+    }
   }
-  return entries.map(formatLeafEntry).join(FIELD_MESSAGE_SEPARATOR);
+  return [...sentencesByPath].flatMap(([path, sentences]) => {
+    const distinct = distinctSentences(sentences);
+    return distinct.length === 0 ? [] : [{ path, sentences: distinct }];
+  });
 }
 
-function formatLeafEntry(entry: LeafEntry): string {
-  return entry.path === "" ? entry.message : `${entry.path}: ${entry.message}`;
-}
-
-function collectLeafEntries(value: unknown, path: ReadonlyArray<FieldPathSegment>): LeafEntry[] {
+function collectLeaves(value: unknown, path: FieldPathSegment[]): ErrorLeaf[] {
   if (typeof value === "string") {
-    return leafEntry([value], path);
+    return [{ path, sentences: [value] }];
   }
   if (Array.isArray(value)) {
     if (value.every((entry) => typeof entry === "string")) {
-      return leafEntry(value, path);
+      return [{ path, sentences: value }];
     }
-    return value.flatMap((item, index) => collectLeafEntries(item, [...path, index]));
+    return value.flatMap((item, index) => collectLeaves(item, [...path, index]));
   }
   if (isPlainObject(value)) {
-    return Object.entries(value).flatMap(([key, child]) =>
-      collectLeafEntries(child, [...path, key]),
-    );
+    return Object.entries(value).flatMap(([key, child]) => collectLeaves(child, [...path, key]));
   }
   return [];
 }
 
+function withoutMapErrorKey(path: FieldPathSegment[]): FieldPathSegment[] {
+  return path.at(-1) === MAP_ERROR_KEY ? path.slice(0, -1) : path;
+}
+
 // Malli names each schema a value failed, so a value failing two alternatives the same way repeats
 // the sentence.
-function leafEntry(
-  sentences: ReadonlyArray<string>,
-  path: ReadonlyArray<FieldPathSegment>,
-): LeafEntry[] {
-  const distinct = [...new Set(sentences.map((sentence) => sentence.trim()))].filter(
+function distinctSentences(sentences: ReadonlyArray<string>): string[] {
+  return [...new Set(sentences.map((sentence) => sentence.trim()))].filter(
     (sentence) => sentence !== "",
   );
-  if (distinct.length === 0) {
-    return [];
+}
+
+interface Sentence {
+  requirement: string;
+  received: string | null;
+}
+
+function readSentence(sentence: string): Sentence {
+  const at = sentence.indexOf(RECEIVED_SEPARATOR);
+  if (at === -1) {
+    return { requirement: sentence, received: null };
   }
-  return [{ path: formatFieldPath(path), message: distinct.join(FIELD_MESSAGE_SEPARATOR) }];
+  return {
+    requirement: sentence.slice(0, at),
+    received: sentence.slice(at + RECEIVED_SEPARATOR.length),
+  };
+}
+
+// Every sentence about one part quotes the value that arrived there, so when they all quote the
+// same one it is said once, after them all.
+function describeRefusal(
+  sentences: ReadonlyArray<string>,
+  quoteValue: (value: string) => string,
+): string {
+  const read = sentences.map(readSentence);
+  const shared = sharedReceived(read);
+  if (shared !== null) {
+    const requirements = read.map((sentence) => sentence.requirement).join(FIELD_MESSAGE_SEPARATOR);
+    return `${requirements}${RECEIVED_SEPARATOR}${quoteValue(shared)}`;
+  }
+  return read
+    .map((sentence) =>
+      sentence.received === null
+        ? sentence.requirement
+        : `${sentence.requirement}${RECEIVED_SEPARATOR}${quoteValue(sentence.received)}`,
+    )
+    .join(FIELD_MESSAGE_SEPARATOR);
+}
+
+function sharedReceived(sentences: ReadonlyArray<Sentence>): string | null {
+  const values = new Set(sentences.map((sentence) => sentence.received));
+  const [only] = values;
+  return values.size === 1 && only !== undefined ? only : null;
+}
+
+function wholeValue(value: string): string {
+  return value;
+}
+
+// Each part is condensed on its own, so one long quoted value never crowds out the parts after it.
+function formatErrorTree(value: unknown): string | null {
+  const [first, ...rest] = collectRefusedParts(value).map(formatPartForMessage);
+  if (first === undefined) {
+    return null;
+  }
+  return listWithinBudget(first, rest);
+}
+
+function formatPartForMessage(part: RefusedPart): string {
+  const description = trimGotValues(describeRefusal(part.sentences, clipQuotedValue));
+  return part.path === "" ? description : `${part.path}: ${description}`;
+}
+
+// Whole parts while they fit, the rest counted, so no part is cut mid-sentence unless the first
+// alone runs past the budget.
+function listWithinBudget(first: string, rest: ReadonlyArray<string>): string {
+  const firstBudget = MAX_EXTRACTED_MESSAGE_LEN - unlistedTail(rest.length).length;
+  let listed = [cutToLength(first, firstBudget)];
+  for (const [index, part] of rest.entries()) {
+    const next = [...listed, part];
+    if (withUnlisted(next, rest.length - index - 1).length > MAX_EXTRACTED_MESSAGE_LEN) {
+      break;
+    }
+    listed = next;
+  }
+  return withUnlisted(listed, rest.length + 1 - listed.length);
+}
+
+function withUnlisted(listed: ReadonlyArray<string>, unlisted: number): string {
+  return `${listed.join(FIELD_MESSAGE_SEPARATOR)}${unlistedTail(unlisted)}`;
+}
+
+function unlistedTail(unlisted: number): string {
+  return unlisted > 0 ? `${FIELD_MESSAGE_SEPARATOR}${andMore(unlisted)}` : "";
 }
 
 function condenseMessage(message: string): string {
-  const trimmed = message.replace(GOT_VALUE_PATTERN, trimGotValue);
-  if (trimmed.length <= MAX_EXTRACTED_MESSAGE_LEN) {
-    return trimmed;
-  }
-  return trimmed.slice(0, MAX_EXTRACTED_MESSAGE_LEN - ELLIPSIS.length) + ELLIPSIS;
+  return cutToLength(trimGotValues(message), MAX_EXTRACTED_MESSAGE_LEN);
 }
 
-function trimGotValue(match: string, value: string): string {
-  if (value.length <= MAX_GOT_VALUE_LEN) {
-    return match;
+function cutToLength(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
   }
-  return `got: ${value.slice(0, MAX_GOT_VALUE_LEN)}${ELLIPSIS}`;
+  return text.slice(0, maxLength - ELLIPSIS.length) + ELLIPSIS;
+}
+
+function trimGotValues(text: string): string {
+  return text.replace(
+    GOT_VALUE_PATTERN,
+    (_match, value: string) => `got: ${clipQuotedValue(value)}`,
+  );
+}
+
+function clipQuotedValue(value: string): string {
+  return value.length <= MAX_QUOTED_VALUE_LEN
+    ? value
+    : value.slice(0, MAX_QUOTED_VALUE_LEN) + ELLIPSIS;
 }
 
 function defaultMessageForStatus(status: number): string {
