@@ -242,6 +242,17 @@ describe("classifyContentFile", () => {
     ).toEqual({ kind: "test", type: "card", entityId: CARD_ID, hasExpectations: true });
   });
 
+  it("classifies an action test by the action it names in action_id", () => {
+    expect(
+      classifyDocument("collections/c/actions/refund/t.yaml", {
+        action_id: CARD_ID,
+        parameters: { id: 1 },
+        expectations: [{ name: "e", type: "empty" }],
+        "serdes/meta": [{ model: "ActionTest" }],
+      }),
+    ).toEqual({ kind: "test", type: "action", entityId: CARD_ID, hasExpectations: true });
+  });
+
   it("reads a transform test whose expectations are missing, null or empty", () => {
     const documents = [
       { transform_id: TRANSFORM_ID, "serdes/meta": [{ model: "TransformTest" }] },

@@ -469,7 +469,9 @@ One command for the tests of every entity type: `transform`, `card`, `segment`, 
 
 `--id` names either the entity under test (`card:12`) or one of its tests (`card-test:34`). `list` and `create` take the entity; `get`, `update`, `delete`, `run` and `runs` take the test.
 
-The create body is a [transform test](#transform-tests) body without the entity's id, which `--id` carries. Expectation SQL names the entity's result `{{output}}`. `now` fixes the time the entity reads as the current time, and `parameters` are the values an action test calls its action with.
+The create body is a [transform test](#transform-tests) body without the entity's id, which `--id` carries. Expectation SQL names the entity's result `{{output}}`. `now` fixes the time the entity reads as the current time.
+
+An action test runs a query action, whose SQL is one `INSERT`, `UPDATE` or `DELETE`. Its `parameters` give the action's parameters their values, by parameter id or slug, and a parameter left out takes its default. Its `inputs` stand in for the tables the SQL reads or modifies, and its expectations read those tables after the action ran, by their real names. An action has no `{{output}}`, so an `equals` expectation is refused. The run is rolled back, so the real tables do not change.
 
 ### `mb test list`
 
