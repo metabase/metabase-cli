@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## Unreleased
+
+- `group.create`, `group.update` and `group.delete` create, rename and delete permission groups, which `permission.groups` lists as before. A create or rename takes a `PermissionGroupCreateInput` or `PermissionGroupUpdateInput`, the name alone, and answers a `SavedPermissionGroup` (compact: `SavedPermissionGroupCompact`): a `PermissionGroup` without `member_count`, which only the listing counts. `PermissionGroupCompact` gains `member_count`, so a value built by hand must now carry it. A built-in group, one with a `magic_group_type`, cannot be renamed or deleted.
+
 ## 0.2.0
 
 - A `Table` reads as Metabase 66 answers it, without `is_published` and `collection_id`: 66 keeps neither on any table, and a table from an older server drops both. A published table carries the `collection` it is in where the server sends one, as sent: a table's detail and query metadata on every server, and the table listing and schema tables from 66. `TableCompact` has no `is_published`. The tables a `Database`, a `QueryMetadata` and a `TableForeignKey` carry drop the two keys too (`withoutPublicationFlags`).

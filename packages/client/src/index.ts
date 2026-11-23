@@ -394,7 +394,11 @@ export {
   DownloadPermission,
   PermissionGroup,
   PermissionGroupCompact,
+  PermissionGroupCreateInput,
+  PermissionGroupUpdateInput,
   PermissionsGraph,
+  SavedPermissionGroup,
+  SavedPermissionGroupCompact,
   ViewDataPermission,
   YesNoPermission,
 } from "./domain/permission";

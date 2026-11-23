@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NonBlankText } from "./text";
+
 export const ViewDataPermission = z.enum([
   "unrestricted",
   "legacy-no-self-service",
@@ -76,5 +78,26 @@ export const PermissionGroupCompact = PermissionGroup.pick({
   id: true,
   name: true,
   magic_group_type: true,
+  member_count: true,
 }).strip();
 export type PermissionGroupCompact = z.infer<typeof PermissionGroupCompact>;
+
+// What creating or renaming a group answers: the group without `member_count`, which only the
+// listing counts.
+export const SavedPermissionGroup = PermissionGroup.omit({ member_count: true });
+export type SavedPermissionGroup = z.infer<typeof SavedPermissionGroup>;
+
+export const SavedPermissionGroupCompact = SavedPermissionGroup.pick({
+  id: true,
+  name: true,
+  magic_group_type: true,
+}).strip();
+export type SavedPermissionGroupCompact = z.infer<typeof SavedPermissionGroupCompact>;
+
+// The server also takes `is_tenant_group` on create, but a tenant group needs the Tenants feature,
+// which no rule here gates, so the body is the name alone and any other key is refused.
+export const PermissionGroupCreateInput = z.object({ name: NonBlankText }).strict();
+export type PermissionGroupCreateInput = z.infer<typeof PermissionGroupCreateInput>;
+
+export const PermissionGroupUpdateInput = PermissionGroupCreateInput;
+export type PermissionGroupUpdateInput = PermissionGroupCreateInput;

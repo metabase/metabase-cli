@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+
+import { createClient } from "../client";
+import type { ClientCredentials } from "../http/transport";
+import {
+  captureFetch,
+  type FetchScript,
+  jsonResponse,
+  TEST_USER_AGENT,
+} from "../testing/fetch-capture";
+
+const CREDENTIALS: ClientCredentials = {
+  url: "https://mb.example.com/metabase",
+  credential: { kind: "apiKey", apiKey: "mb_wire_test_key" },
+};
+
+const ANALYSTS = { id: 3, name: "Analysts", magic_group_type: null };
+
+const JSON_REQUEST_HEADERS = {
+  accept: "application/json",
+  "content-type": "application/json",
+  "user-agent": TEST_USER_AGENT,
+  "x-api-key": "mb_wire_test_key",
+};
+
+const BINARY_READ_HEADERS = {
+  accept: "*/*",
+  "user-agent": TEST_USER_AGENT,
+  "x-api-key": "mb_wire_test_key",
+};
+
+function clientOver(responses: FetchScript) {
+  const capture = captureFetch(responses);
+  const mb = createClient(CREDENTIALS, {
+    userAgent: TEST_USER_AGENT,
+    fetchImpl: capture.fetch,
+  });
+  return { mb, capture };
+}
+
+describe("group resource wire requests", () => {
+  it("sends the create request with the name", async () => {
+    const { mb, capture } = clientOver([jsonResponse(ANALYSTS)]);
+
+    expect(await mb.group.create({ name: "Analysts" })).toEqual(ANALYSTS);
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/permissions/group",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify({ name: "Analysts" }),
+      },
+    ]);
+  });
+
+  it("sends the id on the path of the update request", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...ANALYSTS, name: "Data analysts" })]);
+
+    await mb.group.update(3, { name: "Data analysts" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/permissions/group/3",
+        method: "PUT",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify({ name: "Data analysts" }),
+      },
+    ]);
+  });
+
+  it("sends the delete request as a bodiless DELETE accepting any content type", async () => {
+    const { mb, capture } = clientOver([new Response(null, { status: 204 })]);
+
+    await mb.group.delete(3);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/permissions/group/3",
+        method: "DELETE",
+        headers: BINARY_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+});

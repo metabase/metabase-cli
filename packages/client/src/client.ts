@@ -24,6 +24,7 @@ import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
+import { groupResource } from "./resources/group";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
@@ -77,6 +78,7 @@ function surfaceOn(transport: Transport) {
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),
+    group: groupResource(transport),
     health: healthResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
