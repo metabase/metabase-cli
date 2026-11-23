@@ -134,10 +134,6 @@ const FIELD_MESSAGE_SEPARATOR = "; ";
 export const FIELD_PATH_SEPARATOR = ".";
 const TOP_LEVEL_FIELD_END = /[.[]/;
 
-// Malli files an error about a map as a whole under this key beside the map's own keys, so it names
-// the map it sits in rather than a field of it.
-const MAP_ERROR_KEY = "malli/error";
-
 // A field message is a sentence or a few, each quoting one value. `errors` describes the whole
 // schema a part had to fit instead, past 1 MB for a field ref, which no caller reads whole.
 const MAX_FIELD_MESSAGE_LEN = 4096;
@@ -641,19 +637,9 @@ interface ErrorLeaf {
 }
 
 function collectRefusedParts(value: unknown): RefusedPart[] {
-  const sentencesByPath = new Map<string, string[]>();
-  for (const leaf of collectLeaves(value, [])) {
-    const path = formatFieldPath(withoutMapErrorKey(leaf.path));
-    const known = sentencesByPath.get(path);
-    if (known === undefined) {
-      sentencesByPath.set(path, [...leaf.sentences]);
-    } else {
-      known.push(...leaf.sentences);
-    }
-  }
-  return [...sentencesByPath].flatMap(([path, sentences]) => {
-    const distinct = distinctSentences(sentences);
-    return distinct.length === 0 ? [] : [{ path, sentences: distinct }];
+  return collectLeaves(value, []).flatMap((leaf) => {
+    const distinct = distinctSentences(leaf.sentences);
+    return distinct.length === 0 ? [] : [{ path: formatFieldPath(leaf.path), sentences: distinct }];
   });
 }
 
@@ -671,10 +657,6 @@ function collectLeaves(value: unknown, path: FieldPathSegment[]): ErrorLeaf[] {
     return Object.entries(value).flatMap(([key, child]) => collectLeaves(child, [...path, key]));
   }
   return [];
-}
-
-function withoutMapErrorKey(path: FieldPathSegment[]): FieldPathSegment[] {
-  return path.at(-1) === MAP_ERROR_KEY ? path.slice(0, -1) : path;
 }
 
 // Malli names each schema a value failed, so a value failing two alternatives the same way repeats
