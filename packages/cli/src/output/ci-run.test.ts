@@ -4,30 +4,21 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  TransformTestRow,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+import type { DataTestRow, DataTestRunResult } from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
-import { DEFAULT_MAX_ROWS, NO_FAILED_CHECKS, ciEventLines, failedChecksAfter } from "./ci-run";
+import { DEFAULT_MAX_ROWS, ciEventLines } from "./ci-run";
 
-// The events of a real failing `mb ci run` in GitHub Actions: a transform's change broke one
-// expectation of its test.
+// The events of a real failing `mb ci run`, as the run wrote them: a transform's bug broke one
+// expectation of its test, and a saved question reads a missing table.
 const RED_RUN_PATH = join(dirname(fileURLToPath(import.meta.url)), "ci-run.red-run.ndjson");
 
 const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
 const HEAD = "eff94588cbd7431f1f751ce92ed2c9c70bd3957b";
 
 function textLines(events: readonly CiEvent[], maxRows: number): string[] {
-  const lines: string[] = [];
-  let failed = NO_FAILED_CHECKS;
-  for (const event of events) {
-    lines.push(...ciEventLines(event, maxRows, failed));
-    failed = failedChecksAfter(failed, event);
-  }
-  return lines;
+  return events.flatMap((event) => ciEventLines(event, maxRows));
 }
 
 function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
@@ -46,9 +37,10 @@ function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
 function jobStart(checked: number): CiEventBody {
   return {
     type: "job.start",
-    v: 1,
+    v: 2,
     snapshot: { base: BASE, head: HEAD },
     checked: Array.from({ length: checked }, (_, index) => ({
+      type: "transform" as const,
       entity_id: `eid-${index}`,
       name: `transform_${index}`,
     })),
@@ -56,21 +48,17 @@ function jobStart(checked: number): CiEventBody {
   };
 }
 
-const UNTOUCHED_PASSED: CiEventBody = {
+const CLEAN_INSTANCE: CiEventBody = {
   type: "check.result",
   stage: "lint",
-  check: {
-    kind: "coverage",
-    id: "untouched",
-    label: "Transforms whose logic this change did not touch",
-  },
+  check: { kind: "broken-refs", id: "instance", label: "Entities on the instance" },
   verdict: "passed",
   warnings: [],
   ms: 0,
-  detail: { untested: [] },
+  detail: { errors: 0, warnings: 0, entities: 0 },
 };
 
-function unitCheck(verdict: "passed" | "failed", detail: TransformTestRunResult): CiEventBody {
+function unitCheck(verdict: "passed" | "failed", detail: DataTestRunResult): CiEventBody {
   return {
     type: "check.result",
     stage: "unit",
@@ -83,10 +71,10 @@ function unitCheck(verdict: "passed" | "failed", detail: TransformTestRunResult)
 }
 
 function equalsFailure(
-  missing: TransformTestRow[],
-  extra: TransformTestRow[],
+  missing: DataTestRow[],
+  extra: DataTestRow[],
   truncated: number,
-): TransformTestRunResult {
+): DataTestRunResult {
   return {
     status: "failed",
     tables: {},
@@ -117,26 +105,24 @@ describe("ciEventLines", () => {
       .map((line) => parseJson(line, CiEvent));
 
     expect(textLines(events, DEFAULT_MAX_ROWS)).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "mb ci run  base 309f2a9  head f33ad9b  1 entity checked",
       "lint",
-      "  ✓ Transforms whose logic this change did not touch",
-      "      ⚠ 1 transform whose logic this change did not touch has no tests: cfg_shopify",
+      '  ✗ card "Order totals by day"',
+      "      missing-table-alias  Native SQL reads order_totalz, which no known table matches",
       "unit",
-      "  ✗ mart_shopify_fct_order: mart_shopify_fct_order: order rules  14.9s",
-      "      ✗ one row per real order with the decided rules  20 rows, expected 19",
-      "          missing  order_id=3  financial_status=refunded  is_valid_order=false  net_revenue=0.00",
-      "          extra    order_id=3  financial_status=paid  is_valid_order=true  net_revenue=100.00",
-      "          missing  order_id=2  financial_status=paid",
-      "          extra    order_id=2  financial_status=authorized",
-      "          extra    order_id=11  order_date=2026-03-10  order_month=2026-03-01  is_complete_period=true  sales_channel=online_store  financial_status=paid  is_valid_order=true  net_revenue=100.00  shipping_price=0.00  country_code=US  is_guest_checkout=false  customer_email=a@b.com  has_discount=false",
-      "      ✓ order_id is unique",
-      "      ✓ invalid orders carry zero net revenue",
-      "FAILED  fix the transform (exit 1)",
+      "  ✗ Order totals: total adds tax  224ms",
+      "      ✗ total is subtotal plus tax  2 rows, expected 2",
+      "          missing  id=1  order_total=110",
+      "          extra    id=1  order_total=90",
+      "          missing  id=2  order_total=44",
+      "          extra    id=2  order_total=36",
+      "      ✓ id is unique",
+      "FAILED  fix what the failed checks name (exit 1)",
     ]);
   });
 
   it("renders a passing job as one line per check, without the passed test's expectations", () => {
-    const passed: TransformTestRunResult = {
+    const passed: DataTestRunResult = {
       status: "passed",
       tables: {},
       expectations: [{ name: "order_id is unique", type: "empty", status: "passed" }],
@@ -147,19 +133,19 @@ describe("ciEventLines", () => {
         [
           jobStart(2),
           { type: "stage.start", stage: "lint" },
-          UNTOUCHED_PASSED,
-          { type: "stage.end", stage: "lint", status: "passed", stopped: null },
+          CLEAN_INSTANCE,
+          { type: "stage.end", stage: "lint", status: "passed", stopped: null, skipped: null },
           { type: "stage.start", stage: "unit" },
           unitCheck("passed", passed),
-          { type: "stage.end", stage: "unit", status: "passed", stopped: null },
+          { type: "stage.end", stage: "unit", status: "passed", stopped: null, skipped: null },
           { type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  2 transforms checked",
+      "mb ci run  base 0c9c839  head eff9458  2 entities checked",
       "lint",
-      "  ✓ Transforms whose logic this change did not touch",
+      "  ✓ Entities on the instance",
       "unit",
       "  ✓ orders: order rules  250ms",
       "PASSED (exit 0)",
@@ -183,7 +169,7 @@ describe("ciEventLines", () => {
               message: "input orders has no column named total",
             },
           },
-          { type: "stage.end", stage: "unit", status: "errored", stopped: null },
+          { type: "stage.end", stage: "unit", status: "errored", stopped: null, skipped: null },
           { type: "job.end", state: "errored", counts: { checks: 1, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
@@ -215,6 +201,24 @@ describe("ciEventLines", () => {
     ).toEqual(["  ! orders: order rules  error  1.3s", "      Service Unavailable (HTTP 503)"]);
   });
 
+  it("renders a skipped stage with its reason", () => {
+    expect(
+      render(
+        [
+          { type: "stage.start", stage: "lint" },
+          {
+            type: "stage.end",
+            stage: "lint",
+            status: "passed",
+            stopped: null,
+            skipped: { code: "ci.lint-unsupported", message: "no lint report" },
+          },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
+    ).toEqual(["lint", "lint  skipped: no lint report (ci.lint-unsupported)"]);
+  });
+
   it("renders a stage that stopped early with its reason, and ends ERRORED", () => {
     expect(
       render(
@@ -225,6 +229,7 @@ describe("ciEventLines", () => {
             stage: "unit",
             status: "errored",
             stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+            skipped: null,
           },
           { type: "job.end", state: "errored", counts: { checks: 0, warnings: 0 } },
         ],
@@ -237,7 +242,7 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("renders an untested change as a failed coverage check", () => {
+  it("renders a broken saved query as a failed check listing each error under its rule", () => {
     expect(
       render(
         [
@@ -246,51 +251,35 @@ describe("ciEventLines", () => {
           {
             type: "check.result",
             stage: "lint",
-            check: { kind: "coverage", id: "eid-0", label: "transform_0" },
+            check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
             verdict: "failed",
             warnings: [],
             ms: 0,
             detail: {
-              change: "new",
-              message: "transform_0 is new in this change and has no transform tests",
+              entity: { id: 310, type: "card", data: { name: "Revenue", collection_id: null } },
+              errors: [
+                {
+                  ruleId: "missing-column",
+                  entity_id: "Cd7kW2pLmX7sYb4nC8dE1",
+                  message: 'Column TOTAL is not on transform "transform_0"',
+                  detail: "TOTAL",
+                  cause: null,
+                },
+              ],
             },
           },
-          UNTOUCHED_PASSED,
-          { type: "stage.end", stage: "lint", status: "failed", stopped: null },
-          { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
+          { type: "stage.end", stage: "lint", status: "failed", stopped: null, skipped: null },
+          { type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "mb ci run  base 0c9c839  head eff9458  1 entity checked",
       "lint",
-      "  ✗ transform_0",
-      "      transform_0 is new in this change and has no transform tests",
-      "  ✓ Transforms whose logic this change did not touch",
-      "FAILED  add or restore transform tests (exit 1)",
+      '  ✗ card "Revenue"',
+      '      missing-column  Column TOTAL is not on transform "transform_0"',
+      "FAILED  fix what the failed checks name (exit 1)",
     ]);
-  });
-
-  it("renders a transform that lost its last test as a failed coverage check", () => {
-    expect(
-      render(
-        [
-          {
-            type: "check.result",
-            stage: "lint",
-            check: { kind: "coverage", id: "eid-0", label: "transform_0" },
-            verdict: "failed",
-            warnings: [],
-            ms: 0,
-            detail: {
-              change: "lost-test",
-              message: "transform_0 lost its last transform test in this change",
-            },
-          },
-        ],
-        DEFAULT_MAX_ROWS,
-      ),
-    ).toEqual(["  ✗ transform_0", "      transform_0 lost its last transform test in this change"]);
   });
 
   it("shows --max-rows row lines and counts the rest, including the rows Metabase left out", () => {
@@ -316,7 +305,7 @@ describe("ciEventLines", () => {
 
   it("counts the cell mismatches past --max-rows in the +N more line", () => {
     const mismatch = { column: "net_revenue", expected: "0.00", actual: null };
-    const result: TransformTestRunResult = {
+    const result: DataTestRunResult = {
       status: "failed",
       tables: {},
       expectations: [
@@ -343,7 +332,7 @@ describe("ciEventLines", () => {
   });
 
   it("renders a cell mismatch as the column with its expected and actual values", () => {
-    const result: TransformTestRunResult = {
+    const result: DataTestRunResult = {
       status: "failed",
       tables: {},
       expectations: [
@@ -368,37 +357,12 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("ends a job whose only failures are coverage checks by asking for tests", () => {
-    expect(render([COVERAGE_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  add or restore transform tests (exit 1)",
-    );
-  });
-
-  it("ends a job whose only failures are transform tests by asking for a fix to the transform", () => {
+  it("ends a job whose only failure is a test without naming the entities as broken", () => {
     expect(render([TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the transform (exit 1)",
-    );
-  });
-
-  it("ends a job with both kinds of failure by asking for a fix and the missing tests", () => {
-    expect(render([COVERAGE_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the transform and add the missing tests (exit 1)",
+      "FAILED  fix what the failed checks name (exit 1)",
     );
   });
 });
-
-const COVERAGE_FAILED: CiEventBody = {
-  type: "check.result",
-  stage: "lint",
-  check: { kind: "coverage", id: "eid-0", label: "transform_0" },
-  verdict: "failed",
-  warnings: [],
-  ms: 0,
-  detail: {
-    change: "new",
-    message: "transform_0 is new in this change and has no transform tests",
-  },
-};
 
 const TEST_FAILED: CiEventBody = unitCheck(
   "failed",

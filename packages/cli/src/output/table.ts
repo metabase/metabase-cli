@@ -51,11 +51,33 @@ export const MALFORMED_CELL = "<malformed>";
 // renderer rather than as missing data, so they place this glyph instead.
 export const EMPTY_CELL = "—";
 
+const C0_END = 0x1f;
+const DEL = 0x7f;
+const C1_END = 0x9f;
+
+function isControl(code: number): boolean {
+  return code <= C0_END || (code >= DEL && code <= C1_END);
+}
+
+// A terminal acts on a control character (a newline, ESC), so text that content authors wrote
+// could forge or hide lines; it is printed escaped instead.
+export function printable(text: string): string {
+  let out = "";
+  for (const character of text) {
+    const code = character.charCodeAt(0);
+    out += isControl(code) ? `\\u${code.toString(16).padStart(4, "0")}` : character;
+  }
+  return out;
+}
+
 export function formatScalar(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
   }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === "string") {
+    return printable(value);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   return JSON.stringify(value);
