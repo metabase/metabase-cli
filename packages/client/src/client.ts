@@ -9,6 +9,8 @@ import {
 import { ConfigError } from "./errors";
 import { isThenable } from "./predicates";
 import { apiKeyResource } from "./resources/api-key";
+import { testSuiteResource } from "./resources/test-suite";
+import { dataTestRunResource } from "./resources/data-test-run";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
 import { contentTranslationResource } from "./resources/content-translation";
@@ -26,6 +28,7 @@ import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
+import { lintResource } from "./resources/lint";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
@@ -50,7 +53,7 @@ import { transformJobResource } from "./resources/transform-job";
 import { transformPythonResource } from "./resources/transform-python";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
-import { transformTestResource } from "./resources/transform-test";
+import { dataTestResource } from "./resources/data-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
 import { workspaceInstanceResource } from "./resources/workspace-instance";
@@ -79,6 +82,7 @@ function surfaceOn(transport: Transport) {
     glossary: glossaryResource(transport),
     health: healthResource(transport),
     library: libraryResource(transport),
+    lint: lintResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
@@ -103,7 +107,9 @@ function surfaceOn(transport: Transport) {
     transformJob: transformJobResource(transport),
     transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
-    transformTest: transformTestResource(transport),
+    dataTest: dataTestResource(transport),
+    dataTestRun: dataTestRunResource(transport),
+    testSuite: testSuiteResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
     workspaceInstance: workspaceInstanceResource(transport),

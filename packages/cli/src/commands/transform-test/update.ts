@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform test from JSON" },
   details:
     "Only the fields the body carries are patched. `inputs` and `expectations` replace what is stored rather than merging into it. The body is closed at every level: a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent.",
-  requires: ["transformTest.update"],
+  requires: ["dataTest.update"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -29,7 +29,7 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
-    const updated = await client.transformTest.update(id, body);
+    const updated = await client.dataTest.update("transform", id, body);
     renderSummary(updated, transformTestView, `Updated transform test ${updated.id}.`, ctx);
   },
 });

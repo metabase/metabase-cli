@@ -5,7 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a transform test by id" },
-  requires: ["transformTest.delete"],
+  requires: ["dataTest.delete"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
       promptMessage: `Delete transform test ${id}?`,
       successMessage: `Deleted transform test ${id}.`,
       abortMessage: `Aborted; transform test ${id} was not deleted.`,
-      deleteResource: () => client.transformTest.delete(id),
+      deleteResource: () => client.dataTest.delete("transform", id),
       ctx,
     });
   },

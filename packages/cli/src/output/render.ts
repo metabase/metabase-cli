@@ -1,6 +1,6 @@
 import type { Writable } from "node:stream";
 
-import { ConfigError } from "@metabase/client/errors";
+import { ConfigError, FailedResultError } from "@metabase/client/errors";
 import type { ColumnDef, ResourceView } from "./view";
 
 import { type CapFit, capListEnvelope, fitWithinCap } from "./cap";
@@ -87,20 +87,33 @@ export function renderSummary<T>(
   writeWithinMaxBytes(summaryBody(item, view, summaryText, opts), opts);
 }
 
-// renderSummary for a command whose result outranks the cap: over it, nothing is written and the
-// refusal comes back as a message, so the caller can still report what the result was.
-export function renderSummaryWithinMaxBytes<T>(
-  item: T,
-  view: ResourceView<T>,
-  summaryText: string | (() => string),
-  opts: RenderOptions,
-): string | null {
+// The message of a verdict that did not pass, given `oversize`: the cap message, or null when the
+// report was written.
+export type VerdictFailure = (oversize: string | null) => string;
+
+// `failure` is null for a verdict that passed.
+interface VerdictReport<T> {
+  item: T;
+  view: ResourceView<T>;
+  summaryText: string | (() => string);
+  failure: VerdictFailure | null;
+}
+
+// renderSummary for a command whose result is a verdict. The work has already happened, so a failed
+// verdict too big to print is still reported as a failure; a passed one over the cap is a ConfigError.
+export function renderVerdict<T>(report: VerdictReport<T>, opts: RenderOptions): void {
+  const { item, view, summaryText, failure } = report;
   const body = summaryBody(item, view, summaryText, opts);
   const oversize = oversizeMessage(body, opts);
   if (oversize === null) {
     process.stdout.write(body);
   }
-  return oversize;
+  if (failure !== null) {
+    throw new FailedResultError(failure(oversize));
+  }
+  if (oversize !== null) {
+    throw new ConfigError(oversize);
+  }
 }
 
 function summaryBody<T>(
@@ -227,9 +240,9 @@ function renderItemBody<T>(
     return serializeJson(projected, stdoutPretty());
   }
   if (opts.fields !== undefined || opts.full) {
-    return renderKeyValueLines(objectPairs(projected));
+    return keyValueLines(objectPairs(projected)).join("\n");
   }
-  return renderKeyValueLines(columnPairs(item, view.tableColumns));
+  return keyValueLines(columnPairs(item, view.tableColumns)).join("\n");
 }
 
 function columnPairs<T>(item: T, columns: ColumnDef<T>[]): KeyValuePair[] {
@@ -244,12 +257,9 @@ function objectPairs(value: unknown): KeyValuePair[] {
   return Object.entries(value).map(([key, raw]) => [key, formatScalar(raw)]);
 }
 
-function renderKeyValueLines(pairs: ReadonlyArray<KeyValuePair>): string {
-  if (pairs.length === 0) {
-    return "";
-  }
+export function keyValueLines(pairs: ReadonlyArray<KeyValuePair>): string[] {
   const padding = Math.max(...pairs.map(([label]) => label.length));
-  return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`).join("\n");
+  return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`);
 }
 
 function writeWithinMaxBytes(body: string, opts: RenderOptions): void {

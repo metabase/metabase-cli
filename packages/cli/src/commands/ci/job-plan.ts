@@ -5,10 +5,11 @@ import {
   type ContentFile,
   type DiffEntry,
   CONTENT_TOP_LEVEL_FOLDERS,
-  TRANSFORM_MODEL_PATTERN,
-  affectedTransforms,
+  TESTED_MODEL_PATTERN,
+  affectedEntities,
   classifyContentFile,
-  headTransforms,
+  entityKey,
+  headEntities,
   isContentPath,
   noContentChangesWarning,
   parseNameStatus,
@@ -16,8 +17,7 @@ import {
   uncommittedContentWarning,
   unreadContentWarning,
 } from "../../core/ci-affected";
-import { type CoverageAssessment, assessCoverage } from "../../core/ci-coverage";
-import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events";
+import type { CheckedEntity, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
   diffNameStatus,
@@ -36,9 +36,10 @@ const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*
 
 export interface JobPlan {
   snapshot: Snapshot;
-  checked: CheckedTransform[];
+  checked: CheckedEntity[];
   warnings: CiWarning[];
-  coverage: CoverageAssessment;
+  // The entities a test with expectations at head covers, by `entityKey`.
+  tested: ReadonlySet<string>;
 }
 
 // A regular or executable file. Metabase's import follows a symlink and reads a submodule's
@@ -156,7 +157,7 @@ function baseSide(reading: FileReading | null): ContentFile | null {
 }
 
 // One read at each side: the changed files, and at head also every unchanged file whose text names a
-// Transform model, which the coverage check counts.
+// tested model, which names the checked entities and says which of them the branch tests.
 async function classifyChanges(
   repo: string,
   forkPoint: string,
@@ -165,13 +166,7 @@ async function classifyChanges(
   signal: AbortSignal,
 ): Promise<ClassifiedHead> {
   const changedPaths = new Set(entries.map((entry) => entry.path));
-  const matched = await filesMatching(
-    repo,
-    head,
-    TRANSFORM_MODEL_PATTERN,
-    CONTENT_PATHSPECS,
-    signal,
-  );
+  const matched = await filesMatching(repo, head, TESTED_MODEL_PATTERN, CONTENT_PATHSPECS, signal);
   const unchanged = matched.filter((path) => !changedPaths.has(path));
   const [baseReadings, headReadings] = await Promise.all([
     readAt(repo, forkPoint, present(entries.map(basePath)), signal),
@@ -217,8 +212,8 @@ export async function planJob(
     entries,
     signal,
   );
-  const atHead = headTransforms([...changes.map((change) => change.head), ...unchangedAtHead]);
-  const checked: CheckedTransform[] = [];
+  const atHead = headEntities([...changes.map((change) => change.head), ...unchangedAtHead]);
+  const checked: CheckedEntity[] = [];
   const warnings: CiWarning[] = [];
   for (const warning of [
     noContentChangesWarning(entries),
@@ -228,24 +223,18 @@ export async function planJob(
       warnings.push(warning);
     }
   }
-  for (const entityId of affectedTransforms(changes)) {
-    const name = atHead.names.get(entityId);
-    if (name === undefined) {
+  for (const affected of affectedEntities(changes)) {
+    const entity = atHead.byKey.get(entityKey(affected));
+    if (entity === undefined) {
+      const { type, entityId } = affected;
       warnings.push({
-        code: "missing-transform",
-        message: `a changed transform test covers transform ${entityId}, which is not in the repo at ${head}`,
+        code: `missing-${type}`,
+        message: `a changed ${type} test covers ${type} ${entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
-    checked.push({ entity_id: entityId, name });
+    checked.push({ type: entity.type, entity_id: entity.entityId, name: entity.name });
   }
-  const coverage = assessCoverage({
-    changes,
-    transformsAtHead: atHead.names,
-    testedAtHead: atHead.tested,
-    testedWithoutExpectationsAtHead: atHead.testedWithoutExpectations,
-    untestableAtHead: atHead.untestable,
-  });
 
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
@@ -256,5 +245,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, warnings, coverage };
+  return { snapshot: { base, head }, checked, warnings, tested: atHead.tested };
 }

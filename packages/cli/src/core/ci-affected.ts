@@ -1,9 +1,9 @@
 import { z } from "zod";
 
+import type { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
-import type { MetabaseYaml } from "../runtime/yaml";
 import type { CiWarning } from "./ci-events";
 
 interface PathEntry {
@@ -19,19 +19,20 @@ interface RenamedEntry {
 
 export type DiffEntry = PathEntry | RenamedEntry;
 
-interface TransformFile {
-  kind: "transform";
+// An entity a test can check.
+interface EntityFile {
+  kind: "entity";
+  type: DataTestType;
   entityId: string;
   name: string;
-  logic: TransformLogic;
-  // Metabase tests only a query transform, and refuses a test of any other, such as a Python one.
-  testable: boolean;
 }
 
-interface TransformTestFile {
-  kind: "transform-test";
-  transformId: string;
-  // A test with no expectations checks nothing, so it does not count as testing its transform.
+// A serialized test of the entity of its type that it names by entity id.
+interface TestFile {
+  kind: "test";
+  type: DataTestType;
+  entityId: string;
+  // A test with no expectations checks nothing, so it does not count as testing its entity.
   hasExpectations: boolean;
 }
 
@@ -39,7 +40,7 @@ interface OtherFile {
   kind: "other";
 }
 
-export type ContentFile = TransformFile | TransformTestFile | OtherFile;
+export type ContentFile = EntityFile | TestFile | OtherFile;
 
 export interface ClassifiedChange {
   path: string;
@@ -162,35 +163,26 @@ const TransformDocument = z
     target: z.unknown(),
   })
   .loose();
-const TransformLogicDocument = TransformDocument.pick({ source: true, target: true });
-
-type LogicReading = z.infer<typeof TransformLogicDocument>;
-
-// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
-// its logic unchanged. Metabase reads YAML 1.1, where an unquoted `on` is true and `017` is 15, and
-// this check reads YAML 1.2, so the logic holds both readings: an edit either parser sees changes it.
-export interface TransformLogic {
-  yaml12: LogicReading;
-  yaml11: LogicReading;
-}
-
-const QUERY_SOURCE_TYPE = "query";
-
-// A source that names no type is held to the query rule, so a malformed transform still needs a test.
-function isTestableSource(source: unknown): boolean {
-  if (!isPlainObject(source)) {
-    return true;
-  }
-  const type = source["type"];
-  return typeof type !== "string" || type === QUERY_SOURCE_TYPE;
-}
 
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
-const TRANSFORM_TEST_RULE =
-  "a TransformTest must name its transform_id, and its expectations must be a list";
-const TransformTestDocument = z
-  .object({ transform_id: z.string().min(1), expectations: z.array(z.unknown()).nullish() })
-  .loose();
+
+const EntityDocument = z.object({ entity_id: z.string().min(1), name: z.string().min(1) }).loose();
+
+const ENTITY_MODELS: ReadonlyMap<string, Exclude<DataTestType, "transform">> = new Map([
+  ["Card", "card"],
+  ["Segment", "segment"],
+  ["Measure", "measure"],
+  ["Action", "action"],
+]);
+
+// The types whose tests are serialized; the others' tests live on the instance alone.
+const TEST_MODELS: ReadonlyMap<string, DataTestType> = new Map([
+  ["TransformTest", "transform"],
+  ["CardTest", "card"],
+  ["SegmentTest", "segment"],
+]);
+const TestDocument = z.object({ expectations: z.array(z.unknown()).nullish() }).loose();
+const EntityReference = z.string().min(1);
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
 
@@ -202,8 +194,7 @@ function parseOrRefuse<T>(path: string, schema: z.ZodType<T>, value: unknown, ru
   return parsed.data;
 }
 
-export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFile {
-  const document = yaml.yaml12;
+export function classifyContentFile(path: string, document: unknown): ContentFile {
   if (!isPlainObject(document) || !(SERDES_META_KEY in document)) {
     return { kind: "other" };
   }
@@ -222,102 +213,115 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
   }
   if (last.model === "Transform") {
     const transform = parseOrRefuse(path, TransformDocument, document, TRANSFORM_RULE);
-    const asYaml11 = parseOrRefuse(path, TransformLogicDocument, yaml.yaml11, TRANSFORM_RULE);
     return {
-      kind: "transform",
+      kind: "entity",
+      type: "transform",
       entityId: transform.entity_id,
       name: transform.name,
-      logic: {
-        yaml12: { source: transform.source, target: transform.target },
-        yaml11: { source: asYaml11.source, target: asYaml11.target },
-      },
-      testable: isTestableSource(transform.source),
     };
   }
-  if (last.model === "TransformTest") {
-    const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
-    const expectations = test.expectations;
+  const testType = TEST_MODELS.get(last.model);
+  if (testType !== undefined) {
+    const key = `${testType}_id`;
+    const rule = `a ${last.model} must name its ${key}, and its expectations must be a list`;
+    const entityId = parseOrRefuse(path, EntityReference, document[key], rule);
+    const { expectations } = parseOrRefuse(path, TestDocument, document, rule);
     const hasExpectations =
       expectations !== undefined && expectations !== null && expectations.length > 0;
-    return { kind: "transform-test", transformId: test.transform_id, hasExpectations };
+    return { kind: "test", type: testType, entityId, hasExpectations };
+  }
+  const type = ENTITY_MODELS.get(last.model);
+  if (type !== undefined) {
+    const entity = parseOrRefuse(
+      path,
+      EntityDocument,
+      document,
+      `a ${last.model} must have an entity_id and a name`,
+    );
+    return { kind: "entity", type, entityId: entity.entity_id, name: entity.name };
   }
   return { kind: "other" };
 }
 
-function transformEntityId(file: ContentFile | null): string | null {
-  return file?.kind === "transform" ? file.entityId : null;
+export interface AffectedEntity {
+  type: DataTestType;
+  entityId: string;
 }
 
-export function affectedTransforms(changes: readonly ClassifiedChange[]): string[] {
-  const touched = new Set<string>();
+// Entity ids are unique per model only, so an entity is keyed by both.
+export function entityKey({ type, entityId }: AffectedEntity): string {
+  return `${type}:${entityId}`;
+}
+
+function entityOf(file: ContentFile | null): AffectedEntity | null {
+  return file?.kind === "entity" ? { type: file.type, entityId: file.entityId } : null;
+}
+
+function testedOf(file: ContentFile | null): AffectedEntity | null {
+  return file?.kind === "test" ? { type: file.type, entityId: file.entityId } : null;
+}
+
+export function affectedEntities(changes: readonly ClassifiedChange[]): AffectedEntity[] {
+  const touched = new Map<string, AffectedEntity>();
   const atHead = new Set<string>();
   const atBase = new Set<string>();
 
   for (const { path, base, head } of changes) {
     // A parser that reads the file differently from Metabase (a YAML merge key, a symlink blob)
-    // would otherwise turn an edited transform into a deleted one.
+    // would otherwise turn an edited entity into a deleted one.
     if (base !== null && base.kind !== "other" && head?.kind === "other") {
       throw new ValidationError(
-        `${path}: a Transform or TransformTest at base no longer reads as one at head`,
+        `${path}: an entity or test at base no longer reads as one at head`,
         { source: path, zodIssues: [] },
       );
     }
-    const headId = transformEntityId(head);
-    const baseId = transformEntityId(base);
-    if (headId !== null) {
-      touched.add(headId);
-      atHead.add(headId);
+    const headEntity = entityOf(head);
+    const baseEntity = entityOf(base);
+    if (headEntity !== null) {
+      touched.set(entityKey(headEntity), headEntity);
+      atHead.add(entityKey(headEntity));
     }
-    if (baseId !== null) {
-      atBase.add(baseId);
+    if (baseEntity !== null) {
+      atBase.add(entityKey(baseEntity));
     }
-    for (const side of [base, head]) {
-      if (side?.kind === "transform-test") {
-        touched.add(side.transformId);
+    for (const tested of [testedOf(base), testedOf(head)]) {
+      if (tested !== null) {
+        touched.set(entityKey(tested), tested);
       }
     }
   }
 
-  // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
-  return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
+  // A test-only change names an entity the diff does not show; keep it unless the diff removed it.
+  return [...touched]
+    .filter(([key]) => atHead.has(key) || !atBase.has(key))
+    .map(([, entity]) => entity);
 }
 
-// Every Transform and TransformTest file names its model in `serdes/meta`, however the YAML spells
-// the entry (quoted, tagged, folded, on the next line), so the word alone finds them; only a model
-// written with an escape (`\x54ransform`), which no export writes, is missed. Every match is read, so
-// the scan also reads the other content files that mention the word. A POSIX extended pattern, for
-// `git grep -E`.
-export const TRANSFORM_MODEL_PATTERN = "Transform";
+// Every file of an entity a serialized test can cover, and every such test, names its model in
+// `serdes/meta`, however the YAML spells the entry (quoted, tagged, folded, on the next line), so the
+// entity's model alone finds them; only a model written with an escape (`\x54ransform`), which no
+// export writes, is missed. Every match is read, so the scan also reads the other content files that
+// mention the word. A POSIX extended pattern, for `git grep -E`.
+const TEST_MODEL_SUFFIX = "Test";
 
-export interface HeadTransforms {
-  names: Map<string, string>;
+export const TESTED_MODEL_PATTERN = [...TEST_MODELS.keys()]
+  .map((model) => model.slice(0, -TEST_MODEL_SUFFIX.length))
+  .join("|");
+
+export interface HeadEntities {
+  byKey: Map<string, EntityFile>;
+  // The entities a test with expectations at head covers, by `entityKey`.
   tested: Set<string>;
-  testedWithoutExpectations: Set<string>;
-  untestable: Set<string>;
 }
 
-// The transforms among files at head, each by name, the transforms a test with expectations at head
-// covers, those only tests without expectations name, and the transforms Metabase cannot test.
-export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = {
-    names: new Map(),
-    tested: new Set(),
-    testedWithoutExpectations: new Set(),
-    untestable: new Set(),
-  };
+export function headEntities(files: readonly (ContentFile | null)[]): HeadEntities {
+  const atHead: HeadEntities = { byKey: new Map(), tested: new Set() };
   for (const file of files) {
-    if (file?.kind === "transform") {
-      atHead.names.set(file.entityId, file.name);
-      if (!file.testable) {
-        atHead.untestable.add(file.entityId);
-      }
-    } else if (file?.kind === "transform-test") {
-      const covered = file.hasExpectations ? atHead.tested : atHead.testedWithoutExpectations;
-      covered.add(file.transformId);
+    if (file?.kind === "entity") {
+      atHead.byKey.set(entityKey(file), file);
+    } else if (file?.kind === "test" && file.hasExpectations) {
+      atHead.tested.add(entityKey(file));
     }
-  }
-  for (const entityId of atHead.tested) {
-    atHead.testedWithoutExpectations.delete(entityId);
   }
   return atHead;
 }
@@ -372,7 +376,7 @@ export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarnin
   }
   return {
     code: "no-content-changes",
-    message: "the change touches no Metabase content files, so no transform test ran",
+    message: "the change touches no Metabase content files",
   };
 }
 
@@ -399,7 +403,7 @@ export function unreadContentWarning(reasons: readonly string[]): CiWarning | nu
   }
   const summary =
     reasons.length === 1
-      ? "1 content file this change did not touch could not be read, so the coverage check skipped it"
-      : `${reasons.length} content files this change did not touch could not be read, so the coverage check skipped them`;
+      ? "1 content file this change did not touch could not be read, so an entity or test in it went uncounted"
+      : `${reasons.length} content files this change did not touch could not be read, so an entity or test in them went uncounted`;
   return { code: "unread-content", message: `${summary}: ${reasons.join("; ")}` };
 }

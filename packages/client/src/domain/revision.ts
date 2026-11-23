@@ -5,6 +5,7 @@ import type { InputGate } from "../version/input-gates";
 
 export const RevisionEntity = z.enum([
   "card",
+  "card-test",
   "dashboard",
   "document",
   "measure",
@@ -73,6 +74,7 @@ export type RevisionRow = z.infer<typeof RevisionRow>;
 export const REVISION_ENTITY_GATES: readonly InputGate[] = [
   { feature: "measures", effect: "needs", when: { kind: "values", values: ["measure"] } },
   { feature: "transforms", effect: "needs", when: { kind: "values", values: ["transform"] } },
+  { feature: "cardTests", effect: "needs", when: { kind: "values", values: ["card-test"] } },
   {
     feature: "transformTests",
     effect: "needs",

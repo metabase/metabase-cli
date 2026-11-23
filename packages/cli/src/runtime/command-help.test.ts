@@ -397,7 +397,21 @@ const ALL_COMMANDS = [
   "transform-test update",
   "transform-test delete",
   "transform-test run",
+  "test list",
+  "test get",
+  "test create",
+  "test update",
+  "test delete",
+  "test run",
+  "test runs",
+  "test-suite list",
+  "test-suite get",
+  "test-suite create",
+  "test-suite update",
+  "test-suite delete",
+  "test-suite run",
   "ci run",
+  "lint",
   "setting list",
   "setting get",
   "setting set",
@@ -492,6 +506,10 @@ const BODY_COMMANDS = [
   "transform-tag update",
   "transform-test create",
   "transform-test update",
+  "test create",
+  "test update",
+  "test-suite create",
+  "test-suite update",
   "setup",
   "snippet create",
   "snippet update",
@@ -658,16 +676,16 @@ describe("command tree contract", () => {
         .map((entry) => [entry.command, entry.requires]),
     );
     expect(requires).toEqual({
-      "transform-test list": requiresOf("transformTest.list"),
-      "transform-test get": requiresOf("transformTest.get"),
-      "transform-test create": requiresOf("transformTest.create"),
-      "transform-test update": requiresOf("transformTest.update"),
-      "transform-test delete": requiresOf("transformTest.delete"),
-      "transform-test run": requiresOf("transformTest.run"),
+      "transform-test list": requiresOf("dataTest.list"),
+      "transform-test get": requiresOf("dataTest.get"),
+      "transform-test create": requiresOf("dataTest.create"),
+      "transform-test update": requiresOf("dataTest.update"),
+      "transform-test delete": requiresOf("dataTest.delete"),
+      "transform-test run": requiresOf("dataTest.run"),
     });
   });
 
-  it("advertises a --limit default on search alone, so the shared flag description stays true", async () => {
+  it("advertises a --limit default on search and test runs alone, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
       entries
@@ -676,6 +694,13 @@ describe("command tree contract", () => {
     );
     expect(withDefault).toEqual({
       search: {
+        name: "limit",
+        type: "string",
+        required: false,
+        description: "Max items to return",
+        default: "20",
+      },
+      "test runs": {
         name: "limit",
         type: "string",
         required: false,
