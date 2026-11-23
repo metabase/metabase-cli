@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: {
     name: "get",
-    description: "Show the Library and its Data / Metrics collection ids",
+    description: "Show the Library and the ids of its collections (Data, Metrics, …)",
   },
   details:
     "Fails when the Library hasn't been created yet. Use the `library-data` child's ID as the target for publishing tables, or run `mb library publish`, which finds it for you.",

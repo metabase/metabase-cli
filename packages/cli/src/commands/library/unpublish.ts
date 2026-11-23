@@ -31,7 +31,7 @@ export default defineMetabaseCommand({
     description: "Unpublish tables (and their downstream dependents) from the Library",
   },
   details:
-    "Removes each selected table, and every downstream table that depends on it, from the Library. The selectors are combined.",
+    "Removes each selected table, and every downstream table that depends on it, from the Library. The selection is every table that any of the selectors names.",
   requires: ["library.unpublishTables"],
   args: {
     ...outputFlags,

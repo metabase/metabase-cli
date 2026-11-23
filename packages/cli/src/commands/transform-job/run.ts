@@ -35,7 +35,7 @@ function runSummary(id: number, result: TransformJobRunResult): string {
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Trigger a transform job run by id" },
   details:
-    "Starts the job and returns at once. The job runs every transform carrying one of its tags, plus those transforms' dependencies, except the ones already fresh.",
+    "Starts the job and returns at once. The job runs every transform carrying one of its tags, plus those transforms' dependencies. A dependency that's already fresh isn't run again unless you pass `--force-refresh`.",
   requires: ["transformJob.run"],
   args: {
     ...outputFlags,

@@ -25,7 +25,7 @@ export default defineMetabaseCommand({
   inputSchema: PulseCreateInput,
   outputSchema: Pulse,
   examples: [
-    'mb subscription create --body \'{"name":"Weekly orders","dashboard_id":10,"cards":[{"id":94,"dashboard_card_id":87,"include_csv":false,"include_xls":false}],"channels":[{"channel_type":"email","schedule_type":"daily","schedule_hour":8,"recipients":[{"email":"team@example.com"}]}]}\'',
+    'mb subscription create --body \'{"name":"Daily orders","dashboard_id":10,"cards":[{"id":94,"dashboard_card_id":87,"include_csv":false,"include_xls":false}],"channels":[{"channel_type":"email","schedule_type":"daily","schedule_hour":8,"recipients":[{"email":"team@example.com"}]}]}\'',
     "cat subscription.json | mb subscription create",
     "mb subscription create --file subscription.json",
   ],

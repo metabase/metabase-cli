@@ -75,7 +75,7 @@ const loginView: ResourceView<LoginResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
-  details: `Interactive login offers browser login (recommended; Metabase ${OAUTH_MINIMUM_RELEASE}+) or an API key from **Admin** > **Settings** > **Authentication** > **API keys**; older servers go straight to the API key prompt. Browser login opens Metabase for you to sign in and approve, then stores tokens that the CLI refreshes on its own. For CI and other non-interactive runs, pass an API key with \`--api-key\`, piped stdin, or \`$MB_API_KEY\` (the first one given wins; \`--api-key -\` reads stdin and keeps the key out of shell history); any of these skips the browser, and a non-TTY login without one fails. The URL comes from \`--url\`, \`$MB_URL\`, or a prompt on a TTY. Unless \`--skip-verify\` is given, login probes the server, and saves nothing if the probe fails.`,
+  details: `Interactive login offers browser login (recommended; Metabase ${OAUTH_MINIMUM_RELEASE}+) or an API key from **Admin** > **Settings** > **Authentication** > **API keys**; older servers go straight to the API key prompt. Browser login opens Metabase for you to sign in and approve, then stores tokens that the CLI refreshes on its own. For CI and other non-interactive runs, pass an API key with \`--api-key\`, piped stdin, or \`$MB_API_KEY\` (the first one given wins; \`--api-key -\` reads stdin and keeps the key out of shell history); any of these skips the browser, and a non-TTY login without one fails. The URL comes from \`--url\`, \`$MB_URL\`, or a prompt on a TTY. Unless \`--skip-verify\` is given, login probes the server, and saves no credential if the probe fails; a profile that already exists records the failure as \`lastFailure\`. With an API key, \`--skip-verify\` saves without contacting the server.`,
   requires: ["user.current"],
   args: {
     ...outputFlags,
@@ -89,7 +89,7 @@ export default defineMetabaseCommand({
     "skip-verify": {
       type: "boolean",
       default: false,
-      description: "Save without contacting the server",
+      description: "Save the credential without the probe that checks it",
     },
   },
   outputSchema: LoginResult,

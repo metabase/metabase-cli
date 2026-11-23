@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Trigger a rescan of cached field values for one table",
   },
   details:
-    "Queues a rescan of this table's cached filter values, and returns the server's `success` at once. Only the sets that are cached and were read in the last 14 days are refreshed. For several tables, use `mb table bulk-rescan-values`.",
+    "Queues a rescan of this table's cached filter values, and returns `{ id, status }` at once, where `status` is the server's acknowledgment (`success`). Only the sets that are cached and were read in the last 14 days are refreshed. For several tables, use `mb table bulk-rescan-values`.",
   requires: ["table.rescanValues"],
   args: {
     ...outputFlags,

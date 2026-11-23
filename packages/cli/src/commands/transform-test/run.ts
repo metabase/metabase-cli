@@ -37,7 +37,7 @@ function summaryLine(id: number, result: TransformTestRunResult): string {
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Run a transform test by id" },
   details:
-    "Builds temp tables from the test's inputs, runs the transform against them, checks every expectation against its output, and drops the temp tables. A `format: \"sql\"` input runs verbatim against the transform's source database. The run is one synchronous request, so `--timeout` bounds all of it; `--json` reports what each expectation found, including the rows a comparison disagreed on. A test that doesn't pass exits 1, even when its report is over `--max-bytes` and isn't printed, and the error names the expectations that failed.",
+    "Builds temp tables from the test's inputs, runs the transform against them, checks every expectation against its output, and drops the temp tables. A `format: \"sql\"` input runs verbatim against the transform's source database. The run is one synchronous request, so `--timeout` bounds all of it; `--json` reports what each expectation found, including the rows a comparison disagreed on. A test that doesn't pass exits 1, and its report names the expectations that failed. When the report is over `--max-bytes` and isn't printed, the error names them instead.",
   requires: ["transformTest.run"],
   args: {
     ...outputFlags,

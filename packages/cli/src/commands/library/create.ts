@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description: "Create the Library (Data + Metrics collections); idempotent",
+    description: "Create the Library and its collections (Data, Metrics, …); idempotent",
   },
   requires: ["library.create"],
   args: {

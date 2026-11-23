@@ -36,7 +36,7 @@ export default defineMetabaseCommand({
     },
     interval: {
       type: "string",
-      description: "Polling interval in ms",
+      description: "First polling interval in ms; the delay doubles after each poll",
       default: String(DEFAULT_INTERVAL_MS),
     },
   },

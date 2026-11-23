@@ -9,7 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "alerts", description: "List alerts watching a card" },
   details:
-    "Manage them with `mb alert create|update|send|archive`, which take the alert id printed here.",
+    "Manage them with `mb alert get|update|send|archive`, which take the alert id printed here. `mb alert create` adds one.",
   requires: ["notification.list"],
   args: {
     ...outputFlags,

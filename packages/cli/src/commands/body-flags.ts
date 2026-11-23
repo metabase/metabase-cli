@@ -1,4 +1,8 @@
 export const bodyInputFlags = {
   body: { type: "string", description: "Inline JSON body" },
-  file: { type: "string", description: "Path to JSON body file, or `-` to read stdin" },
+  file: {
+    type: "string",
+    description:
+      "Path to JSON body file, or `-` to read stdin. With neither flag, piped stdin is the body",
+  },
 } as const;

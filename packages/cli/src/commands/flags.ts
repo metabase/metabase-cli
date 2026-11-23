@@ -1,5 +1,7 @@
 import type { StringArgDef } from "citty";
 
+import { DEFAULT_PROFILE } from "../core/auth/storage";
+import { ENV_API_KEY, ENV_PROFILE, ENV_SKIP_PREFLIGHT, ENV_URL } from "../core/env";
 import type { SharedFlagSet } from "../output/command-reference";
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
@@ -19,7 +21,11 @@ export function listFlag<const T extends ListFlagDef>(def: T): T & ListMarker {
 // A command whose output is always the server's JSON as-is has nothing to project or cap, so it
 // takes only the format pair, which still picks the shape of an error report.
 export const formatFlags = {
-  format: { type: "string", description: "auto | json | text", default: "auto" },
+  format: {
+    type: "string",
+    description: "auto | json | text; `auto` is text on a terminal and JSON otherwise",
+    default: "auto",
+  },
   json: { type: "boolean", description: "Shorthand for `--format json`" },
 } as const;
 
@@ -68,24 +74,30 @@ export function listFlagsWithDefaultLimit(defaultLimit: number) {
 }
 
 export const profileFlag = {
-  profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
+  profile: {
+    type: "string",
+    description: `Named profile (default: \`$${ENV_PROFILE}\`, else \`${DEFAULT_PROFILE}\`)`,
+    alias: "p",
+  },
 } as const;
 
 export const urlFlag = {
   url: {
     type: "string",
-    description:
-      "Metabase URL, including any subpath the instance is served under (`https://example.com/metabase`)",
+    description: `Metabase URL, including any subpath the instance is served under (\`https://example.com/metabase\`). Default: \`$${ENV_URL}\`, else the profile's`,
   },
 } as const;
 
 export const connectionFlags = {
   ...urlFlag,
-  apiKey: { type: "string", description: "API key", alias: "api-key" },
+  apiKey: {
+    type: "string",
+    description: `API key. Default: \`$${ENV_API_KEY}\`, else the profile's credential`,
+    alias: "api-key",
+  },
   skipPreflight: {
     type: "boolean",
-    description:
-      "Skip the client's version and license checks made before a request, and let the server answer",
+    description: `Skip the client's version and license checks made before a request, and let the server answer; \`${ENV_SKIP_PREFLIGHT}=1\` does the same`,
     alias: "skip-preflight",
   },
 } as const;
