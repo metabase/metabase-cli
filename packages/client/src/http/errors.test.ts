@@ -114,7 +114,7 @@ describe("HttpError message extraction", () => {
       },
     });
     expect(buildHttpError({ rawBody: body }).message).toBe(
-      "name: should be a string; non-blank string, received: nil",
+      "name: should be a string, received: nil; non-blank string, received: nil",
     );
   });
 
@@ -277,7 +277,7 @@ describe("HttpError field errors", () => {
 
   it("joins the several reasons one field was rejected for", () => {
     expect(buildHttpError({ rawBody: API_KEY_BLANK_NAME_400_BODY }).specificFieldErrors).toEqual({
-      name: 'should be at least 1 character; non-blank string, received: ""',
+      name: 'should be at least 1 character, received: ""; non-blank string, received: ""',
     });
   });
 

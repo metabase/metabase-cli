@@ -148,12 +148,12 @@ export function serverHas(feature: FeatureName): boolean {
 // How the server, not the client-side validator, refuses a definition whose `stages` is empty. A
 // server answering with a 400 names the empty list in Malli's words; the sentence it adds about the
 // whole definition differs by command and generation and quotes the query, so a suite checks the
-// message contains this part. An older server answers with a 500 whose body carries no message, so
-// the message is the status's own, and a 500 where a 400 belongs fails either way.
+// message contains this part. An older server answers with a 500 whose stack trace carries the
+// schema check's own message, so a 400 there fails either way.
 export function emptyStagesRejection(): string {
   return serverHas("invalidMbqlIsBadRequest")
     ? "definition.stages: should have at least 1 elements, received: []"
-    : "Metabase returned 500.";
+    : "Value does not match schema";
 }
 
 // A query the server cannot normalize — a database id that is not an integer, say — is refused with

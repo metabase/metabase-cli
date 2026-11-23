@@ -61,15 +61,22 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   504: { retryable: true, message: "Metabase timed out responding." },
 };
 
+// A key of another type costs only itself: Metabase 58 answers a schema failure with `error` as a
+// map beside a string `message`, and a JVM exception without a message serializes `message: null`.
+const OptionalText = z.string().optional().catch(undefined);
+
 const ErrorEnvelope = z
   .object({
-    message: z.string().optional(),
-    error: z.string().optional(),
-    "error-message": z.string().optional(),
-    via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
+    message: OptionalText,
+    error: OptionalText,
+    "error-message": OptionalText,
+    via: z
+      .array(z.object({ message: OptionalText }).loose())
+      .optional()
+      .catch(undefined),
     "specific-errors": z.unknown().optional(),
     errors: z.unknown().optional(),
-    "error-code": z.string().optional(),
+    "error-code": OptionalText,
     "non-remote-synced-models": z.unknown().optional(),
     "remote-synced-models": z.unknown().optional(),
     tables: z.unknown().optional(),
@@ -131,9 +138,6 @@ const TOP_LEVEL_FIELD_END = /[.[]/;
 // the map it sits in rather than a field of it.
 const MAP_ERROR_KEY = "malli/error";
 
-// Metabase words every Malli sentence as the requirement, then this, then the value as EDN.
-const RECEIVED_SEPARATOR = ", received: ";
-
 // A field message is a sentence or a few, each quoting one value. `errors` describes the whole
 // schema a part had to fit instead, past 1 MB for a field ref, which no caller reads whole.
 const MAX_FIELD_MESSAGE_LEN = 4096;
@@ -162,10 +166,14 @@ const ELLIPSIS = "…";
 
 // A Metabase schema error quotes the rejected value after `got: `, and for a reference error that
 // value is the whole normalized stage. The error sits inside a quoted EDN string, so the value runs
-// to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole, and
-// so does a short `received: ` value in a Malli sentence.
+// to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole.
 const GOT_VALUE_PATTERN = /got: ((?:[^"\\]|\\.)*)/g;
 const MAX_QUOTED_VALUE_LEN = 60;
+
+// A Malli sentence names the requirement first and quotes the value that arrived after it, which
+// can be a whole stage, so each sentence in a message is cut to this and one value never crowds out
+// the parts after it.
+const MAX_MESSAGE_SENTENCE_LEN = 200;
 
 export interface HttpErrorDetail {
   status: number;
@@ -562,7 +570,7 @@ function parseFieldErrors(value: unknown): FieldErrors | null {
   return Object.fromEntries(
     parts.map((part) => [
       part.path,
-      cutToLength(describeRefusal(part.sentences, wholeValue), MAX_FIELD_MESSAGE_LEN),
+      cutToLength(part.sentences.join(FIELD_MESSAGE_SEPARATOR), MAX_FIELD_MESSAGE_LEN),
     ]),
   );
 }
@@ -677,53 +685,6 @@ function distinctSentences(sentences: ReadonlyArray<string>): string[] {
   );
 }
 
-interface Sentence {
-  requirement: string;
-  received: string | null;
-}
-
-function readSentence(sentence: string): Sentence {
-  const at = sentence.indexOf(RECEIVED_SEPARATOR);
-  if (at === -1) {
-    return { requirement: sentence, received: null };
-  }
-  return {
-    requirement: sentence.slice(0, at),
-    received: sentence.slice(at + RECEIVED_SEPARATOR.length),
-  };
-}
-
-// Every sentence about one part quotes the value that arrived there, so when they all quote the
-// same one it is said once, after them all.
-function describeRefusal(
-  sentences: ReadonlyArray<string>,
-  quoteValue: (value: string) => string,
-): string {
-  const read = sentences.map(readSentence);
-  const shared = sharedReceived(read);
-  if (shared !== null) {
-    const requirements = read.map((sentence) => sentence.requirement).join(FIELD_MESSAGE_SEPARATOR);
-    return `${requirements}${RECEIVED_SEPARATOR}${quoteValue(shared)}`;
-  }
-  return read
-    .map((sentence) =>
-      sentence.received === null
-        ? sentence.requirement
-        : `${sentence.requirement}${RECEIVED_SEPARATOR}${quoteValue(sentence.received)}`,
-    )
-    .join(FIELD_MESSAGE_SEPARATOR);
-}
-
-function sharedReceived(sentences: ReadonlyArray<Sentence>): string | null {
-  const values = new Set(sentences.map((sentence) => sentence.received));
-  const [only] = values;
-  return values.size === 1 && only !== undefined ? only : null;
-}
-
-function wholeValue(value: string): string {
-  return value;
-}
-
 // Each part is condensed on its own, so one long quoted value never crowds out the parts after it.
 function formatErrorTree(value: unknown): string | null {
   const [first, ...rest] = collectRefusedParts(value).map(formatPartForMessage);
@@ -734,7 +695,9 @@ function formatErrorTree(value: unknown): string | null {
 }
 
 function formatPartForMessage(part: RefusedPart): string {
-  const description = trimGotValues(describeRefusal(part.sentences, clipQuotedValue));
+  const description = part.sentences
+    .map((sentence) => cutToLength(trimGotValues(sentence), MAX_MESSAGE_SENTENCE_LEN))
+    .join(FIELD_MESSAGE_SEPARATOR);
   return part.path === "" ? description : `${part.path}: ${description}`;
 }
 
