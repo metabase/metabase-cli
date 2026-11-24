@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     description: "Look up another field's value on the row where a field equals a value",
   },
   details:
-    "Returns `{ found: true, value, label }`, where `label` is the value of `<remapped-id>` on the row where `<id>` equals `<value>`, or `{ found: false }` when no row matches. A FK `<id>` is followed to the key it points at, and `<remapped-id>` must be on that key's table; a pair that isn't, or a failed warehouse query, also returns `{ found: false }`. For a numeric `<id>`, only the leading number of `<value>` counts (`20abc` looks up 20), and a negative value goes in as it is (`mb field remapping 100 101 -5`). The text output is the label alone; use `--json` to tell no match from an empty label.",
+    "Returns `{ found: true, value, label }`, where `label` is the value of `<remapped-id>` on the row where `<id>` equals `<value>`, or `{ found: false }` when no row matches. A FK `<id>` is followed to the key it points at, and `<remapped-id>` must be on that key's table; a pair that isn't, or a failed warehouse query, also returns `{ found: false }`. For a numeric `<id>`, only the leading number of `<value>` counts (`20abc` looks up 20), and a negative number goes in as it is (`mb field remapping 100 101 -5`). Any other value that starts with `-` goes after `--` (`mb field remapping 100 101 -- -a`). The text output is the label alone; use `--json` to tell no match from an empty label.",
   requires: ["field.remapping"],
   args: {
     ...outputFlags,

@@ -10,9 +10,9 @@ import { defineMetabaseCommand } from "../runtime";
 export const TransformJobTransformsEnvelope = listEnvelopeSchema(TransformCompact);
 
 export default defineMetabaseCommand({
-  meta: { name: "transforms", description: "List the transforms that carry one of a job's tags" },
+  meta: { name: "transforms", description: "List the transforms a job will run" },
   details:
-    "The list leaves out the dependencies of those transforms, which `mb transform-job run` also runs.",
+    "The list holds the transforms that carry one of the job's tags, and the dependencies of those transforms, which `mb transform-job run` also runs.",
   requires: ["transformJob.transforms"],
   args: {
     ...outputFlags,

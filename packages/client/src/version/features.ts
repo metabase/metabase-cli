@@ -69,8 +69,8 @@ export const FEATURE_RULES = {
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
   dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
   dependencyAsyncBackfill: { since: 60, tokenFeature: "dependencies" },
-  // Archived upstream entities in `graph`, and dropped tables and archived sources in `unreferenced`
-  // and `breaking`; older servers leave them out.
+  // Archived upstream entities in `graph`, dropped and hidden tables in `unreferenced` and `breaking`,
+  // and archived sources in `breaking`; older servers leave them out.
   dependencyKeepsArchivedSources: { since: 63, tokenFeature: "dependencies" },
   // Query analysis traces an error back to a transform. A 60 server does so from 60.10.1 on, a 61
   // one from 61.5, a 62 one from 62.2, and a 63 one always does.

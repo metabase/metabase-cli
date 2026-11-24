@@ -12,11 +12,11 @@ import {
 } from "@metabase/client/http/oauth";
 import { normalizeUrl } from "@metabase/client/url";
 
+import { DEFAULT_PROFILE } from "../../core/auth/default-profile";
 import {
   consumeKeychainResidualWarning,
   consumeKeyringDowngradeWarning,
   type CredentialLocation,
-  DEFAULT_PROFILE,
   keyringFallbackWarning,
   writeOAuthProfile,
   writeProbeFailure,

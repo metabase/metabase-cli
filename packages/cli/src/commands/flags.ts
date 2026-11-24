@@ -1,6 +1,6 @@
 import type { StringArgDef } from "citty";
 
-import { DEFAULT_PROFILE } from "../core/auth/storage";
+import { DEFAULT_PROFILE } from "../core/auth/default-profile";
 import { ENV_API_KEY, ENV_PROFILE, ENV_SKIP_PREFLIGHT, ENV_URL } from "../core/env";
 import type { SharedFlagSet } from "../output/command-reference";
 import { DEFAULT_MAX_BYTES } from "../output/types";

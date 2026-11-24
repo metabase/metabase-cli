@@ -10,7 +10,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform test from JSON" },
   details:
-    "Patches only the fields the body carries; `inputs` and `expectations` replace what's stored. Drop `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` read before you send it: the body is closed at every level.",
+    "Patches only the fields the body carries; `inputs` and `expectations` replace what's stored. Drop `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` from a `get --full` read before you send it: the body is closed at every level.",
   requires: ["transformTest.update"],
   args: {
     ...outputFlags,
@@ -25,7 +25,7 @@ export default defineMetabaseCommand({
     "cat patch.json | mb transform-test update 1",
     "mb transform-test update 1 --file patch.json",
     'mb transform-test update 1 --body \'{"name":"renamed"}\'',
-    "mb transform-test get 1 --full --json | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' | mb transform-test update 1",
+    "mb transform-test get 1 --full --json | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' | mb transform-test update 1",
   ],
   async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);

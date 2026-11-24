@@ -6,6 +6,7 @@ import {
   TableDataLayerMedallion,
   TableDataLayerTier,
   TableDataSource,
+  type TableListFilter,
   TableVisibilityType,
 } from "@metabase/client/domain/table";
 import { featureAvailability } from "@metabase/client/version/features";
@@ -20,21 +21,15 @@ import { defineMetabaseCommand } from "../runtime";
 
 export const TableListEnvelope = listEnvelopeSchema(TableCompact);
 
-type TableListFilter = (typeof TABLE_LIST_FILTER_FEATURES)[number][0];
-
 function filterNeeds(filter: TableListFilter): string {
-  const entry = TABLE_LIST_FILTER_FEATURES.find(([name]) => name === filter);
-  if (entry === undefined) {
-    throw new Error(`--${filter} names no gated table list filter`);
-  }
-  const [, feature] = entry;
+  const feature = TABLE_LIST_FILTER_FEATURES[filter];
   return `needs \`${feature}\` (${featureAvailability(feature)})`;
 }
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List tables, optionally filtered" },
   details:
-    "Returns a flat, compact list without fields. When you know the schema, start with `mb db schema-tables <db-id> <schema>` instead. `--db-id` filters on the client, and the server applies the other filters. A boolean filter that needs a feature is refused before the request (exit 2) on a server without it. A `--data-layer` value the server doesn't know is sent, and the server's refusal is explained the same way.",
+    "Returns a flat, compact list without fields. When you know the schema, start with `mb db schema-tables <db-id> <schema>` instead. `--db-id` filters on the client, and the server applies the other filters. A boolean filter that needs a feature is refused before the request (exit 2) on a server without it. A `--data-layer` value is sent as it is. When the server refuses a value because it lacks the feature, the error says so.",
   requires: ["table.list"],
   args: {
     ...outputFlags,

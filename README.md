@@ -45,13 +45,13 @@ mb auth status
 
 ## Output
 
-Every `list` and `get` verb takes the same output flags, and every `list` verb also takes a window. `mb <command> --help` lists them, and the per-command flag tables below list only what is specific to that command.
+Every `list` and `get` verb takes the same output flags (`--json`, `--format`, `--full`, `--fields` and `--max-bytes`), and every `list` verb also takes a window (`--limit` and `--offset`). `mb <command> --help` explains them, and the per-command flag tables below list only what is specific to that command.
 
 [Read and page through output](packages/cli/guides/output.md) explains how to choose the format and the fields, cap the output, and read a list one window at a time.
 
 ## Authentication
 
-Credentials are stored per-profile. The default profile is named `default`. Use `--profile <name>` to manage additional profiles.
+Credentials are stored per-profile. The default profile is the one `MB_PROFILE` names, or `default` when it's unset. Use `--profile <name>` to manage additional profiles.
 
 ### `mb auth login`
 
@@ -69,7 +69,7 @@ On success the server is probed once — the rendered output shows the user, rol
 | `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
 | `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead; `--api-key -` reads the key from piped stdin.               |
 | `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
+| `--profile <name>`, `-p` | Profile to write to (default: `$MB_PROFILE`, else `default`).                                                                                  |
 | `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
 
 Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
@@ -91,10 +91,10 @@ mb auth status --json
 mb auth status --profile staging
 ```
 
-| Flag                     | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `--profile <name>`, `-p` | Profile to inspect (default: `default`). |
-| `--json`                 | Emit JSON. Auto-enabled on non-TTY.      |
+| Flag                     | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| `--profile <name>`, `-p` | Profile to inspect (default: `$MB_PROFILE`, else `default`). |
+| `--json`                 | Emit JSON. Auto-enabled on non-TTY.                          |
 
 ### `mb auth list`
 
@@ -122,7 +122,7 @@ mb auth logout --profile staging --yes
 
 | Flag                     | Description                                                                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile <name>`, `-p` | Profile to clear (default: `default`).                                                                                            |
+| `--profile <name>`, `-p` | Profile to clear (default: `$MB_PROFILE`, else `default`).                                                                        |
 | `--yes`                  | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Transforms
@@ -348,11 +348,11 @@ An input names its `table` and carries either `format: "sql"` with a `sql` query
 
 An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table, or a column qualified by a table name rather than an alias, is refused with `transform-test.unremapped-reference`.
 
-Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` before it can be sent back:
 
 ```sh
 mb transform-test get 1 --full --json \
-  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' \
   | mb transform-test update 1
 ```
 
@@ -2483,7 +2483,7 @@ A body field only some Metabase servers take names in its `description` the feat
 
 A field holding a query the CLI checks against the MBQL 5 schema, such as a card's `dataset_query`, says so in its `description`: ``MBQL 5 query checked against `mb schema query` ``.
 
-`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against, as the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
+`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against, as the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc. and `addSchema(schema, "query.yaml")`, which the files refer back to, then `compile(schema)`) or read it as documentation.
 
 | Arg / Flag     | Description                                                                 |
 | -------------- | --------------------------------------------------------------------------- |

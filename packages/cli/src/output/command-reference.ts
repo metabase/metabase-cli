@@ -50,7 +50,7 @@ const BLOCK_SEPARATOR = "\n\n";
 const VALUE_PLACEHOLDER = "<value>";
 const CODE_SPAN = /(`[^`]*`)/;
 const SENTENCE_END = /[.!?]$/;
-// GitHub's heading anchors, which kramdown and lychee read the same way for the plain-text
+// GitHub's heading anchors, which the docs site and lychee read the same way for the plain-text
 // headings this reference writes: lowercase, punctuation other than `-` and `_` dropped, each
 // space a hyphen.
 const ANCHOR_DROPPED = /[^a-z0-9 _-]/g;

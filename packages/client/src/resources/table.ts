@@ -17,6 +17,7 @@ import {
   type TableSelectionResult,
   TableSelectors,
   TABLE_LIST_FILTER_FEATURES,
+  TableListFilter,
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
@@ -65,13 +66,10 @@ export interface TableListParams {
 
 // Older servers leave the query map open and drop a filter they do not know without a word, so a
 // filter that arrived after the oldest supported major is refused by name before the wire.
-const LIST_PARAM_FEATURES: ReadonlyArray<readonly [keyof TableListParams, FeatureName]> =
-  TABLE_LIST_FILTER_FEATURES;
-
 function listParamFeatures(params: TableListParams): FeatureName[] {
-  return LIST_PARAM_FEATURES.filter(([param]) => params[param] === true).map(
-    ([, feature]) => feature,
-  );
+  return TableListFilter.options
+    .filter((filter) => params[filter] === true)
+    .map((filter) => TABLE_LIST_FILTER_FEATURES[filter]);
 }
 
 // A server older than the tier vocabulary rejects a tier name with a 400 naming the request field

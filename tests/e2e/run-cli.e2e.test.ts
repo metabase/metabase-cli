@@ -4,7 +4,7 @@ import { parseJson } from "@metabase/client/json";
 
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
-import { DEFAULT_PROFILE } from "../../packages/cli/src/core/auth/storage";
+import { DEFAULT_PROFILE } from "../../packages/cli/src/core/auth/default-profile";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 

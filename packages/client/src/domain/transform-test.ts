@@ -108,8 +108,8 @@ export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
 
 /**
  * The server closes this map, so an unrecognized key is a 400 there. Refusing it here names the key
- * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at` and
- * `updated_at` before it can be sent back.
+ * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at`,
+ * `updated_at` and `last_run` before it can be sent back.
  */
 export const TransformTestCreateInput = z
   .object({
