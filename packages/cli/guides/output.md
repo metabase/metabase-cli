@@ -3,7 +3,7 @@ title: "Read and page through output"
 summary: "How list and get commands print what they find, and how to narrow it, cap it, and read the rest."
 ---
 
-A `list` or `get` command prints a short form of what it finds: text on a terminal, and JSON everywhere else. The [output flags](../index.md#output-flags) change what it prints, and the [list flags](../index.md#list-flags) choose the part of a list that it prints.
+A `list` or `get` command prints a short form of what it finds: text on a terminal, and JSON everywhere else. The output flags (`--format`, `--json`, `--full`, `--fields` and `--max-bytes`) change what it prints, and the list flags (`--limit` and `--offset`) choose the part of a list that it prints.
 
 ## Choose the format
 

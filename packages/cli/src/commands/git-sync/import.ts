@@ -26,7 +26,7 @@ export default defineMetabaseCommand({
     branch: {
       type: "string",
       description:
-        "Branch to import from. Defaults to the tracked branch (the `remote-sync-branch` setting); can't be blank",
+        "Branch to import from, which git-sync tracks once the import succeeds. Defaults to the tracked branch (the `remote-sync-branch` setting); can't be blank",
       alias: "b",
     },
     force: {

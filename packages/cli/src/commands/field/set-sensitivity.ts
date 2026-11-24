@@ -38,7 +38,7 @@ export default defineMetabaseCommand({
     description: "Label a field's data sensitivity by hand, or withdraw the label with `none`",
   },
   details:
-    "The server's classifier never overwrites a label you set here. `none` withdraws your label, and the field then shows the classifier's label, if it wrote one. Returns the field with its `data_sensitivity`, which `mb field get <id>` reads back.",
+    "The server's classifier never overwrites a label you set here. `none` withdraws your label. On some patch releases the field then shows the classifier's label, if it wrote one; on others the field has no label until the classifier, which is off by default, scans the field. Returns the field with its `data_sensitivity`, which `mb field get <id>` reads back.",
   requires: ["field.setDataSensitivity"],
   args: {
     ...outputFlags,
