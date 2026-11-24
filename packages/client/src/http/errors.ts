@@ -61,15 +61,22 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   504: { retryable: true, message: "Metabase timed out responding." },
 };
 
+// A key of another type costs only itself: Metabase 58 answers a schema failure with `error` as a
+// map beside a string `message`, and a JVM exception without a message serializes `message: null`.
+const OptionalText = z.string().optional().catch(undefined);
+
 const ErrorEnvelope = z
   .object({
-    message: z.string().optional(),
-    error: z.string().optional(),
-    "error-message": z.string().optional(),
-    via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
+    message: OptionalText,
+    error: OptionalText,
+    "error-message": OptionalText,
+    via: z
+      .array(z.object({ message: OptionalText }).loose())
+      .optional()
+      .catch(undefined),
     "specific-errors": z.unknown().optional(),
     errors: z.unknown().optional(),
-    "error-code": z.string().optional(),
+    "error-code": OptionalText,
     "non-remote-synced-models": z.unknown().optional(),
     "remote-synced-models": z.unknown().optional(),
     tables: z.unknown().optional(),
@@ -101,21 +108,54 @@ interface FieldErrorBranch {
   [field: string]: FieldErrorNode;
 }
 
-type FieldErrorNode = string | string[] | FieldErrorBranch;
+// `specific-errors` is Malli's humanized explanation, which mirrors the value it explains: a map
+// per map, and per list a list holding `null` where an item fits. A value that does not fit is a
+// list of sentences.
+type FieldErrorNode = string | null | FieldErrorNode[] | FieldErrorBranch;
 
 const FieldErrorNodeSchema: z.ZodType<FieldErrorNode> = z.lazy(() =>
-  z.union([z.string(), z.array(z.string()), z.record(z.string(), FieldErrorNodeSchema)]),
+  z.union([
+    z.string(),
+    z.null(),
+    z.array(FieldErrorNodeSchema),
+    z.record(z.string(), FieldErrorNodeSchema),
+  ]),
 );
 
 const FieldErrorTree = z.record(z.string(), FieldErrorNodeSchema);
 
-// Field name to the message Metabase rejected it with. A nested rejection is keyed by its
-// dot-joined path (`prefs.site_locale`), and a field the server gave several reasons for carries
-// them joined, so one string always answers "what is wrong with this field".
+// Field name to the message Metabase rejected it with. A nested rejection is keyed by its path, map
+// keys dot-joined and list items by index (`prefs.site_locale`, `stages[0].aggregation[1][2]`), and
+// a field the server gave several reasons for carries them joined, so one string always answers
+// "what is wrong with this field".
 export type FieldErrors = Record<string, string>;
 
 const FIELD_MESSAGE_SEPARATOR = "; ";
 export const FIELD_PATH_SEPARATOR = ".";
+const TOP_LEVEL_FIELD_END = /[.[]/;
+
+// A field message is a sentence or a few, each quoting one value. `errors` describes the whole
+// schema a part had to fit instead, past 1 MB for a field ref, which no caller reads whole.
+const MAX_FIELD_MESSAGE_LEN = 4096;
+
+type FieldPathSegment = string | number;
+
+// The request field a rejection's path starts at: `stages` for `stages[0].aggregation`.
+export function topLevelField(path: string): string {
+  const end = path.search(TOP_LEVEL_FIELD_END);
+  return end === -1 ? path : path.slice(0, end);
+}
+
+function formatFieldPath(path: ReadonlyArray<FieldPathSegment>): string {
+  return path
+    .map((segment, position) => {
+      if (typeof segment === "number") {
+        return `[${segment}]`;
+      }
+      return position === 0 ? segment : `${FIELD_PATH_SEPARATOR}${segment}`;
+    })
+    .join("");
+}
 
 const MAX_EXTRACTED_MESSAGE_LEN = 500;
 const ELLIPSIS = "…";
@@ -124,7 +164,12 @@ const ELLIPSIS = "…";
 // value is the whole normalized stage. The error sits inside a quoted EDN string, so the value runs
 // to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole.
 const GOT_VALUE_PATTERN = /got: ((?:[^"\\]|\\.)*)/g;
-const MAX_GOT_VALUE_LEN = 60;
+const MAX_QUOTED_VALUE_LEN = 60;
+
+// A Malli sentence names the requirement first and quotes the value that arrived after it, which
+// can be a whole stage, so each sentence in a message is cut to this and one value never crowds out
+// the parts after it.
+const MAX_MESSAGE_SENTENCE_LEN = 200;
 
 export interface HttpErrorDetail {
   status: number;
@@ -188,7 +233,8 @@ export class HttpError extends MetabaseError {
   }
 
   // The same fields from the envelope's `specific-errors` map, which names what arrived
-  // ("missing required key, received: nil") rather than what was required.
+  // ("missing required key, received: nil") rather than what was required, and for a query each
+  // refused part inside it (`stages[0].aggregation[1][2]`).
   get specificFieldErrors(): FieldErrors | null {
     return this.developerDetail.specificFieldErrors;
   }
@@ -233,23 +279,21 @@ function partsOf(error: HttpError, restatedAs: string | undefined): HttpErrorPar
   };
 }
 
-// Everything structured is read off the whole body: a body cut first does not parse, and its field
-// errors, error code and refusal go with it. The message is read off the kept text alone, because a
-// body past the cap is a stack trace around a schema dump (a malformed MBQL query's runs over
-// 64 KB), and its envelope's message is that dump, not a sentence for a person. All of it is read
-// off the sanitized body rather than the raw one, so a secret quoted back inside a field message is
-// already redacted by the time it reaches a typed surface.
+// Everything is read off the whole body: a body cut first does not parse, and its field errors,
+// error code, refusal and message go with it. A malformed MBQL query's body runs past 1 MB, its
+// `specific-errors`, the part naming what was wrong, coming last. Only the quoted body is capped.
+// All of it is read off the sanitized body rather than the raw one, so a secret quoted back inside a
+// field message is already redacted by the time it reaches a typed surface.
 function readParts(input: HttpErrorInput): HttpErrorParts {
   const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
-  const quotedBody = storedBody(sanitizedBody);
   const redactedHeaders = redactHeaders(input.responseHeaders);
   const bodyJson = parseBodyJson(sanitizedBody);
   const envelope = parseOrNull(ErrorEnvelope, bodyJson);
   const answer: SanitizedAnswer = { body: sanitizedBody, headers: redactedHeaders, envelope };
   const kind = classifyKind(input.status, answer);
   const said: ServerSaid = {
-    envelope: parseEnvelopeMessage(parseOrNull(ErrorEnvelope, parseBodyJson(quotedBody))),
-    text: plainTextMessage(quotedBody, redactedHeaders),
+    envelope: parseEnvelopeMessage(envelope),
+    text: plainTextMessage(sanitizedBody, redactedHeaders),
   };
   const fields = extractEnvelopeViews(envelope);
   return {
@@ -262,7 +306,7 @@ function readParts(input: HttpErrorInput): HttpErrorParts {
       method: input.method,
       url: input.url,
       responseHeaders: redactedHeaders,
-      body: quotedBody,
+      body: storedBody(sanitizedBody),
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
       errorCode: fields.errorCode,
@@ -515,11 +559,16 @@ function parseFieldErrors(value: unknown): FieldErrors | null {
   if (!parsed.success) {
     return null;
   }
-  const entries = collectLeafEntries(parsed.data, []);
-  if (entries.length === 0) {
+  const parts = collectRefusedParts(parsed.data);
+  if (parts.length === 0) {
     return null;
   }
-  return Object.fromEntries(entries.map((entry) => [entry.path, entry.message]));
+  return Object.fromEntries(
+    parts.map((part) => [
+      part.path,
+      cutToLength(part.sentences.join(FIELD_MESSAGE_SEPARATOR), MAX_FIELD_MESSAGE_LEN),
+    ]),
+  );
 }
 
 function parseEnvelopeMessage(envelope: ErrorEnvelope | null): string | null {
@@ -534,15 +583,7 @@ function parseEnvelopeMessage(envelope: ErrorEnvelope | null): string | null {
   if (viaMessage) {
     return condenseMessage(viaMessage);
   }
-  const specific = formatErrorTree(envelope["specific-errors"]);
-  if (specific) {
-    return condenseMessage(specific);
-  }
-  const generic = formatErrorTree(envelope.errors);
-  if (generic) {
-    return condenseMessage(generic);
-  }
-  return null;
+  return formatErrorTree(envelope["specific-errors"]) ?? formatErrorTree(envelope.errors);
 }
 
 // The server's sentence says a remote-sync move was refused but not over which content, which the
@@ -573,67 +614,120 @@ function formatRemoteSyncedDependent(dependent: RemoteSyncedDependent): string {
 function listRemoteSyncEntries(entries: ReadonlyArray<string>): string {
   const listed = entries.slice(0, MAX_LISTED_REMOTE_SYNC_ENTRIES).join(REMOTE_SYNC_ENTRY_SEPARATOR);
   const unlisted = entries.length - MAX_LISTED_REMOTE_SYNC_ENTRIES;
-  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}and ${unlisted} more` : listed;
+  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}${andMore(unlisted)}` : listed;
+}
+
+function andMore(unlisted: number): string {
+  return `and ${unlisted} more`;
 }
 
 function withoutTrailingPeriod(message: string): string {
   return message.endsWith(".") ? message.slice(0, -1) : message;
 }
 
-interface LeafEntry {
+// One refused part of a request: where it sits, and each distinct sentence Metabase said of it.
+interface RefusedPart {
   path: string;
-  message: string;
+  sentences: string[];
 }
 
-function formatErrorTree(value: unknown): string | null {
-  const entries = collectLeafEntries(value, []);
-  if (entries.length === 0) {
-    return null;
-  }
-  return entries.map(formatLeafEntry).join(FIELD_MESSAGE_SEPARATOR);
+interface ErrorLeaf {
+  path: FieldPathSegment[];
+  sentences: ReadonlyArray<string>;
 }
 
-function formatLeafEntry(entry: LeafEntry): string {
-  return entry.path === "" ? entry.message : `${entry.path}: ${entry.message}`;
+function collectRefusedParts(value: unknown): RefusedPart[] {
+  return collectLeaves(value, []).flatMap((leaf) => {
+    const distinct = distinctSentences(leaf.sentences);
+    return distinct.length === 0 ? [] : [{ path: formatFieldPath(leaf.path), sentences: distinct }];
+  });
 }
 
-function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEntry[] {
+function collectLeaves(value: unknown, path: FieldPathSegment[]): ErrorLeaf[] {
   if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed === "" ? [] : [{ path: path.join(FIELD_PATH_SEPARATOR), message: trimmed }];
+    return [{ path, sentences: [value] }];
   }
   if (Array.isArray(value)) {
-    const messages = value.filter(
-      (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
-    );
-    if (messages.length === 0) {
-      return [];
+    if (value.every((entry) => typeof entry === "string")) {
+      return [{ path, sentences: value }];
     }
-    return [
-      { path: path.join(FIELD_PATH_SEPARATOR), message: messages.join(FIELD_MESSAGE_SEPARATOR) },
-    ];
+    return value.flatMap((item, index) => collectLeaves(item, [...path, index]));
   }
   if (isPlainObject(value)) {
-    return Object.entries(value).flatMap(([key, child]) =>
-      collectLeafEntries(child, [...path, key]),
-    );
+    return Object.entries(value).flatMap(([key, child]) => collectLeaves(child, [...path, key]));
   }
   return [];
 }
 
-function condenseMessage(message: string): string {
-  const trimmed = message.replace(GOT_VALUE_PATTERN, trimGotValue);
-  if (trimmed.length <= MAX_EXTRACTED_MESSAGE_LEN) {
-    return trimmed;
-  }
-  return trimmed.slice(0, MAX_EXTRACTED_MESSAGE_LEN - ELLIPSIS.length) + ELLIPSIS;
+// Malli names each schema a value failed, so a value failing two alternatives the same way repeats
+// the sentence.
+function distinctSentences(sentences: ReadonlyArray<string>): string[] {
+  return [...new Set(sentences.map((sentence) => sentence.trim()))].filter(
+    (sentence) => sentence !== "",
+  );
 }
 
-function trimGotValue(match: string, value: string): string {
-  if (value.length <= MAX_GOT_VALUE_LEN) {
-    return match;
+// Each part is condensed on its own, so one long quoted value never crowds out the parts after it.
+function formatErrorTree(value: unknown): string | null {
+  const [first, ...rest] = collectRefusedParts(value).map(formatPartForMessage);
+  if (first === undefined) {
+    return null;
   }
-  return `got: ${value.slice(0, MAX_GOT_VALUE_LEN)}${ELLIPSIS}`;
+  return listWithinBudget(first, rest);
+}
+
+function formatPartForMessage(part: RefusedPart): string {
+  const description = part.sentences
+    .map((sentence) => cutToLength(trimGotValues(sentence), MAX_MESSAGE_SENTENCE_LEN))
+    .join(FIELD_MESSAGE_SEPARATOR);
+  return part.path === "" ? description : `${part.path}: ${description}`;
+}
+
+// Whole parts while they fit, the rest counted, so no part is cut mid-sentence unless the first
+// alone runs past the budget.
+function listWithinBudget(first: string, rest: ReadonlyArray<string>): string {
+  const firstBudget = MAX_EXTRACTED_MESSAGE_LEN - unlistedTail(rest.length).length;
+  let listed = [cutToLength(first, firstBudget)];
+  for (const [index, part] of rest.entries()) {
+    const next = [...listed, part];
+    if (withUnlisted(next, rest.length - index - 1).length > MAX_EXTRACTED_MESSAGE_LEN) {
+      break;
+    }
+    listed = next;
+  }
+  return withUnlisted(listed, rest.length + 1 - listed.length);
+}
+
+function withUnlisted(listed: ReadonlyArray<string>, unlisted: number): string {
+  return `${listed.join(FIELD_MESSAGE_SEPARATOR)}${unlistedTail(unlisted)}`;
+}
+
+function unlistedTail(unlisted: number): string {
+  return unlisted > 0 ? `${FIELD_MESSAGE_SEPARATOR}${andMore(unlisted)}` : "";
+}
+
+function condenseMessage(message: string): string {
+  return cutToLength(trimGotValues(message), MAX_EXTRACTED_MESSAGE_LEN);
+}
+
+function cutToLength(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return text.slice(0, maxLength - ELLIPSIS.length) + ELLIPSIS;
+}
+
+function trimGotValues(text: string): string {
+  return text.replace(
+    GOT_VALUE_PATTERN,
+    (_match, value: string) => `got: ${clipQuotedValue(value)}`,
+  );
+}
+
+function clipQuotedValue(value: string): string {
+  return value.length <= MAX_QUOTED_VALUE_LEN
+    ? value
+    : value.slice(0, MAX_QUOTED_VALUE_LEN) + ELLIPSIS;
 }
 
 function defaultMessageForStatus(status: number): string {
