@@ -98,8 +98,7 @@ A client also takes two credentials a caller never persists, for bringing up a f
 
 `createClient` is the entry point, and what it returns carries one namespace per Metabase resource —
 each named after what Metabase calls the thing — reached as `mb.<resource>.<method>(…)`. Path
-parameters come first, then Metabase's own field names, then the transport options. Permission
-groups span two: `mb.permission.groups()` lists them, and `mb.group` creates, renames and deletes them.
+parameters come first, then Metabase's own field names, then the transport options.
 
 ```ts
 import { createClient } from "@metabase/client";

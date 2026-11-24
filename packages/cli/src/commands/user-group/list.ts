@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List permission groups" },
   details:
     "Lists every group with its member count. A built-in group, such as All Users or Administrators, has a `magic_group_type`. Needs an admin, the settings application permission, or a group manager, who sees only the groups they manage. A group's id is the key it is listed under in the data permissions graph.",
-  requires: ["permission.groups"],
+  requires: ["group.list"],
   args: {
     ...outputFlags,
     ...listFlags,
@@ -23,7 +23,7 @@ export default defineMetabaseCommand({
   examples: ["mb group list", "mb group list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
-    const { data, total } = await client.permission.groups();
+    const { data, total } = await client.group.list();
     renderList(windowList(data, ctx.range, total), permissionGroupView, ctx);
   },
 });
