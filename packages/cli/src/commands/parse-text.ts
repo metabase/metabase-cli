@@ -1,3 +1,5 @@
+import type { ZodType } from "zod";
+
 import { ConfigError } from "@metabase/client/errors";
 import { isBlank } from "@metabase/client/predicates";
 
@@ -15,4 +17,15 @@ export function parseText(value: string, name: string): string {
 // unfiltered listing, so it is refused.
 export function parseOptionalText(value: string | undefined, name: string): string | undefined {
   return value === undefined ? undefined : parseText(value, name);
+}
+
+// A flag that stands in for a body field runs through that field's own schema, so the flag and the
+// body refuse the same values.
+export function parseTextFlag(value: string, schema: ZodType<string>, flag: string): string {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    const reasons = parsed.error.issues.map((issue) => issue.message).join("; ");
+    throw new ConfigError(`${flag} ${reasons}`);
+  }
+  return parsed.data;
 }

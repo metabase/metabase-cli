@@ -6,6 +6,7 @@ import { ConfigError } from "@metabase/client/errors";
 
 import { givenValue } from "../../runtime/input";
 import { bodyInputFlags } from "../body-flags";
+import { parseTextFlag } from "../parse-text";
 
 export const nameFlags = {
   ...bodyInputFlags,
@@ -26,10 +27,5 @@ export async function readGroupInput(
   if (givenValue(args.body) !== null || givenValue(args.file) !== null) {
     throw new ConfigError("--name cannot be combined with --body or --file");
   }
-  // The flag runs through the body's own schema, so both paths refuse the same values.
-  const parsed = PermissionGroupCreateInput.shape.name.safeParse(args.name);
-  if (!parsed.success) {
-    throw new ConfigError(`--name ${parsed.error.issues.map((issue) => issue.message).join("; ")}`);
-  }
-  return { name: parsed.data };
+  return { name: parseTextFlag(args.name, PermissionGroupCreateInput.shape.name, "--name") };
 }

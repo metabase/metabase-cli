@@ -1,5 +1,3 @@
-import type { ZodType } from "zod";
-
 import type { FlagValues } from "../flag-values";
 import type { BodyReader } from "../runtime";
 
@@ -8,6 +6,7 @@ import { ConfigError } from "@metabase/client/errors";
 
 import { givenValue } from "../../runtime/input";
 import { bodyInputFlags } from "../body-flags";
+import { parseTextFlag } from "../parse-text";
 
 export const entryFlags = {
   ...bodyInputFlags,
@@ -37,17 +36,11 @@ export async function readEntryInput(
     throw new ConfigError("--definition is required when using --term");
   }
   return {
-    term: parseFlag(GlossaryCreateInput.shape.term, args.term, "--term"),
-    definition: parseFlag(GlossaryCreateInput.shape.definition, args.definition, "--definition"),
+    term: parseTextFlag(args.term, GlossaryCreateInput.shape.term, "--term"),
+    definition: parseTextFlag(
+      args.definition,
+      GlossaryCreateInput.shape.definition,
+      "--definition",
+    ),
   };
-}
-
-// Each flag runs through the body's own field schema, so both paths refuse the same values.
-function parseFlag(schema: ZodType<string>, value: string, flag: string): string {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) {
-    const reasons = parsed.error.issues.map((issue) => issue.message).join("; ");
-    throw new ConfigError(`${flag} ${reasons}`);
-  }
-  return parsed.data;
 }
