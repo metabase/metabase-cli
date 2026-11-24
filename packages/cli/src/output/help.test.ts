@@ -98,13 +98,14 @@ describe("showUsage", () => {
     expect(out).not.toContain("EXAMPLES");
   });
 
-  it("prints a command's details in a DETAILS section after its options", async () => {
+  it("prints a command's details in a DETAILS section between its examples and its agent skills", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
       requires: [],
       args: { limit: { type: "string", description: "Rows to return" } },
       details: "Longer per-command knowledge shown only on this page.",
       examples: ["mb demo"],
+      skills: [{ skill: "core", purpose: "learn the conventions" }],
       run() {
         return;
       },
@@ -123,13 +124,17 @@ describe("showUsage", () => {
         "  --limit=<limit>    Rows to return",
         "       -h, --help    Show help for this command",
         "",
+        "EXAMPLES",
+        "",
+        "  mb demo",
+        "",
         "DETAILS",
         "",
         "  Longer per-command knowledge shown only on this page.",
         "",
-        "EXAMPLES",
+        "AGENT SKILLS",
         "",
-        "  mb demo",
+        "  mb skills get core — learn the conventions",
         "",
         "Machine-readable help (flags): demo --help --json",
         "",

@@ -89,11 +89,11 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const body = plainText(transformed.join("\n").trimEnd());
 
   const sections = [body];
-  if (details !== null) {
-    sections.push(renderDetails(details, wrapWidth()));
-  }
   if (examples.length > 0) {
     sections.push(renderExamples(examples));
+  }
+  if (details !== null) {
+    sections.push(renderDetails(details, wrapWidth()));
   }
   if (skills.length > 0) {
     sections.push(renderSkillsSection(skills, isRoot));
