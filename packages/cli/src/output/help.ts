@@ -13,6 +13,7 @@ import {
   skillCommand,
 } from "../runtime/command-help";
 import { jsonLine } from "./render";
+import { wrapText, wrapWidth } from "./wrap";
 
 export const ANSI_ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, "g");
@@ -29,7 +30,9 @@ const MARKDOWN_BOLD = /\*\*([^\s*/](?:[^*\n]*[^\s*/])?)\*\*/g;
 // The same pages link commands to each other's sections (`[mb db get](#mb-db-get)`), and a group
 // heads the sections of its details with `##`; a terminal keeps the link's text and the heading's.
 const MARKDOWN_LINK = /\[([^\]\n]+)\]\([^)\s]+\)/g;
-const MARKDOWN_HEADING = /^#{1,6} /gm;
+const MARKDOWN_HEADING = /^#{1,6} (.+)$/;
+const MARKDOWN_BLOCK_SEPARATOR = "\n\n";
+const MARKDOWN_TABLE_ROW_START = "|";
 
 // Citty renders multi-character flag aliases with a single leading dash (`-max-bytes`), a
 // form node's parser does not accept. Collapse a `-foo-bar, --fooBar` pair to the single
@@ -39,6 +42,7 @@ const ALIAS_PAIR = /-([a-z0-9]+(?:-[a-z0-9]+)+), --[A-Za-z0-9]+/g;
 const USAGE_PREFIX = "USAGE ";
 const OPTIONS_HEADER = "OPTIONS";
 const LINE_PREFIX = "  ";
+const SECTION_TEXT_PREFIX = `${LINE_PREFIX}${LINE_PREFIX}`;
 const COLUMN_GAP = "  ";
 const COMMAND_PLACEHOLDER = "<command> [options]";
 
@@ -47,6 +51,7 @@ const HELP_FLAG_DESCRIPTION = "Show help for this command";
 
 const GETTING_STARTED_HINT = `First time? Run \`${CLI_NAME} auth login\` to connect to a Metabase instance.`;
 
+const DETAILS_HEADER = "DETAILS";
 const SKILLS_HEADER = "AGENT SKILLS";
 const SKILLS_LIST_ITEM = `${CLI_NAME} skills list — every bundled skill`;
 
@@ -81,14 +86,12 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
     breadcrumb: breadcrumb ?? cittyName,
     hasSubCommands,
   });
-  const body = withDetails(transformed, details)
-    .join("\n")
-    .trimEnd()
-    .replaceAll(MARKDOWN_BOLD, "$1")
-    .replaceAll(MARKDOWN_LINK, "$1")
-    .replaceAll(MARKDOWN_HEADING, "");
+  const body = plainText(transformed.join("\n").trimEnd());
 
   const sections = [body];
+  if (details !== null) {
+    sections.push(renderDetails(details, wrapWidth()));
+  }
   if (examples.length > 0) {
     sections.push(renderExamples(examples));
   }
@@ -255,15 +258,38 @@ function renderSkillsSection(skills: readonly SkillPointer[], includeListPointer
   return [SKILLS_HEADER, "", ...items].join("\n");
 }
 
-function withDetails(lines: string[], details: string | null): string[] {
-  if (details === null) {
-    return lines;
+function plainText(markdown: string): string {
+  return markdown.replaceAll(MARKDOWN_BOLD, "$1").replaceAll(MARKDOWN_LINK, "$1");
+}
+
+// Laid out as a man page lays out a section: a heading at the indent of the commands list, the
+// text under it one step further. Text before the first heading sits at the heading's indent.
+function renderDetails(details: string, width: number): string {
+  const blocks: string[] = [];
+  let textPrefix = LINE_PREFIX;
+  for (const block of plainText(details).split(MARKDOWN_BLOCK_SEPARATOR)) {
+    const title = headingTitle(block);
+    if (title === null) {
+      blocks.push(renderDetailsBlock(block, textPrefix, width));
+    } else {
+      blocks.push(`${LINE_PREFIX}${title}`);
+      textPrefix = SECTION_TEXT_PREFIX;
+    }
   }
-  const [first, ...rest] = lines;
-  if (first === undefined) {
-    return lines;
-  }
-  return [first, "", details, ...rest];
+  return [DETAILS_HEADER, ...blocks].join(MARKDOWN_BLOCK_SEPARATOR);
+}
+
+function headingTitle(block: string): string | null {
+  const match = MARKDOWN_HEADING.exec(block);
+  return match?.[1] ?? null;
+}
+
+// A table row stays on its line: wrapping would break its columns.
+function renderDetailsBlock(block: string, prefix: string, width: number): string {
+  const lines = block.startsWith(MARKDOWN_TABLE_ROW_START)
+    ? block.split("\n")
+    : wrapText(block, width - prefix.length);
+  return lines.map((line) => `${prefix}${line}`).join("\n");
 }
 
 function renderExamples(examples: readonly string[]): string {
