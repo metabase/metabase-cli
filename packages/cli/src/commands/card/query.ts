@@ -8,8 +8,9 @@ import { formatQueryResult } from "../../output/query-result";
 import { renderSummary } from "../../output/render";
 import { pipeToStdout } from "../../output/stream";
 import { cardQueryView } from "../../output/views/card";
+import { interruptSignal } from "../../runtime/interrupt";
 import { assertStreamedOutput, exportFlags, readExportRequest } from "../export-flags";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, timeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseOptionalInteger } from "../parse-integer";
 import { defineMetabaseCommand } from "../runtime";
@@ -22,11 +23,14 @@ export default defineMetabaseCommand({
     description:
       "Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format)",
   },
+  details:
+    "The card's query runs in one request, an export included, so --timeout bounds the whole of it.",
   requires: ["card.exportQuery", "card.query"],
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...timeoutFlag,
     id: { type: "positional", description: "Card id", required: true },
     ...exportFlags,
     parameters: {
@@ -50,12 +54,15 @@ export default defineMetabaseCommand({
     "mb card query 1 --json --limit 20",
     "mb card query 1 --ignore-cache",
     "mb card query 1 --export-format csv > results.csv",
+    "mb card query 1 --timeout 300000",
     'mb card query 1 --parameters \'[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]\'',
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const parameters = parseParameters(args.parameters);
     const exportRequest = readExportRequest(args);
+    const timeoutMs = parseId(args.timeout, "timeout");
+    const requestOptions = { timeoutMs, signal: interruptSignal };
 
     if (exportRequest !== null) {
       assertStreamedOutput(ctx);
@@ -65,19 +72,22 @@ export default defineMetabaseCommand({
         );
       }
       const client = await getClient();
-      const stream = await client.card.exportQuery(id, exportRequest.format, {
-        parameters,
-        ...exportRequest.params,
-      });
+      const stream = await client.card.exportQuery(
+        id,
+        exportRequest.format,
+        { parameters, ...exportRequest.params },
+        requestOptions,
+      );
       await pipeToStdout(stream);
       return;
     }
 
     const client = await getClient();
-    const result = await client.card.query(id, {
-      parameters,
-      ignore_cache: args["ignore-cache"],
-    });
+    const result = await client.card.query(
+      id,
+      { parameters, ignore_cache: args["ignore-cache"] },
+      requestOptions,
+    );
     const limit = parseOptionalInteger(args.limit, { name: "--limit", min: 1 });
     const limited = applyLimit(result, limit);
     renderSummary(limited, cardQueryView, () => formatQueryResult(limited), ctx);
