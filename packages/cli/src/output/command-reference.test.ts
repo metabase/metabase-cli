@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 import { defineCommand } from "citty";
 import type { CommandDef, SubCommandsDef } from "citty";
 import * as fc from "fast-check";
@@ -9,6 +11,7 @@ import { featureAvailability } from "@metabase/client/version/features";
 import { SHARED_FLAG_SETS } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
+import { GUIDES_DIR, loadGuides, parseGuide } from "../core/guides";
 import main from "../main";
 import { anchorFor, renderCommandReference, type SharedFlagSet } from "./command-reference";
 
@@ -43,7 +46,7 @@ const list = defineMetabaseCommand({
 });
 
 function renderFixture(root: CommandDef): Promise<ReadonlyMap<string, string>> {
-  return renderCommandReference({ root, sharedFlagSets: FIXTURE_SETS });
+  return renderCommandReference({ root, sharedFlagSets: FIXTURE_SETS, guides: [] });
 }
 
 async function renderedPage(root: CommandDef, file: string): Promise<string> {
@@ -204,6 +207,7 @@ describe("renderCommandReference", () => {
     const files = await renderCommandReference({
       root: rootOf({ thing: groupOf({ list: outerList }) }),
       sharedFlagSets: sets,
+      guides: [],
     });
 
     expect(files.get("thing.md")).toContain("Takes the [outer](index.md#outer-flags) flags.\n");
@@ -539,6 +543,141 @@ describe("renderCommandReference", () => {
   });
 });
 
+describe("renderCommandReference with guides", () => {
+  async function renderedGuide(body: readonly string[]): Promise<string> {
+    const guide = parseGuide(
+      "export",
+      ["---", 'title: "Export rows"', 'summary: "How to export {{rows}}"', "---", ...body, ""].join(
+        "\n",
+      ),
+    );
+    const files = await renderCommandReference({
+      root: rootOf({ thing: groupOf({ list }) }),
+      sharedFlagSets: [],
+      guides: [guide],
+    });
+    const page = files.get("guides/export.md");
+    if (page === undefined) {
+      throw new Error("no guide page");
+    }
+    return page;
+  }
+
+  it("lists each guide on the index, before the commands", async () => {
+    const files = await renderCommandReference({
+      root: rootOf({ thing: groupOf({ list }) }),
+      sharedFlagSets: [],
+      guides: [
+        parseGuide("export", '---\ntitle: "A | B"\nsummary: "How to export"\n---\n'),
+        parseGuide("search", '---\ntitle: "Search"\nsummary: "How to search."\n---\n'),
+      ],
+    });
+
+    expect([...files.keys()]).toEqual([
+      "index.md",
+      "thing.md",
+      "guides/export.md",
+      "guides/search.md",
+    ]);
+    expect(files.get("index.md")).toContain(
+      [
+        "# Metabase CLI command reference",
+        "",
+        "## Guides",
+        "",
+        "| Guide | Description |",
+        "| --- | --- |",
+        "| [A \\| B](guides/export.md) | How to export. |",
+        "| [Search](guides/search.md) | How to search. |",
+        "",
+        "## Commands",
+      ].join("\n"),
+    );
+  });
+
+  it("heads the page with the front matter's title, and wraps each `{{…}}` in its body in raw tags", async () => {
+    const page = await renderedGuide(["", "Pass `{{tag}}`.", "", "```sh", "echo '{{x}}'", "```"]);
+
+    expect(page).toBe(
+      [
+        "---",
+        'title: "Export rows"',
+        'summary: "How to export {{rows}}."',
+        "---",
+        "",
+        "# Export rows",
+        "",
+        "Pass `{% raw %}{{tag}}{% endraw %}`.",
+        "",
+        "```sh",
+        "echo '{% raw %}{{x}}{% endraw %}'",
+        "```",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("opens each section between requires markers with the servers it needs, under its heading", async () => {
+    const page = await renderedGuide([
+      "",
+      "Intro.",
+      "",
+      "<!-- requires: transforms -->",
+      "",
+      "## Transforms",
+      "",
+      "Run one.",
+      "",
+      "<!-- /requires -->",
+      "",
+      "<!-- requires: transforms, measures -->",
+      "",
+      "Use both.",
+      "",
+      "<!-- /requires -->",
+      "",
+      "Outro.",
+    ]);
+
+    const transforms = `\`transforms\` (${featureAvailability("transforms")})`;
+    const measures = `\`measures\` (${featureAvailability("measures")})`;
+    expect(page).toContain(
+      [
+        "# Export rows",
+        "",
+        "Intro.",
+        "",
+        "## Transforms",
+        "",
+        `Needs ${transforms}.`,
+        "",
+        "Run one.",
+        "",
+        `Needs ${transforms} and ${measures}.`,
+        "",
+        "Use both.",
+        "",
+        "Outro.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses a guide whose marker names no feature the client knows", async () => {
+    const error = await renderedGuide([
+      "",
+      "<!-- requires: transfroms -->",
+      "Run one.",
+      "<!-- /requires -->",
+    ]).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConfigError);
+    expect(errorMessage(error)).toContain(
+      "guides/export.md line 6: unknown feature in requires: transfroms",
+    );
+  });
+});
+
 const ANCHOR_CHARACTERS = /^[a-z0-9_-]*$/;
 
 describe("anchorFor", () => {
@@ -585,11 +724,12 @@ function headingAnchors(markdown: string): Set<string> {
   return anchors;
 }
 
-// A link with no page before its `#` points into the page it sits on.
+// A link with no page before its `#` points into the page it sits on, and any other page is named
+// from the folder of the page that links to it.
 function linkResolves(files: ReadonlyMap<string, string>, from: string, target: string): boolean {
   const [page, anchor] = target.split(ANCHOR_MARK);
   const samePage = page === undefined || page === "";
-  const targetText = files.get(samePage ? from : page);
+  const targetText = files.get(samePage ? from : posix.join(posix.dirname(from), page));
   if (targetText === undefined) {
     return false;
   }
@@ -616,6 +756,7 @@ describe("the command reference", () => {
     const rendered = await renderCommandReference({
       root: main,
       sharedFlagSets: SHARED_FLAG_SETS,
+      guides: loadGuides(GUIDES_DIR),
     });
 
     expect(brokenLinks(rendered)).toEqual([]);

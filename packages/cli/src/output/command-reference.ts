@@ -7,6 +7,8 @@ import {
   type FeatureName,
 } from "@metabase/client/version/features";
 
+import type { Guide } from "../core/guides";
+import { readSections } from "../core/skills";
 import {
   isShortAlias,
   kebabFlagName,
@@ -70,6 +72,7 @@ interface ReferenceInput {
   root: CommandDef;
   // Largest first: a set is credited to a command only when no earlier set claimed its flags.
   sharedFlagSets: readonly SharedFlagSet[];
+  guides: readonly Guide[];
 }
 
 interface ReferenceCommand {
@@ -120,8 +123,8 @@ interface CommandNode {
 }
 
 /**
- * The command reference as Markdown pages by file name: an index, then one page per top-level
- * command of `root`.
+ * The command reference as Markdown pages by path: an index, then one page per top-level command
+ * of `root`, then one per guide.
  */
 export async function renderCommandReference(
   input: ReferenceInput,
@@ -129,10 +132,13 @@ export async function renderCommandReference(
   const pages = await collectPages(input.root, input.sharedFlagSets);
   const rootIndex = await buildHelpIndex(input.root, []);
   const files = new Map<string, string>([
-    [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input.sharedFlagSets)],
+    [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input)],
   ]);
   for (const page of pages) {
     files.set(page.file, renderPage(page));
+  }
+  for (const guide of input.guides) {
+    files.set(guide.file, renderGuide(guide));
   }
   return files;
 }
@@ -303,18 +309,68 @@ async function isGroup(cmd: CommandDef): Promise<boolean> {
 function renderIndex(
   skills: readonly CommandHelpSkill[],
   pages: readonly ReferencePage[],
-  sets: readonly SharedFlagSet[],
+  { sharedFlagSets, guides }: ReferenceInput,
 ): string {
   return pageText(frontMatter(INDEX_TITLE, INDEX_SUMMARY), [
     `# ${INDEX_TITLE}`,
     ...skillsBlocks(skills),
+    ...guidesBlocks(guides),
     "## Commands",
     commandTable(pages),
     SCHEMAS_PARAGRAPH,
     "## Shared flags",
     SHARED_FLAGS_INTRO,
-    ...sets.flatMap((set) => [`### ${sharedSetHeading(set)}`, argTable(convertArgs(set.flags))]),
+    ...sharedFlagSets.flatMap((set) => [
+      `### ${sharedSetHeading(set)}`,
+      argTable(convertArgs(set.flags)),
+    ]),
   ]);
+}
+
+function guidesBlocks(guides: readonly Guide[]): string[] {
+  if (guides.length === 0) {
+    return [];
+  }
+  const rows = guides.map((guide) => [
+    `[${escapeCell(guide.title)}](${guide.file})`,
+    sentence(escapeCell(guide.summary)),
+  ]);
+  return ["## Guides", table(["Guide", "Description"], rows)];
+}
+
+function renderGuide(guide: Guide): string {
+  return pageText(frontMatter(guide.title, guide.summary), [
+    `# ${escapeText(guide.title)}`,
+    guideBody(guide),
+  ]);
+}
+
+// A section between `requires` markers opens with the servers it needs, under its own heading
+// when it starts with one.
+function guideBody(guide: Guide): string {
+  const out: string[] = [];
+  let needs: string | null = null;
+  let collapseBlank = false;
+  for (const item of readSections(guide.body, guide.file)) {
+    if (item.kind !== "text") {
+      needs = item.kind === "open" ? `Needs ${featureList(item.features)}.` : null;
+      collapseBlank = out.length === 0 || out[out.length - 1] === "";
+      continue;
+    }
+    const { text } = item.line;
+    const isBlank = text.trim() === "";
+    if (isBlank && collapseBlank) {
+      continue;
+    }
+    collapseBlank = false;
+    if (needs === null || isBlank) {
+      out.push(text);
+      continue;
+    }
+    out.push(...(MARKDOWN_HEADING.test(text) ? [text, "", needs] : [needs, "", text]));
+    needs = null;
+  }
+  return out.join("\n").trim();
 }
 
 function renderPage(page: ReferencePage): string {

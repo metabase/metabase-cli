@@ -45,53 +45,9 @@ mb auth status
 
 ## Output
 
-Every `list` and `get` verb takes the same output flags. The per-command flag tables below list only what is specific to that command.
+Every `list` and `get` verb takes the same output flags, and every `list` verb also takes a window. `mb <command> --help` lists them, and the per-command flag tables below list only what is specific to that command.
 
-| Flag                | Description                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit JSON. Auto-enabled on non-TTY. Shorthand for `--format json`.                                                               |
-| `--format <format>` | `auto` \| `json` \| `text` (default `auto`).                                                                                     |
-| `--full`            | Return every field. The default is a compact projection.                                                                         |
-| `--fields <paths>`  | Project comma-separated dot-paths. Mutually exclusive with `--full`. On list verbs the paths are relative to each `data[]` item. |
-| `--max-bytes <n>`   | Output size cap, default `24576`; `0` disables. On a list, trailing items are dropped and `truncated` is set.                    |
-| `-p, --profile <n>` | Named profile (default `default`).                                                                                               |
-
-Every `list` verb additionally takes a window:
-
-| Flag           | Description                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `--limit <n>`  | How many items this call returns. Default: as many as fit the output cap.                  |
-| `--offset <n>` | Where the window starts (default `0`). Pass the previous call's `next_offset` to continue. |
-
-### List envelope
-
-List verbs answer with a single envelope:
-
-```json
-{
-  "returned": 2,
-  "offset": 0,
-  "limit": 2,
-  "total": 42,
-  "has_more": true,
-  "next_offset": 2,
-  "truncated": { "reason": "max_bytes", "bytes": 123456 },
-  "data": []
-}
-```
-
-| Field         | Meaning                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `data`        | The items in this window.                                                                               |
-| `returned`    | How many items are in `data`.                                                                           |
-| `offset`      | Where this window starts.                                                                               |
-| `limit`       | Present only when you passed `--limit`.                                                                 |
-| `total`       | The server's count where the endpoint reports one, otherwise `null`. A display value, not a bound.      |
-| `has_more`    | Whether more items remain. This — not `returned` against `total` — is what says to keep going.          |
-| `next_offset` | Pass back as `--offset` for the next window; `null` when the walk is over.                              |
-| `truncated`   | Present when `--max-bytes` dropped trailing items; `bytes` is what the full answer would have measured. |
-
-When the cap leaves no room for even one item, the list comes back empty with `next_offset: null` — narrow it with `--fields` or raise the cap. A `get` whose single item is over the cap fails instead, with exit `2`.
+[Read and page through output](packages/cli/guides/output.md) explains how to choose the format and the fields, cap the output, and read a list one window at a time.
 
 ## Authentication
 
@@ -2697,12 +2653,21 @@ bun run build
 bun run test           # unit tests
 bun run typecheck
 bun run lint
-bun run docs           # write the command reference to packages/cli/dist/reference (the build does too)
+bun run docs           # write the command reference to packages/cli/dist/docs (the build does too)
 ```
 
 A command's reference page is written from its definition — `description`, `details`, argument
 descriptions, `examples`, `requires` — and a group's page opens with the group's own `details`.
 Text about a feature writes the servers that hold it with `featureAvailability`, never a version.
+
+A task that spans command groups has a guide, a Markdown file in `packages/cli/guides/` that
+`bun run docs` writes to `dist/docs/guides/` beside the command pages:
+
+- Its front matter holds a `title` and a `summary`, and its headings start at `##`.
+- An `mb` command goes in an `sh` block. The build refuses one that the CLI would refuse.
+- A passage about a feature sits between `<!-- requires: <feature> -->` and `<!-- /requires -->`
+  markers, which print the servers it needs. A version written by hand is refused.
+- A link to a command's page is relative to the written folder: `../card.md#mb-card-list`.
 
 `bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a
 dev run never touches your real profiles or the OS keychain.
