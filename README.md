@@ -2178,7 +2178,7 @@ mb group update 3 --name "Data analysts"
 
 ### `mb group delete <id>`
 
-Delete a group with its memberships and permissions. Its members keep their other groups. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+Delete a group with its memberships and permissions. Its members keep their other groups. Prompts for confirmation on a TTY; requires `--yes` otherwise. Through Metabase 65 the server does not check that the id names a group, so a missing id is reported deleted with exit code 0; Metabase 66 and later answer 404.
 
 ```sh
 mb group delete 3 --yes

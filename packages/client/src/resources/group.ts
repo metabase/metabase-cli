@@ -42,7 +42,8 @@ export function groupResource(transport: Transport) {
   /**
    * Delete a permission group by id, with its memberships and permissions. Needs an admin or, with
    * advanced permissions, a manager of the group; a built-in group, one with a `magic_group_type`,
-   * cannot be deleted.
+   * cannot be deleted. Through Metabase 65 the server does not check that the id names a group, so
+   * deleting a missing one succeeds; from Metabase 66 it answers 404.
    */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
     await transport.requestRaw(`/api/permissions/group/${id}`, {

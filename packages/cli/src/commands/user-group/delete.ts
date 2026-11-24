@@ -6,7 +6,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a permission group by id" },
   details:
-    "Deletes the group with its memberships and permissions; its members keep their other groups. A built-in group, one with a `magic_group_type`, cannot be deleted. Needs an admin or, with advanced permissions, a manager of the group.",
+    "Deletes the group with its memberships and permissions; its members keep their other groups. A built-in group, one with a `magic_group_type`, cannot be deleted. Needs an admin or, with advanced permissions, a manager of the group. Through Metabase 65 the server does not check that the id names a group, so a missing id is reported deleted; Metabase 66+ answers 404.",
   requires: ["group.delete"],
   args: {
     ...outputFlags,
