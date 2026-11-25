@@ -324,6 +324,13 @@ export { Health, HealthCompact } from "./domain/health";
 export { Library, LibraryChild, LibraryCompact, LibraryPublishTablesInput } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
+  MetadataSyncAnswer,
+  MetadataSyncApplied,
+  MetadataSyncApplyInput,
+  MetadataSyncRequest,
+  MetadataSyncRequestInput,
+} from "./domain/metadata-sync";
+export {
   MetricAddableDimension,
   MetricAddableGroup,
   MetricBinning,

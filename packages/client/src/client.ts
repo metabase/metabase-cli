@@ -27,6 +27,7 @@ import { glossaryResource } from "./resources/glossary";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
+import { metadataSyncResource } from "./resources/metadata-sync";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
 import { notificationResource } from "./resources/notification";
@@ -80,6 +81,7 @@ function surfaceOn(transport: Transport) {
     health: healthResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
+    metadataSync: metadataSyncResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
     notification: notificationResource(transport),

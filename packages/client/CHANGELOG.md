@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.11
+
+- `metadataSync.request`, `metadataSync.changes` and `metadataSync.apply` copy the warehouse metadata of a Database from one Metabase, the sender, to a Database of another that has no Tables, the receiver. The caller carries each message between the two and repeats `request`, `changes` and `apply` while `apply` answers a `next` cursor, keeping the receiving Database from syncing until the last answer is applied. The cursor and every key the client does not know pass through unchanged, since the receiver reads each entry itself. Each call needs a superuser; a server without the routes answers 404.
+
 ## 0.1.10
 
 - `HttpError.specificFieldErrors` reads Metabase's `specific-errors` for a query: Malli's explanation, which mirrors the value it explains and holds `null` where a list item fits. Each refused part is keyed by its path, map keys dot-joined and list items by index (`stages[0].aggregation[1][2]`), and a sentence Metabase repeats for one part is kept once. A field the server rejects as a whole is keyed as before (`name`, `prefs.site_locale`).
