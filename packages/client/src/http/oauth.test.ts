@@ -10,6 +10,7 @@ import {
   type FetchCapture,
   type FetchScript,
 } from "../testing/fetch-capture";
+import { redirectingServer } from "../testing/redirecting-server";
 import {
   discoverMetadata,
   exchangeCode,
@@ -308,5 +309,32 @@ describe("oauth HTTP boundary", () => {
     expect(stub.calls[0]?.body).toBe(
       new URLSearchParams({ token: "ref1", client_id: "client-1" }).toString(),
     );
+  });
+});
+
+describe("oauth redirects", () => {
+  it("follows no redirect from the token endpoint, and reports it as an HTTP failure", async () => {
+    const servers = await redirectingServer();
+    try {
+      const refresh = refreshTokens({
+        tokenEndpoint: `${servers.url}/oauth/token`,
+        userAgent: TEST_USER_AGENT,
+        refreshToken: "refresh-token",
+        clientId: "client",
+      });
+
+      const error = await refresh.then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+      assert(error instanceof HttpError);
+      expect(error.kind).toBe("redirect");
+      expect(error.message).toBe(
+        `Metabase answered POST /oauth/token with a redirect (307) to ${servers.target}, which this client does not follow. Use the address the server redirects to.`,
+      );
+      expect(servers.targetRequests()).toBe(0);
+    } finally {
+      await servers.close();
+    }
   });
 });
