@@ -297,12 +297,7 @@ export interface PartialWriteReported {
   value: number | null;
 }
 
-// The server's answer left the field out, so it said nothing of where the write left it.
-export interface PartialWriteUnreported {
-  kind: "unreported";
-}
-
-export type PartialWriteAnswer = PartialWriteReported | PartialWriteUnreported;
+export type PartialWriteAnswer = PartialWriteReported;
 
 export interface PartialWriteDetail {
   method: string;

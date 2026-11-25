@@ -8,7 +8,7 @@ import {
 } from "./database";
 import { Field, FieldBaseType, FieldCompact, FieldSemanticType } from "./field";
 import { Snippet, SnippetCompact } from "./snippet";
-import { TableQueryMetadata, TableQueryMetadataCompact } from "./table";
+import { TableQueryMetadata, TableQueryMetadataCompact, withoutPublicationFlags } from "./table";
 
 export const CompiledQuery = z
   .object({
@@ -77,7 +77,7 @@ export type QueryMetadataTable = z.infer<typeof QueryMetadataTable>;
 export const QueryMetadata = z
   .object({
     databases: z.array(Database),
-    tables: z.array(z.union([QueryMetadataTable, VirtualTable])),
+    tables: z.array(z.union([QueryMetadataTable.transform(withoutPublicationFlags), VirtualTable])),
     // The fields a native query's field filters and its snippets name; a table's own sit under its
     // `fields`.
     fields: z.array(Field),

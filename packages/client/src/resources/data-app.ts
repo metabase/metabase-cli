@@ -1,8 +1,6 @@
 import { z } from "zod";
 
 import {
-  DATA_APP_EDITING_GATE,
-  type DataAppCreateInput,
   DataAppEntry,
   type DataAppGenerateActionsInput,
   type DataAppGenerateQueriesInput,
@@ -12,7 +10,6 @@ import {
 } from "../domain/data-app";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import { gateTriggered } from "../version/input-gates";
 import { explainer } from "../version/refusal";
 
 const DATA_APPS_PATH = "/api/ee/apps";
@@ -37,48 +34,19 @@ export function dataAppResource(transport: Transport) {
     return transport.requestParsed(DataAppEntry, appPath(slug), { ...options });
   }
 
-  /** Create a data app with its resource collection and an empty bundle; it is enabled unless the body says otherwise. */
-  async function create(
-    params: DataAppCreateInput,
-    options: RequestOptions = {},
-  ): Promise<DataApp> {
-    return transport.requestParsed(DataApp, DATA_APPS_PATH, {
-      ...options,
-      method: "POST",
-      body: params,
-    });
-  }
-
   /**
-   * Update a data app's manifest fields, or enable or disable it. A server without `dataAppEditing`
-   * takes `enabled` alone and strips the rest, so a manifest field is refused there before the wire.
+   * Enable or disable a data app. A disabled app is served to admins alone; an app otherwise changes
+   * only through a repository import.
    */
   async function update(
     slug: string,
     params: DataAppUpdateInput,
     options: RequestOptions = {},
   ): Promise<DataApp> {
-    const editsManifest = (
-      ["name", "description", "version", "bundle_path", "allowed_hosts"] as const
-    ).some((key) => gateTriggered(DATA_APP_EDITING_GATE, params[key]));
-    await transport.requireFeatures(editsManifest ? [DATA_APP_EDITING_GATE.feature] : [], options);
     return transport.requestParsed(DataApp, appPath(slug), {
       ...options,
       method: "PUT",
       body: params,
-    });
-  }
-
-  /** Replace a data app's bundle with the text of a built bundle. */
-  async function updateBundle(
-    slug: string,
-    bundle: string,
-    options: RequestOptions = {},
-  ): Promise<DataApp> {
-    return transport.requestParsed(DataApp, `${appPath(slug)}/bundle`, {
-      ...options,
-      method: "PUT",
-      body: { bundle },
     });
   }
 
@@ -90,15 +58,6 @@ export function dataAppResource(transport: Transport) {
       expectContentType: "binary",
     });
     return response.text();
-  }
-
-  /** Delete a data app with its bundle, its collection and the grants on it. */
-  async function remove(slug: string, options: RequestOptions = {}): Promise<void> {
-    await transport.requestRaw(appPath(slug), {
-      ...options,
-      method: "DELETE",
-      expectContentType: "binary",
-    });
   }
 
   /** An app's `src/metabase.schema.ts`: the Library's published tables, with their fields, segments and measures, and the Library's metrics. */
@@ -135,11 +94,8 @@ export function dataAppResource(transport: Transport) {
   return {
     list: explain("list", list),
     get: explain("get", get),
-    create: explain("create", create),
     update: explain("update", update),
     getBundle: explain("getBundle", getBundle),
-    updateBundle: explain("updateBundle", updateBundle),
-    delete: explain("delete", remove),
     generateSchema: explain("generateSchema", generateSchema),
     generateQueries: explain("generateQueries", generateQueries),
     generateActions: explain("generateActions", generateActions),

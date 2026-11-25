@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { CardType } from "./card";
-import { Table, TableCompact } from "./table";
+import { Table, TableCompact, withoutPublicationFlags } from "./table";
 
 // A saved question standing in as a table of the Saved Questions virtual database, id `card__<id>`.
 // A database listing carries it without its columns.
@@ -58,7 +58,9 @@ export const Database = z
     // The driver's capabilities; absent when the server has no driver loaded for the engine.
     features: z.array(z.string()).optional(),
     settings: DatabaseSettings.nullable().optional(),
-    tables: z.array(z.union([Table, DatabaseVirtualTable])).optional(),
+    tables: z
+      .array(z.union([Table.transform(withoutPublicationFlags), DatabaseVirtualTable]))
+      .optional(),
   })
   .loose();
 export type Database = z.infer<typeof Database>;

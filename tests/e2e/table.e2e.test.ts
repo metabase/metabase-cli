@@ -32,7 +32,6 @@ const CUSTOMERS_COMPACT: TableCompact = {
   entity_type: "entity/GenericTable",
   visibility_type: null,
   active: true,
-  is_published: false,
 };
 
 const REVIEWS_COMPACT: TableCompact = {
@@ -45,7 +44,6 @@ const REVIEWS_COMPACT: TableCompact = {
   entity_type: "entity/GenericTable",
   visibility_type: null,
   active: true,
-  is_published: false,
 };
 
 const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
@@ -60,7 +58,6 @@ const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orderItems,
@@ -72,7 +69,6 @@ const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orderSummary,
@@ -84,7 +80,6 @@ const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orders,
@@ -96,7 +91,6 @@ const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.products,
@@ -108,7 +102,6 @@ const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
     entity_type: "entity/ProductTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   REVIEWS_COMPACT,
 ];

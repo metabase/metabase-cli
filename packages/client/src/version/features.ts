@@ -20,7 +20,6 @@ export const FEATURE_RULES = {
   dataActionCollections: { since: 65 },
   dataActionsWithoutModel: { since: 65 },
   dataApps: { since: 65, tokenFeature: "data-apps" },
-  dataAppEditing: { since: 66 },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
   builtInTransformJobsStartInactive: { since: 66 },
@@ -31,6 +30,7 @@ export const FEATURE_RULES = {
   library: { since: 59, tokenFeature: "library" },
   libraryDashboards: { since: 65 },
   tablePublishTargetCollection: { since: 62 },
+  tablePublishedByCollection: { since: 66 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
   // From v66 the server compares against the remote on every call and keeps no cache.

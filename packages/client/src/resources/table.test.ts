@@ -124,6 +124,18 @@ const SERVER_64 = createServerProfile({
   tokenFeatures: null,
 });
 
+// The first server that keeps no `is_published` or `collection_id` on a table.
+const SERVER_66 = createServerProfile({
+  edition: "oss",
+  version: { kind: "release", tag: "v0.66.0", major: 66, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+// What a server before Metabase 66 adds to every table it answers.
+const UNPUBLISHED = { is_published: false, collection_id: null };
+
 const TABLE_URL = "https://mb.example.com/metabase/api/table/11";
 
 const FOREIGN_KEY = {
@@ -498,25 +510,48 @@ describe("table resource wire requests", () => {
   });
 
   it("fails an update the server answers with the table outside the collection asked for", async () => {
-    const { mb, capture } = clientOver([jsonResponse(TABLE)], SERVER_64);
+    const { mb, capture } = clientOver([jsonResponse({ ...TABLE, ...UNPUBLISHED })], SERVER_64);
 
     const error = await thrownBy(() => mb.table.update(11, { collection_id: 7 }));
 
     assert(error instanceof PartialWriteError, "expected PartialWriteError");
     expect(error.message).toBe(
-      "the server applied the rest of the update to table 11 but not collection_id: it answered the table without reporting a collection, because this server does not move a table to a collection through an update",
+      "the server applied the rest of the update to table 11 but not collection_id: the table stays in no collection, because this server does not move a table to a collection through an update",
     );
     expect(capture.calls.map((call) => call.url)).toEqual([TABLE_URL]);
   });
 
   it("sends a collection on update without consulting the server first", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ ...TABLE, collection_id: 7 })]);
+    const { mb, capture } = clientOver([
+      jsonResponse({ ...TABLE, is_published: true, collection_id: 7 }),
+    ]);
 
-    await mb.table.update(11, { collection_id: 7 });
-
+    expect(await mb.table.update(11, { collection_id: 7 })).toEqual(TABLE);
     expect(
       capture.calls.map((call) => ({ url: call.url, method: call.method, body: call.body })),
     ).toEqual([{ url: TABLE_URL, method: "PUT", body: '{"collection_id":7}' }]);
+  });
+
+  it("takes a collection move at its word from a server whose update answers without the collection", async () => {
+    const { mb, capture } = clientOver([jsonResponse(TABLE)], SERVER_66);
+
+    expect(await mb.table.update(11, { collection_id: 7 })).toEqual(TABLE);
+    expect(capture.calls.map((call) => call.method)).toEqual(["PUT"]);
+  });
+
+  it("drops the publication flags an older server's listing carries", async () => {
+    const { mb } = clientOver([jsonResponse([{ ...TABLE, ...UNPUBLISHED }])]);
+
+    expect((await mb.table.list()).data).toEqual([TABLE]);
+  });
+
+  it("drops the publication flags from a table's detail and keeps its collection", async () => {
+    const collection = { id: 7, name: "Data", type: "library-data" };
+    const { mb } = clientOver([
+      jsonResponse({ ...TABLE, is_published: true, collection_id: 7, collection }),
+    ]);
+
+    expect(await mb.table.get(11)).toEqual({ ...TABLE, collection });
   });
 
   it("explains a rejected tier name in the data-layer filter on a server that speaks medallions", async () => {

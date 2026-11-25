@@ -54,12 +54,21 @@ export const Table = z
     // had none yet.
     estimated_row_count: z.number().int().nullable(),
     active: z.boolean(),
-    is_published: z.boolean().optional(),
-    collection_id: z.number().int().nullable().optional(),
     fields: z.array(Field).optional(),
   })
   .loose();
 export type Table = z.infer<typeof Table>;
+
+// Metabase before 66 also sends `is_published` and `collection_id` on every table. 66 keeps neither
+// and sends a published table's `collection` instead, on the endpoints that hydrate one, so the two
+// are dropped wherever a server sends them and a table reads as the newest server answers it.
+// `collection` is left as each server sends it.
+export function withoutPublicationFlags<T extends Table>(table: T): T {
+  const answered = { ...table };
+  delete answered["is_published"];
+  delete answered["collection_id"];
+  return answered;
+}
 
 // The database a single table's metadata read carries. Named apart from `Database` because a
 // database lists its tables, so the two modules cannot import each other.
@@ -94,7 +103,6 @@ export const TableCompact = Table.pick({
   entity_type: true,
   visibility_type: true,
   active: true,
-  is_published: true,
 })
   .strip()
   .extend({
@@ -235,7 +243,7 @@ export type TableBulkEditResult = z.infer<typeof TableBulkEditResult>;
 
 // A field whose `fk_target_field_id` points into this table, the table's own fields included. Both
 // ends arrive with their `table` hydrated.
-const TableForeignKeyEnd = Field.extend({ table: Table });
+const TableForeignKeyEnd = Field.extend({ table: Table.transform(withoutPublicationFlags) });
 
 export const TableForeignKey = z
   .object({

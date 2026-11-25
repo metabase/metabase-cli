@@ -17,9 +17,10 @@ import {
   type TableSelectionResult,
   TableSelectors,
   type TableUpdateInput,
+  withoutPublicationFlags,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
-import { type PartialWriteAnswer, PartialWriteError } from "../errors";
+import { PartialWriteError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
@@ -34,7 +35,16 @@ import { parseRequestBody } from "./request-body";
 
 // `GET /api/table` answers a bare array rather than a `{ data, total }` envelope, so the count a
 // caller reads off `ListResult` is the array's own length and the server reports none.
-const TableApiList = z.array(Table);
+const TableApiList = z.array(Table.transform(withoutPublicationFlags));
+
+const TableApi = Table.transform(withoutPublicationFlags);
+
+const TableApiQueryMetadata = TableQueryMetadata.transform(withoutPublicationFlags);
+
+// What an update answers on a server before `tablePublishedByCollection`: the table with the
+// collection it is in, which is how a write of `collection_id` is checked.
+const TableUpdateAnswerV58 = Table.extend({ collection_id: z.number().int().nullable() });
+type TableUpdateAnswerV58 = z.infer<typeof TableUpdateAnswerV58>;
 
 const TableApiFks = z.array(TableForeignKey);
 
@@ -132,7 +142,7 @@ export function tableResource(transport: Transport) {
 
   /** Get one table by id, without its fields. */
   async function get(id: number, options: RequestOptions = {}): Promise<Table> {
-    return transport.requestParsed(Table, `/api/table/${id}`, { ...options });
+    return transport.requestParsed(TableApi, `/api/table/${id}`, { ...options });
   }
 
   /** Update a table by id, patching only the fields the body carries. */
@@ -144,13 +154,21 @@ export function tableResource(transport: Transport) {
     await refuseRewrittenDataLayer(params.data_layer, options);
     await requireDataAuthorityNull(params.data_authority, options);
     const path = `/api/table/${id}`;
-    const updated = await transport.requestParsed(Table, path, {
-      ...options,
-      method: "PUT",
-      body: params,
-    });
-    assertCollectionWritten(path, params.collection_id, updated);
-    return updated;
+    const put = <T>(schema: z.ZodType<T>) =>
+      transport.requestParsed(schema, path, { ...options, method: "PUT", body: params });
+    if (params.collection_id === undefined) {
+      return put(TableApi);
+    }
+    // A server from `tablePublishedByCollection` writes `collection_id` or refuses the update with a
+    // 400, and answers without it, so only an older server's answer is checked for the move.
+    const { features } = await transport.server(options);
+    if (features.tablePublishedByCollection) {
+      return put(TableApi);
+    }
+    const answered = await put(TableUpdateAnswerV58);
+    assertCollectionWritten(path, params.collection_id, answered);
+    const table: Table = answered;
+    return withoutPublicationFlags(table);
   }
 
   // A server that names tiers maps a medallion name onto one on update without a word, and for
@@ -181,7 +199,7 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableQueryMetadata> {
-    return transport.requestParsed(TableQueryMetadata, `/api/table/${id}/query_metadata`, {
+    return transport.requestParsed(TableApiQueryMetadata, `/api/table/${id}/query_metadata`, {
       ...options,
     });
   }
@@ -401,28 +419,27 @@ export function tableResource(transport: Transport) {
 // is a matter of patch release, not major, so the table the server answers is the judge.
 function assertCollectionWritten(
   path: string,
-  requested: TableUpdateInput["collection_id"],
-  table: Table,
+  requested: number,
+  table: TableUpdateAnswerV58,
 ): void {
-  if (requested === undefined || table.collection_id === requested) {
+  if (table.collection_id === requested) {
     return;
   }
-  const answered: PartialWriteAnswer =
-    table.collection_id === undefined
-      ? { kind: "unreported" }
-      : { kind: "reported", value: table.collection_id };
   throw new PartialWriteError(
-    `the server applied the rest of the update to table ${table.id} but not collection_id: ${describeCollectionAnswer(answered)}, because this server does not move a table to a collection through an update`,
-    { method: "PUT", path, field: "collection_id", requested, answered },
+    `the server applied the rest of the update to table ${table.id} but not collection_id: ${describeCollection(table.collection_id)}, because this server does not move a table to a collection through an update`,
+    {
+      method: "PUT",
+      path,
+      field: "collection_id",
+      requested,
+      answered: { kind: "reported", value: table.collection_id },
+    },
   );
 }
 
-function describeCollectionAnswer(answered: PartialWriteAnswer): string {
-  if (answered.kind === "unreported") {
-    return "it answered the table without reporting a collection";
-  }
-  if (answered.value === null) {
+function describeCollection(collectionId: number | null): string {
+  if (collectionId === null) {
     return "the table stays in no collection";
   }
-  return `the table stays in collection ${answered.value}`;
+  return `the table stays in collection ${collectionId}`;
 }

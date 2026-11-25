@@ -40,7 +40,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/GenericTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orderItems,
@@ -52,7 +51,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orderSummary,
@@ -64,7 +62,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.orders,
@@ -76,7 +73,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.products,
@@ -88,7 +84,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/ProductTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
   {
     id: SEEDED.tables.reviews,
@@ -100,7 +95,6 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/GenericTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
 ];
 
@@ -115,7 +109,6 @@ const ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     entity_type: "entity/TransactionTable",
     visibility_type: null,
     active: true,
-    is_published: false,
   },
 ];
 
