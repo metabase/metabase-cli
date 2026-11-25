@@ -8,7 +8,7 @@ import {
   type DatabaseUpdateInput,
   DatabaseWithSettings,
 } from "../domain/database";
-import { Table } from "../domain/table";
+import { Table, withoutPublicationFlags } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { checkSchedule, type PollOptions, pollUntil } from "../poll";
@@ -30,7 +30,7 @@ const DatabaseTaskAck = z.object({ status: z.literal("ok") });
 
 const DatabaseApiSchemaList = z.array(z.string());
 
-const DatabaseApiSchemaTableList = z.array(Table);
+const DatabaseApiSchemaTableList = z.array(Table.transform(withoutPublicationFlags));
 
 const SYNC_COMPLETE = "complete";
 

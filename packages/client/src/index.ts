@@ -55,7 +55,6 @@ export type {
   PartialWriteAnswer,
   PartialWriteDetail,
   PartialWriteReported,
-  PartialWriteUnreported,
   PollingTimeoutDetail,
   ResponseShapeErrorDetail,
   TimeoutErrorDetail,

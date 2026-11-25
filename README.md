@@ -624,7 +624,7 @@ mb table update 42 --file patch.json
 echo '{"description":"Customer dimension"}' | mb table update 42
 ```
 
-Publish status surfaces on the table itself — `table get`/`table list` carry `is_published` (and `collection_id` under `--full`). Publishing tables to the Library is done with [`mb library publish`](#library).
+A published table carries the Library `collection` it is in wherever the server sends one: `table get` on every server, and `table list` on Metabase 66. `table list --published-only` lists the published tables. Publishing tables to the Library is done with [`mb library publish`](#library).
 
 ### `mb table sync-schema <id>`
 

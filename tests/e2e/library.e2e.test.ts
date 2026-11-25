@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Library, type LibraryChild } from "@metabase/client/domain/library";
-import { TableCompact } from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
 import { LibraryPublishResult } from "../../packages/cli/src/commands/library/publish";
@@ -20,18 +20,12 @@ const REMOTE_SYNC_UNAVAILABLE = requireServer(
 
 const SYNC_SCOPE_HINT_MARKER = "is not marked for git-sync";
 
-const REVIEWS_COMPACT = {
-  id: SEEDED.tables.reviews,
-  name: "reviews",
-  display_name: "Reviews",
-  description: null,
-  db_id: SEEDED.warehouseDbId,
-  schema: "public",
-  entity_type: "entity/GenericTable",
-  visibility_type: null,
-  active: true,
-  is_published: false,
-};
+// What `--fields id,collection` projects a table to: the Library collection it is published to, and
+// `null` while it is published nowhere.
+const TablePlacement = z.strictObject({
+  id: z.number().int(),
+  collection: z.object({ id: z.number().int() }).nullable(),
+});
 
 const NO_SELECTOR_MESSAGE = "provide at least one selector: --table-ids, --db-ids, or --schemas";
 
@@ -157,7 +151,7 @@ describe("library e2e", () => {
       expect(childrenByName(parseJson(result.stdout, Library))).toEqual(LIBRARY_CHILDREN);
     });
 
-    it("publish resolves the Data collection and sets is_published, unpublish restores it", async () => {
+    it("publish puts the table in the Data collection, unpublish takes it out", async () => {
       const publish = await runCli({
         args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
         configHome: await makeIsolatedConfigHome(),
@@ -176,14 +170,21 @@ describe("library e2e", () => {
       });
 
       const whilePublished = await runCli({
-        args: ["table", "get", String(SEEDED.tables.reviews), "--json"],
+        args: [
+          "table",
+          "get",
+          String(SEEDED.tables.reviews),
+          "--fields",
+          "id,collection",
+          "--json",
+        ],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
       expect(whilePublished.exitCode, whilePublished.stderr).toBe(0);
-      expect(parseJson(whilePublished.stdout, TableCompact)).toEqual({
-        ...REVIEWS_COMPACT,
-        is_published: true,
+      expect(parseJson(whilePublished.stdout, TablePlacement)).toEqual({
+        id: SEEDED.tables.reviews,
+        collection: { id: SEEDED.libraryDataCollectionId },
       });
 
       const unpublish = await runCli({
@@ -199,12 +200,22 @@ describe("library e2e", () => {
       });
 
       const afterUnpublish = await runCli({
-        args: ["table", "get", String(SEEDED.tables.reviews), "--json"],
+        args: [
+          "table",
+          "get",
+          String(SEEDED.tables.reviews),
+          "--fields",
+          "id,collection",
+          "--json",
+        ],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
       expect(afterUnpublish.exitCode, afterUnpublish.stderr).toBe(0);
-      expect(parseJson(afterUnpublish.stdout, TableCompact)).toEqual(REVIEWS_COMPACT);
+      expect(parseJson(afterUnpublish.stdout, TablePlacement)).toEqual({
+        id: SEEDED.tables.reviews,
+        collection: null,
+      });
     });
 
     it("publish stays silent about git-sync scope when no remote sync url is configured", async () => {

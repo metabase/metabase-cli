@@ -31,6 +31,7 @@ export const FEATURE_RULES = {
   library: { since: 59, tokenFeature: "library" },
   libraryDashboards: { since: 65 },
   tablePublishTargetCollection: { since: 62 },
+  tablePublishedByCollection: { since: 66 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
   // From v66 the server compares against the remote on every call and keeps no cache.
