@@ -37,6 +37,13 @@ const PAGE_EXTENSION = ".md";
 const INDEX_TITLE = "Metabase CLI command reference";
 const INDEX_SUMMARY =
   "Each mb command, with its arguments, flags, examples, and the Metabase features it needs.";
+const INDEX_INTRO =
+  "`mb` is the command-line client for Metabase. To install it and log in, see [Metabase CLI](https://www.metabase.com/docs/latest/installation-and-operation/metabase-cli).";
+const FEATURES_PARAGRAPH =
+  "Some commands and flags need a newer Metabase or a paid plan. Their text names the feature they need, with the servers that have it: `v59+` is Metabase 59 and later, and `token dependencies` is a license that includes the `dependencies` token feature.";
+// A YAML comment, so it shows to a person who opens the file and to no reader of the page.
+const GENERATED_COMMENT =
+  "# Generated in https://github.com/metabase/metabase-cli. Edit it there: a change made here is lost.";
 const BODY_SCHEMA_COMMAND = schemaCommand("<command>");
 const OUTPUT_SCHEMA_COMMAND = `${BODY_SCHEMA_COMMAND} ${OUTPUT_SCHEMA_FLAG}`;
 const SCHEMAS_PARAGRAPH = `\`${BODY_SCHEMA_COMMAND}\` prints the JSON Schema of the body a command reads, and \`${OUTPUT_SCHEMA_COMMAND}\` the schema of what it prints.`;
@@ -58,9 +65,10 @@ const ANCHOR_SPACE = / /g;
 const LIST_FORMAT = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 // A command's details sit inside its own `##` section, so only a group's may head a section.
 const MARKDOWN_HEADING = /^#{1,6} /m;
-// The Metabase docs site runs Liquid over a page's body, which reads `{{snippet: Name}}` as a
-// variable and prints nothing in its place; a raw tag keeps the text as written.
-const LIQUID_OUTPUT = /\{\{[\s\S]*?\}\}/g;
+// The Metabase docs site runs Liquid over a page's body: it prints nothing for `{{snippet: Name}}`,
+// and an unknown or unclosed tag stops the build of the whole site. A raw tag keeps the text as
+// written.
+const LIQUID = /\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\{[{%]/g;
 const LIQUID_RAW = "{% raw %}$&{% endraw %}";
 
 export interface SharedFlagSet {
@@ -131,8 +139,9 @@ export async function renderCommandReference(
 ): Promise<ReadonlyMap<string, string>> {
   const pages = await collectPages(input.root, input.sharedFlagSets);
   const rootIndex = await buildHelpIndex(input.root, []);
+  const rootMeta = await resolveCitty(input.root.meta);
   const files = new Map<string, string>([
-    [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input)],
+    [INDEX_PAGE, renderIndex(rootIndex.skills, rootMeta?.version, pages, input)],
   ]);
   for (const page of pages) {
     files.set(page.file, renderPage(page));
@@ -308,15 +317,19 @@ async function isGroup(cmd: CommandDef): Promise<boolean> {
 
 function renderIndex(
   skills: readonly CommandHelpSkill[],
+  version: string | undefined,
   pages: readonly ReferencePage[],
   { sharedFlagSets, guides }: ReferenceInput,
 ): string {
   return pageText(frontMatter(INDEX_TITLE, INDEX_SUMMARY), [
     `# ${INDEX_TITLE}`,
+    INDEX_INTRO,
+    ...(version === undefined ? [] : [`These pages describe version ${version} of the CLI.`]),
     ...skillsBlocks(skills),
     ...guidesBlocks(guides),
     "## Commands",
     commandTable(pages),
+    FEATURES_PARAGRAPH,
     SCHEMAS_PARAGRAPH,
     "## Shared flags",
     SHARED_FLAGS_INTRO,
@@ -418,7 +431,7 @@ function commandBlocks(command: ReferenceCommand, common: PageCommon): string[] 
 
 function frontMatter(title: string, summary: string | null): string {
   // A JSON string is a YAML double-quoted scalar, so any text survives the round trip.
-  const lines = ["---", `title: ${JSON.stringify(title)}`];
+  const lines = ["---", GENERATED_COMMENT, `title: ${JSON.stringify(title)}`];
   if (summary !== null) {
     lines.push(`summary: ${JSON.stringify(sentence(summary))}`);
   }
@@ -629,7 +642,7 @@ function sentence(text: string): string {
 
 // Liquid reads the body only, so the YAML front matter keeps its text as it is.
 function pageText(front: string, body: readonly string[]): string {
-  const blocks = [front, ...body.map((block) => block.replaceAll(LIQUID_OUTPUT, LIQUID_RAW))];
+  const blocks = [front, ...body.map((block) => block.replaceAll(LIQUID, LIQUID_RAW))];
   return `${blocks.join(BLOCK_SEPARATOR)}\n`;
 }
 

@@ -40,6 +40,7 @@ For a typical list/get pair on a new resource:
 12. `tests/e2e/<r>.e2e.test.ts` — comprehensive e2e suite.
 13. Updated `packages/cli/src/main.ts` — register the new top-level subcommand.
 14. Updated `packages/cli/src/runtime/command-help.test.ts` — add the new leaf paths to the literal `ALL_COMMANDS` list.
+15. Help text for the group and each command (`description`, `details`, flag descriptions, `examples`), written with the `write-docs` skill — the reference pages are generated from it.
 
 If the resource genuinely has more verbs (e.g. a `<r> values` for fetching distinct values), add them under the same group; the rules below scale per-verb.
 
@@ -524,6 +525,7 @@ If either skill surfaces a structural issue (missing `.strip()`, a request built
 - [ ] **E2E test** at `tests/e2e/<r>.e2e.test.ts` covering at minimum: list default, list filtered (if applicable), get success, get invalid id, get missing id; gated with `requireServer` where a stack may lack the route, branched with `serverHas` where generations differ.
 - [ ] E2E test imports schemas from `@metabase/client/domain/<r>` and `../../packages/cli/src/commands/<r>/list`; no `z.object({...})` redeclaration of any output shape.
 - [ ] `packages/cli/src/runtime/command-help.test.ts` `ALL_COMMANDS` list updated with the new leaves.
+- [ ] Help text follows the `write-docs` skill, and the generated page was read after `bun run docs`.
 - [ ] Self-grep step (Step 7) ran clean.
 - [ ] `bun run check`, `bun run build`, `bun run test:e2e <new-files>` all exited 0.
 - [ ] `/review` returned `PASS`.

@@ -49,6 +49,7 @@ describe("parseGuide", () => {
   it.each([
     ["Needs `v64` or newer.", "v64"],
     ["Works from Metabase 61 on.", "Metabase 61"],
+    ["Browser login needs version 63.", "version 63"],
   ])("refuses a version written by hand: %s", (body, version) => {
     expect(() => parseGuide("export", guideText(body))).toThrow(ConfigError);
     expect(() => parseGuide("export", guideText(body))).toThrow(

@@ -28,6 +28,9 @@ const FIXTURE_SETS: readonly SharedFlagSet[] = [
   { name: "region", flags: regionFlags },
 ];
 
+const GENERATED_COMMENT =
+  "# Generated in https://github.com/metabase/metabase-cli. Edit it there: a change made here is lost.";
+
 function rootOf(subCommands: SubCommandsDef): CommandDef {
   return defineCommand({ meta: { name: "mb" }, subCommands });
 }
@@ -85,6 +88,7 @@ describe("renderCommandReference", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "mb thing"',
         'summary: "Manage things."',
         "---",
@@ -128,22 +132,34 @@ describe("renderCommandReference", () => {
   });
 
   it("lists the top-level commands, the schema commands and each shared flag set on the index page", async () => {
-    const index = await renderedPage(rootOf({ thing: groupOf({ list }) }), "index.md");
+    const root = defineCommand({
+      meta: { name: "mb", version: "1.2.3" },
+      subCommands: { thing: groupOf({ list }) },
+    });
+
+    const index = await renderedPage(root, "index.md");
 
     expect(index).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "Metabase CLI command reference"',
         'summary: "Each mb command, with its arguments, flags, examples, and the Metabase features it needs."',
         "---",
         "",
         "# Metabase CLI command reference",
         "",
+        "`mb` is the command-line client for Metabase. To install it and log in, see [Metabase CLI](https://www.metabase.com/docs/latest/installation-and-operation/metabase-cli).",
+        "",
+        "These pages describe version 1.2.3 of the CLI.",
+        "",
         "## Commands",
         "",
         "| Command | Description |",
         "| --- | --- |",
         "| [mb thing](thing.md) | Manage things. |",
+        "",
+        "Some commands and flags need a newer Metabase or a paid plan. Their text names the feature they need, with the servers that have it: `v59+` is Metabase 59 and later, and `token dependencies` is a license that includes the `dependencies` token feature.",
         "",
         "`mb schema <command>` prints the JSON Schema of the body a command reads, and `mb schema <command> --output` the schema of what it prints.",
         "",
@@ -284,6 +300,7 @@ describe("renderCommandReference", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "mb thing"',
         'summary: "Manage things."',
         "---",
@@ -341,6 +358,7 @@ describe("renderCommandReference", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "mb thing"',
         'summary: "Manage things."',
         "---",
@@ -422,6 +440,7 @@ describe("renderCommandReference", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "mb search"',
         'summary: "Search things."',
         "---",
@@ -504,6 +523,24 @@ describe("renderCommandReference", () => {
     );
   });
 
+  it.each([
+    ["{% if x %}", "{% raw %}{% if x %}{% endraw %}"],
+    ["a lone {{", "a lone {% raw %}{{{% endraw %}"],
+    ["a lone {%", "a lone {% raw %}{%{% endraw %}"],
+  ])("keeps Liquid from reading %j", async (details, escaped) => {
+    const tag = defineMetabaseCommand({
+      meta: { name: "tag" },
+      details,
+      requires: null,
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    expect(await renderedPage(rootOf({ tag }), "tag.md")).toContain(`\n\n${escaped}\n\n`);
+  });
+
   it("wraps each `{{…}}` in a page's body in raw tags, and leaves the front matter as it is", async () => {
     const tag = defineMetabaseCommand({
       meta: { name: "tag", description: "Print {{tag}} as typed" },
@@ -520,6 +557,7 @@ describe("renderCommandReference", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "mb tag"',
         'summary: "Print {{tag}} as typed."',
         "---",
@@ -581,8 +619,6 @@ describe("renderCommandReference with guides", () => {
     ]);
     expect(files.get("index.md")).toContain(
       [
-        "# Metabase CLI command reference",
-        "",
         "## Guides",
         "",
         "| Guide | Description |",
@@ -601,6 +637,7 @@ describe("renderCommandReference with guides", () => {
     expect(page).toBe(
       [
         "---",
+        GENERATED_COMMENT,
         'title: "Export rows"',
         'summary: "How to export {{rows}}."',
         "---",

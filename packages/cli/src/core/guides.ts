@@ -25,7 +25,7 @@ const GuideFrontmatter = z.strictObject({
 const TITLE_HEADING = /^#\s/;
 // A version a guide states goes stale when a feature rule changes; a passage between `requires`
 // markers gets its servers from the rule instead.
-const HAND_WRITTEN_VERSION = /\b(?:v|Metabase )\d{2,}\b/;
+const HAND_WRITTEN_VERSION = /\b(?:v|Metabase |versions? )\d{2,}\b/;
 
 export interface Guide {
   name: string;

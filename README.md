@@ -43,6 +43,9 @@ mb auth login --url https://metabase.example.com
 mb auth status
 ```
 
+The command sections below aren't kept up to date. For a command's arguments, flags and examples,
+run `mb <command> --help`.
+
 ## Output
 
 Every `list` and `get` verb takes the same output flags (`--json`, `--format`, `--full`, `--fields` and `--max-bytes`), and every `list` verb also takes a window (`--limit` and `--offset`). `mb <command> --help` explains them, and the per-command flag tables below list only what is specific to that command.
@@ -2656,18 +2659,9 @@ bun run lint
 bun run docs           # write the command reference to packages/cli/dist/docs (the build does too)
 ```
 
-A command's reference page is written from its definition — `description`, `details`, argument
-descriptions, `examples`, `requires` — and a group's page opens with the group's own `details`.
-Text about a feature writes the servers that hold it with `featureAvailability`, never a version.
-
-A task that spans command groups has a guide, a Markdown file in `packages/cli/guides/` that
-`bun run docs` writes to `dist/docs/guides/` beside the command pages:
-
-- Its front matter holds a `title` and a `summary`, and its headings start at `##`.
-- An `mb` command goes in an `sh` block. The build refuses one that the CLI would refuse.
-- A passage about a feature sits between `<!-- requires: <feature> -->` and `<!-- /requires -->`
-  markers, which print the servers it needs. A version written by hand is refused.
-- A link to a command's page is relative to the written folder: `../card.md#mb-card-list`.
+The command reference is written from the help text and from the guides in `packages/cli/guides/`.
+[`write-docs`](.claude/skills/write-docs/SKILL.md) says where a sentence goes, what it can hold,
+and how to check it, for people and agents alike.
 
 `bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a
 dev run never touches your real profiles or the OS keychain.

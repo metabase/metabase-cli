@@ -259,6 +259,47 @@ describe("showUsage", () => {
     );
   });
 
+  it("keeps each line of a list, a quote and a code block of the details", async () => {
+    setColumns(40);
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      requires: [],
+      args: {},
+      details: [
+        "Exits with:\n- `0` when every row of the table was read\n- `2` on a bad flag",
+        "1. Read the rows.\n2. Print them.",
+        "> Rows are read in order.",
+        '```json\n{ "id": 1, "name": "A name that is long" }\n{ "id": 2 }\n```',
+      ].join("\n\n"),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain(
+      [
+        "DETAILS",
+        "",
+        "  Exits with:",
+        "  - `0` when every row of the table was read",
+        "  - `2` on a bad flag",
+        "",
+        "  1. Read the rows.",
+        "  2. Print them.",
+        "",
+        "  > Rows are read in order.",
+        "",
+        "  ```json",
+        '  { "id": 1, "name": "A name that is long" }',
+        '  { "id": 2 }',
+        "  ```",
+        "",
+      ].join("\n"),
+    );
+  });
+
   it("keeps the `**` of a glob", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Sync files" },

@@ -32,7 +32,8 @@ const MARKDOWN_BOLD = /\*\*([^\s*/](?:[^*\n]*[^\s*/])?)\*\*/g;
 const MARKDOWN_LINK = /\[([^\]\n]+)\]\([^)\s]+\)/g;
 const MARKDOWN_HEADING = /^#{1,6} (.+)$/;
 const MARKDOWN_BLOCK_SEPARATOR = "\n\n";
-const MARKDOWN_TABLE_ROW_START = "|";
+// A table row, a list item, a quote or a code fence.
+const MARKDOWN_LINE_BLOCK = /^\s*(?:\||[-*+] |\d+[.)] |>|`{3,}|~{3,})/m;
 
 // Citty renders multi-character flag aliases with a single leading dash (`-max-bytes`), a
 // form node's parser does not accept. Collapse a `-foo-bar, --fooBar` pair to the single
@@ -284,9 +285,9 @@ function headingTitle(block: string): string | null {
   return match?.[1] ?? null;
 }
 
-// A table row stays on its line: wrapping would break its columns.
+// Wrapping would join the lines of a block that is made of them, such as a table's rows.
 function renderDetailsBlock(block: string, prefix: string, width: number): string {
-  const lines = block.startsWith(MARKDOWN_TABLE_ROW_START)
+  const lines = MARKDOWN_LINE_BLOCK.test(block)
     ? block.split("\n")
     : wrapText(block, width - prefix.length);
   return lines.map((line) => `${prefix}${line}`).join("\n");
