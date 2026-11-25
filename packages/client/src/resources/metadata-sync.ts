@@ -6,8 +6,11 @@ import {
   type MetadataSyncRequestInput,
 } from "../domain/metadata-sync";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 export function metadataSyncResource(transport: Transport) {
+  const { explain } = explainer(transport, "metadataSync");
+
   /**
    * The request that asks the sender for the next page of the metadata of one of this server's
    * Databases, from the cursor `after`. The caller keeps the Database from syncing until the seed
@@ -55,5 +58,9 @@ export function metadataSyncResource(transport: Transport) {
     });
   }
 
-  return { request, changes, apply };
+  return {
+    request: explain("request", request),
+    changes: explain("changes", changes),
+    apply: explain("apply", apply),
+  };
 }
