@@ -2,7 +2,7 @@
 
 Notable changes to `@metabase/client`.
 
-## Unreleased
+## 0.2.0
 
 - A `Table` reads as Metabase 66 answers it, without `is_published` and `collection_id`: 66 keeps neither on any table, and a table from an older server drops both. A published table carries the `collection` it is in where the server sends one, as sent: a table's detail and query metadata on every server, and the table listing and schema tables from 66. `TableCompact` has no `is_published`. The tables a `Database`, a `QueryMetadata` and a `TableForeignKey` carry drop the two keys too (`withoutPublicationFlags`).
 - `table.update` with `collection_id` checks that the table moved only on a server whose answer says where it is, one before Metabase 66; a server from 66 writes it or refuses the update. It reads the server's version first. `PartialWriteUnreported` is gone: a `PartialWriteError` for `collection_id` reports the collection the server answered.
