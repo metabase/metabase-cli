@@ -10,6 +10,8 @@ export const DocumentListEnvelope = listEnvelopeSchema(DocumentCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List documents" },
+  details:
+    "Lists the documents you can see, except archived ones. The compact row leaves out the document body, which can be large; read it with `document get <id> --full`.",
   requires: ["document.list"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: DocumentListEnvelope,

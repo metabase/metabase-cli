@@ -10,7 +10,7 @@ import { entryFlags, readEntryInput } from "./entry-flags";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Replace the term and definition of a glossary entry" },
   details:
-    "Both fields are replaced, so pass `--term` and `--definition` together, or a JSON body with exactly those two keys. A body piped on stdin is not read while the flags are given. Neither field may be blank.",
+    "Replaces both fields, so it takes the same input as [`mb glossary create`](#mb-glossary-create).",
   requires: ["glossary.update"],
   args: {
     ...outputFlags,

@@ -2,6 +2,16 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.11
+
+- The `ConfigError` that `discoverLoginMetadata` and `discoverMetadata` throw for a server without OAuth login (`OAUTH_UNSUPPORTED_MESSAGE`) names Metabase v62.3.3 as the release it needs: the first whose discovery advertises the full-access scope. `OAUTH_MINIMUM_RELEASE` on `@metabase/client/http/oauth` is that release, `"v62.3.3"`.
+- `featureImplies(feature, other)` on `@metabase/client/version/features` says whether every supported server that holds `feature` also holds `other`: the majors its rule spans lie within the other's, and it needs the other's token feature, if the other needs one. Two features that imply each other hold on the same servers.
+- `CSV_BYTE_ORDER_MARK_FEATURE` on `@metabase/client/domain/query` is the feature `csv_include_bom` needs, `exportCsvByteOrderMark`, which `card.exportQuery` and `dataset.exportQuery` refuse the parameter without.
+- `dependencyKeepsArchivedSources` on `@metabase/client/version/features` holds on a server whose dependency graph keeps archived and dropped sources: `graph` includes archived upstream entities, the unreferenced and breaking listings keep dropped and hidden tables, and the breaking listing keeps archived sources. It needs Metabase 63 and the `dependencies` token feature.
+- `dependencyTransformErrorSources` on `@metabase/client/version/features` holds on a server whose query analysis traces an error back to a transform, so a transform can be a source in `dependency.breakingPages` and `dependency.broken`. It needs Metabase 63 and the `dependencies` token feature.
+- `timelineExtendedIcons` on `@metabase/client/version/features` holds on a server whose timelines and timeline events take the icons `mail_at`, `info`, `note` and `event`. It needs Metabase 64.
+- `TableListFilter` on `@metabase/client/domain/table` names the `table.list` filters an older server drops unread, and `TABLE_LIST_FILTER_FEATURES` gives the feature each one needs. `table.list` refuses a filter set to `true` on a server without that feature; a `false` one needs none.
+
 ## 0.1.10
 
 - `HttpError.specificFieldErrors` reads Metabase's `specific-errors` for a query: Malli's explanation, which mirrors the value it explains and holds `null` where a list item fits. Each refused part is keyed by its path, map keys dot-joined and list items by index (`stages[0].aggregation[1][2]`), and a sentence Metabase repeats for one part is kept once. A field the server rejects as a whole is keyed as before (`name`, `prefs.site_locale`).

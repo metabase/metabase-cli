@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     description: "Enable or disable data actions for a database",
   },
   details:
-    "The Data actions toggle of Admin → Databases (the `database-enable-actions` database setting): while it is off, data actions on the database can be neither created nor run. Needs an admin. The driver must support writes: `mb db get <id> --full --json` lists `actions` in `features`. Answers the database with its `settings`.",
+    "Sets the **Data actions** toggle in **Admin** > **Databases** (the `database-enable-actions` setting). While it's off, data actions on the database can't be created or run. Needs an admin and a driver that supports writes (`mb db get <id> --full --json` lists `actions` in `features`). Returns the database with its `settings`.",
   skills: [{ skill: "data-action", purpose: "author and run data actions on the database" }],
   requires: ["database.update"],
   args: {
@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
     enabled: {
       type: "positional",
-      description: "true to enable data actions, false to disable",
+      description: "`true` turns on data actions, `false` turns them off",
       required: true,
     },
   },

@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     name: "bulk-sync-schema",
     description: "Trigger a schema sync for every table a selector picks out",
   },
-  details: `Queues an async sync of every selected table and returns immediately; each sync re-reads the table's columns, fingerprints them, and refreshes its cached field values, and none discovers new tables (\`mb db sync-schema <db-id>\` does). Every database behind the selection must pass a connection test first, or the call is refused with a 422. ${SELECTION_DETAILS}`,
+  details: `Runs [\`mb table sync-schema\`](#mb-table-sync-schema) on every selected table, and returns at once. Refused with a 422 unless every database behind the selection passes a connection test. ${SELECTION_DETAILS}`,
   requires: ["table.bulkSyncSchema"],
   args: {
     ...outputFlags,

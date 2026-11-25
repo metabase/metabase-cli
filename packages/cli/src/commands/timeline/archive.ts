@@ -10,6 +10,8 @@ export default defineMetabaseCommand({
     name: "archive",
     description: "Archive (soft-delete) a timeline and all its events by id",
   },
+  details:
+    "To restore the timeline and its events, run `mb timeline update <id> --body '{\"archived\":false}'`.",
   requires: ["timeline.archive"],
   args: {
     ...outputFlags,

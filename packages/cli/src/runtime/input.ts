@@ -73,7 +73,7 @@ async function drainStdin(): Promise<string> {
   return data;
 }
 
-const STDIN_FIRST_CHUNK_TIMEOUT_MS = 500;
+export const STDIN_FIRST_CHUNK_TIMEOUT_MS = 500;
 const STDIN_IDLE = Symbol("stdin-idle");
 
 // A non-TTY stdin we were never asked to read may be an inherited pipe that holds

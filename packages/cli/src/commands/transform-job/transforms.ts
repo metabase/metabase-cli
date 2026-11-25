@@ -12,7 +12,7 @@ export const TransformJobTransformsEnvelope = listEnvelopeSchema(TransformCompac
 export default defineMetabaseCommand({
   meta: { name: "transforms", description: "List the transforms a job will run" },
   details:
-    "Resolves the transforms a job would execute, matched by the job's tags. The positional id is a JOB id, not a transform id.",
+    "The list holds the transforms that carry one of the job's tags, and the dependencies of those transforms, which `mb transform-job run` also runs.",
   requires: ["transformJob.transforms"],
   args: {
     ...outputFlags,

@@ -20,6 +20,7 @@ export const DatabaseSchemaListEnvelope = listEnvelopeSchema(SchemaName);
 
 export default defineMetabaseCommand({
   meta: { name: "schemas", description: "List schemas in a database" },
+  details: "A schema with no tables is left out.",
   requires: ["database.schemas"],
   args: {
     ...outputFlags,

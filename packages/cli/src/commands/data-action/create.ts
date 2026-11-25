@@ -8,8 +8,12 @@ import { DATA_ACTION_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a data action from JSON" },
-  details:
-    'A data action writes to a database, filed in a collection. A table action inserts, updates, or deletes one row of a table: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update`, or `row/delete`), and `table_id`, a table with exactly one primary key, and Metabase derives its parameters from the table\'s columns. A query action is a parameterized native query: the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to, and `parameters` targeting those tags. `collection_id` picks a collection in the `data-actions` or `data-apps` namespace (omit for the data actions root; a regular collection is refused, and a data app\'s collection takes a table action only on a table published to the Library). Data actions must be enabled on the database (`mb db set-data-actions <id> true`). An MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.',
+  details: [
+    "A data action writes to a database. It's filed in a collection and has no model (no `model_id`). Data actions are off by default: an admin turns them on for the database first (`mb db set-data-actions <id> true`).",
+    'A table action inserts, updates or deletes one row: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update` or `row/delete`) and the `table_id` of a table with exactly one primary key. Metabase derives its parameters from the table\'s columns.',
+    'A query action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`): the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` it writes to, and `parameters` that target those tags.',
+    "`collection_id` picks a collection in the `data-actions` or `data-apps` namespace; leave it out for the data actions root. A regular collection is refused, and a data app's collection takes a table action only on a table published to the Library.",
+  ].join("\n\n"),
   skills: [
     { skill: "data-action", purpose: "author a data action and its parameters" },
     { skill: "native-sql", purpose: "the native query and its template tags" },

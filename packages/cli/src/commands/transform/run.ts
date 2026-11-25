@@ -20,7 +20,7 @@ const transformRunResultView: ResourceView<TransformRunResult> = {
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Trigger a transform run by id" },
   details:
-    "Starts a run and returns immediately. --wait polls the run to a terminal status. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run. While waiting, a run that does not succeed exits 1.",
+    "Starts a run and returns `{ message, run_id, final: null }` at once. `--wait` polls the run to a terminal status (`succeeded`, `failed`, `timeout` or `canceled`) and gives it as `final`. `--sync` also waits for the run to register its output table and returns its `target_table_id`, for the cards you build on it, with no `db sync-schema` needed. While waiting, a run that doesn't succeed exits 1.",
   requires: ["transform.run"],
   args: {
     ...outputFlags,

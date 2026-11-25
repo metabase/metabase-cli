@@ -63,8 +63,17 @@ export default defineMetabaseCommand({
     name: "query",
     description: "Run, compile, or inspect an ad-hoc MBQL or native query",
   },
-  details:
-    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type": "mbql/query", "database": <database id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table id>, "aggregation": [["count", {}]]}]} with ids from `mb database list` and `mb table list`; it is checked against a bundled JSON Schema before sending, and `mb schema query` prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check. --compile prints the native query the server compiles the body to, --metadata the databases, tables, fields and snippets the body touches, and --export-format streams the rows as csv, json or xlsx; the three are mutually exclusive with each other and with --dry-run. An export takes its column formatting and pivot layout from --visualization-settings, since an ad-hoc query has no card to read them from: --pivot-results needs their pivot_table.column_split.',
+  details: [
+    'Runs the JSON query body from `--body`, `--file`, or stdin. An MBQL 5 body, shaped `{"lib/type": "mbql/query", "database": <db-id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table-id>}]}` with ids from `mb db list` and `mb table list`, is checked against the schema `mb schema query` prints. A failed check prints `{ ok, errors }` and exits 2 with no request made. Legacy MBQL 4 (`{ "type": "query", … }`) and native (`{ "type": "native", … }`) bodies skip the check, and the server normalizes them. An MBQL 5 query inside a legacy `{ "type": "query", "query": … }` envelope is refused before sending.',
+    "`--dry-run`, `--compile`, `--metadata` and `--export-format` check, compile, inspect or export the query instead of running it, and you can use only one of them.",
+    "`--dry-run` prints `{ ok, errors: [{ path, message }], sql }`. The local check runs first, so `--skip-validate` is refused; if it passes, the server compiles the query without running it. A local error's `path` is a JSON Pointer into the body. A server rejection (HTTP 400, or 500 for a reference it can't resolve) is one error with `path: \"\"`. `sql` is the compiled query, or `null`.",
+    "`--compile` prints `{ query, params }`, plus `collection` for a document database. `params` is `null` for a SQL driver, since the server inlines parameters. A run also caps an unaggregated query at the server's row limit, which the compiled query doesn't show. Text output is the query alone.",
+    "`--metadata` prints `{ databases, tables, fields, snippets }`: the source table and the tables its foreign keys point at (a card source is a virtual table with a `card__<id>` id), and the fields that template tags and snippets point at. With `--full`, most tables exceed the default `--max-bytes`.",
+    "`--export-format` writes the export bytes to stdout, capped at the server's download row limit. `--full`, `--fields` and `--max-bytes` are refused; `--json` and `--format` set only the shape of an error. An ad-hoc query has no saved settings, so `--pivot-results` needs `--visualization-settings` with `pivot_table.column_split`.",
+    "To compile, with `--compile` or `--dry-run`, you need native query permission on the body's database and access to every table and card the query reads. Without them, the server refuses with 403 (exit 1).",
+    "Exits 0 when the query ran or compiled, or its metadata was read. Exits 2 when a flag is wrong, the body is malformed (it has neither `lib/type` nor `type`), or the local check rejected it, and with `--dry-run` also when the server compile rejected it. Exits 1 on a server error after the local check passed: network, HTTP 4xx or 5xx, or a compile the server refused.",
+    "The `create` and `update` commands of [card](card.md), [transform](transform.md), [measure](measure.md), [segment](segment.md) and [data-action](data-action.md) run the same check on the query in their body: a card's or data action's `dataset_query`, a transform's `source.query` (when `source.type` is `\"query\"`), and a measure's or segment's `definition`. A failure exits 2 the same way, and each command takes `--skip-validate`. Legacy MBQL 4 queries and Python transform sources aren't checked.",
+  ].join("\n\n"),
   skills: [{ skill: "mbql", purpose: "body shape, clause rules, and the dry-run loop" }],
   requires: ["dataset.exportQuery", "dataset.native", "dataset.query", "dataset.queryMetadata"],
   args: {
@@ -82,8 +91,10 @@ export default defineMetabaseCommand({
     "cat q.json | mb query --dry-run",
     "mb query --file q.json",
     "mb query --file q.json --compile",
+    "mb query --file q.json --compile --no-pretty --format text",
     "mb query --file q.json --metadata --json",
     "mb query --file q.json --export-format csv > rows.csv",
+    'mb query --file pivot.json --export-format xlsx --pivot-results --visualization-settings \'{"pivot_table.column_split":{"rows":["category"],"columns":["status"],"values":["count"]}}\' > pivot.xlsx',
     "mb query --file q.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {

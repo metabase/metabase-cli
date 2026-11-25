@@ -16,6 +16,8 @@ import {
   type TableSchemaSyncResult,
   type TableSelectionResult,
   TableSelectors,
+  TABLE_LIST_FILTER_FEATURES,
+  TableListFilter,
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
@@ -63,21 +65,11 @@ export interface TableListParams {
 }
 
 // Older servers leave the query map open and drop a filter they do not know without a word, so a
-// filter that arrived after the oldest supported major is refused by name before the wire. Every
-// server applies such a filter only when it is `true`, so a `false` one reads the same dropped or
-// not and needs no feature.
-const LIST_PARAM_FEATURES: ReadonlyArray<readonly [keyof TableListParams, FeatureName]> = [
-  ["can-query", "tableListAccessFilters"],
-  ["can-write", "tableListAccessFilters"],
-  ["include-transform-targets", "tableListTransformTargets"],
-  ["unused-only", "tableUnusedFilter"],
-  ["published-only", "tableListPublishedFilter"],
-];
-
+// filter that arrived after the oldest supported major is refused by name before the wire.
 function listParamFeatures(params: TableListParams): FeatureName[] {
-  return LIST_PARAM_FEATURES.filter(([param]) => params[param] === true).map(
-    ([, feature]) => feature,
-  );
+  return TableListFilter.options
+    .filter((filter) => params[filter] === true)
+    .map((filter) => TABLE_LIST_FILTER_FEATURES[filter]);
 }
 
 // A server older than the tier vocabulary rejects a tier name with a 400 naming the request field

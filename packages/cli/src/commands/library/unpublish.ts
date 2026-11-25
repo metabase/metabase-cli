@@ -31,7 +31,7 @@ export default defineMetabaseCommand({
     description: "Unpublish tables (and their downstream dependents) from the Library",
   },
   details:
-    'Clears the Library collection for each selected table and recursively for every downstream table that depends on it. Select with --table-ids, --db-ids, or --schemas (each schema id is "<db-id>:<schema>", e.g. 1:public); the filters are combined.',
+    "Removes each selected table, and every downstream table that depends on it, from the Library. The selection is every table that any of the selectors names.",
   requires: ["library.unpublishTables"],
   args: {
     ...outputFlags,

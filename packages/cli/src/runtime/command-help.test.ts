@@ -2,12 +2,16 @@ import { defineCommand } from "citty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { errorMessage } from "@metabase/client/errors";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
+import { assertCommandLine } from "../commands/command-line";
+import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
+import { shellCommands } from "../core/shell-commands";
 import main from "../main";
 import { getMetabaseAugment } from "./command-augment";
-import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
+import { buildHelpEntry, buildHelpIndex, CLI_NAME, resolveCommandPath } from "./command-help";
 import type { CommandHelpEntry } from "./command-help";
 
 describe("buildHelpIndex", () => {
@@ -69,6 +73,32 @@ describe("buildHelpIndex", () => {
       description: null,
       skills: [],
       commands: [{ command: "visible", description: "visible" }],
+    });
+  });
+
+  it("carries a group's details", async () => {
+    const leaf = defineMetabaseCommand({
+      meta: { name: "leaf", description: "a leaf" },
+      requires: [],
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const group = defineCommandGroup({
+      name: "group",
+      description: "a group",
+      details: "## Rows\n\nA group holds rows.",
+      subCommands: { leaf: () => Promise.resolve(leaf) },
+    });
+
+    const index = await buildHelpIndex(group, ["group"]);
+
+    expect(index).toEqual({
+      description: "a group",
+      details: "## Rows\n\nA group holds rows.",
+      skills: [],
+      commands: [{ command: "group leaf", description: "a leaf" }],
     });
   });
 
@@ -523,6 +553,20 @@ function allEntries(): Promise<CommandHelpEntry[]> {
   return cachedEntries;
 }
 
+async function exampleRefusal(example: string): Promise<string | null> {
+  try {
+    for (const { words } of shellCommands(example)) {
+      const [name, ...argv] = words;
+      if (name === CLI_NAME) {
+        await assertCommandLine(main, argv);
+      }
+    }
+    return null;
+  } catch (error) {
+    return `${example}: ${errorMessage(error)}`;
+  }
+}
+
 describe("command tree contract", () => {
   it("indexes every leaf command", async () => {
     const index = await buildHelpIndex(main, []);
@@ -557,6 +601,12 @@ describe("command tree contract", () => {
       withoutExamples: [],
       withoutOutputSchema: [],
     });
+  });
+
+  it("shows only examples the CLI takes", async () => {
+    const examples = (await allEntries()).flatMap((entry) => entry.examples);
+    const refusals = await Promise.all(examples.map(exampleRefusal));
+    expect(refusals.filter((refusal) => refusal !== null)).toEqual([]);
   });
 
   it("declares an input schema on every command that accepts a JSON body", async () => {

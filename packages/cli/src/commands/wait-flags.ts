@@ -32,8 +32,7 @@ export const waitFlags = {
 export const gitSyncWaitFlags = {
   wait: {
     type: "boolean",
-    description:
-      "Poll the resulting task until it reaches a terminal status (default: true; pass --no-wait to fire-and-forget)",
+    description: "Poll the task until it ends",
     default: true,
   },
   ...waitScheduleFlags,

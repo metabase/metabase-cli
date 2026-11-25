@@ -10,6 +10,8 @@ export default defineMetabaseCommand({
     name: "has-remote-changes",
     description: "Check whether the remote branch has unimported changes",
   },
+  details:
+    "Compares the latest version on the remote branch with the version Metabase last synced, by an import or an export. The server may respond from a short-lived cache, and `cached` says when it did.",
   requires: ["gitSync.hasRemoteChanges"],
   args: {
     ...outputFlags,

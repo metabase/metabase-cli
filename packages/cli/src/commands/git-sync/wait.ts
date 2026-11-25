@@ -22,6 +22,8 @@ export default defineMetabaseCommand({
     name: "wait",
     description: "Poll the current git-sync task until it reaches a terminal status",
   },
+  details:
+    'Returns `{ "status": "idle" }` at once when no task has ever run, and the most recent task when it has already ended. Exits 0 when the task ends `successful` or `cancelled`, and 1 when it ends `errored`, `timed-out` or `conflict`.',
   requires: ["gitSync.waitForTask"],
   args: {
     ...outputFlags,
@@ -34,7 +36,7 @@ export default defineMetabaseCommand({
     },
     interval: {
       type: "string",
-      description: "Polling interval in ms",
+      description: "First polling interval in ms; the delay doubles after each poll",
       default: String(DEFAULT_INTERVAL_MS),
     },
   },

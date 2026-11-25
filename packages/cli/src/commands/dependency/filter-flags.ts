@@ -18,7 +18,7 @@ import { parseOptionalText } from "../parse-text";
 const sharedFilterFlags = {
   "include-personal-collections": {
     type: "boolean",
-    description: "Also list content in personal collections",
+    description: "Also list content in personal collections, which is left out by default",
   },
   "sort-direction": {
     type: "string",
@@ -61,7 +61,8 @@ export function readDependentFilters(
 export const queryFlag = {
   query: {
     type: "string",
-    description: "Keep entities whose name or location contains this text (case-insensitive)",
+    description:
+      "Keep entities whose name or location contains this text (case-insensitive); must not be blank",
   },
 } as const;
 

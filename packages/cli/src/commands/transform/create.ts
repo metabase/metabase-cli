@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Create a transform from JSON",
   },
   details:
-    "The JSON body needs a `name`, a `source` (the query to run — native SQL or MBQL — under `source.query`), and a `target` (the warehouse table to write, with `database`/`schema`/`name`). When `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.",
+    'The JSON body needs a `name`, a `source` and a `target`. A query source is `type: "query"` with the native SQL or MBQL query to run under `query`; a Python source is `type: "python"` with its `body` and `source-tables`. The `target` is the warehouse table to write: `type` (`"table"`, or `"table-incremental"` with a `target-incremental-strategy`) and `name`, plus an optional `schema` and `database`. `mb schema transform create` prints every field.',
   skills: [{ skill: "mbql", purpose: "MBQL source.query bodies" }],
   requires: ["transform.create"],
   args: {

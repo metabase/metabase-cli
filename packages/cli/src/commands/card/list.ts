@@ -24,7 +24,8 @@ export default defineMetabaseCommand({
     },
     modelId: {
       type: "string",
-      description: "Used by filter database|table|using_model|using_segment",
+      description:
+        "Required with `--filter database|table|using_model|using_segment`: the ID of that database, table, model or segment",
       alias: "model-id",
     },
   },

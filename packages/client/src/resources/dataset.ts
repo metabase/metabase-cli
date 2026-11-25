@@ -1,6 +1,11 @@
 import { CardQueryResult } from "../domain/card";
 import { CompiledQuery, QueryMetadata } from "../domain/dataset";
-import type { DatasetQuery, ExportFormat, VisualizationSettings } from "../domain/query";
+import {
+  CSV_BYTE_ORDER_MARK_FEATURE,
+  type DatasetQuery,
+  type ExportFormat,
+  type VisualizationSettings,
+} from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import { assertPivotedExport } from "./pivot-export";
 
@@ -81,7 +86,7 @@ export function datasetResource(transport: Transport) {
       await assertPivotedExport(transport, format, options);
     }
     await transport.requireFeatures(
-      params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
+      params.csv_include_bom ? [CSV_BYTE_ORDER_MARK_FEATURE] : [],
       options,
     );
     const exported = params.pivot_results ? { ...params.query, "was-pivot": true } : params.query;

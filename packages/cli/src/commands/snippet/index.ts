@@ -3,6 +3,10 @@ import { defineCommandGroup } from "../group";
 export default defineCommandGroup({
   name: "snippet",
   description: "Manage Metabase native query snippets",
+  details: [
+    "## A snippet is reusable SQL text",
+    "A snippet is a named, reusable piece of native (SQL) query text. A native query includes one by name, as `{{snippet: Name}}`.",
+  ].join("\n\n"),
   skills: [{ skill: "core", purpose: "native-SQL snippets and body input" }],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),

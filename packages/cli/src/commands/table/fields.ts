@@ -13,7 +13,7 @@ export const FieldListEnvelope = listEnvelopeSchema(FieldCompact);
 export default defineMetabaseCommand({
   meta: {
     name: "fields",
-    description: "List fields on a table (projection over query_metadata.fields)",
+    description: "List fields on a table",
   },
   requires: ["table.queryMetadata"],
   args: {

@@ -3,6 +3,10 @@ import { defineCommandGroup } from "../group";
 export default defineCommandGroup({
   name: "data-app",
   description: "Manage Metabase data apps",
+  details: [
+    "## A data app lives in the synced repository",
+    "A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, and its questions and actions live in its collection's files under `collections/data_apps/`. Its content changes in Metabase only through an import of the repository ([mb git-sync import](git-sync.md#mb-git-sync-import)).",
+  ].join("\n\n"),
   skills: [
     { skill: "data-app", purpose: "create, preview, build and publish a data app" },
     { skill: "data-app-ui", purpose: "the app's UI: sandbox, layout, theme, charts, pages" },

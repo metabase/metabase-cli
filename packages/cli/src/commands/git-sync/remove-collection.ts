@@ -11,6 +11,8 @@ export default defineMetabaseCommand({
     name: "remove-collection",
     description: "Unmark a collection as git-synced; cascades to descendants by location prefix",
   },
+  details:
+    "Like `add-collection`, it's refused while `remote-sync-type` is `read-only`, and returns `{ success, task_id? }`.",
   requires: ["gitSync.setCollectionSynced"],
   args: {
     ...outputFlags,

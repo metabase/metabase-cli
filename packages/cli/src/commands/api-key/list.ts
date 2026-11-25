@@ -10,8 +10,7 @@ const ApiKeyListEnvelope = listEnvelopeSchema(ApiKeyCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List API keys" },
-  details:
-    "Only admins list API keys. Each shows its masked key; the key itself is never returned again after creation.",
+  details: "Admins only. Each shows its masked key.",
   requires: ["apiKey.list"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: ApiKeyListEnvelope,

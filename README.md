@@ -43,59 +43,18 @@ mb auth login --url https://metabase.example.com
 mb auth status
 ```
 
+The command sections below aren't kept up to date. For a command's arguments, flags and examples,
+run `mb <command> --help`.
+
 ## Output
 
-Every `list` and `get` verb takes the same output flags. The per-command flag tables below list only what is specific to that command.
+Every `list` and `get` verb takes the same output flags (`--json`, `--format`, `--full`, `--fields` and `--max-bytes`), and every `list` verb also takes a window (`--limit` and `--offset`). `mb <command> --help` explains them, and the per-command flag tables below list only what is specific to that command.
 
-| Flag                | Description                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit JSON. Auto-enabled on non-TTY. Shorthand for `--format json`.                                                               |
-| `--format <format>` | `auto` \| `json` \| `text` (default `auto`).                                                                                     |
-| `--full`            | Return every field. The default is a compact projection.                                                                         |
-| `--fields <paths>`  | Project comma-separated dot-paths. Mutually exclusive with `--full`. On list verbs the paths are relative to each `data[]` item. |
-| `--max-bytes <n>`   | Output size cap, default `24576`; `0` disables. On a list, trailing items are dropped and `truncated` is set.                    |
-| `-p, --profile <n>` | Named profile (default `default`).                                                                                               |
-
-Every `list` verb additionally takes a window:
-
-| Flag           | Description                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `--limit <n>`  | How many items this call returns. Default: as many as fit the output cap.                  |
-| `--offset <n>` | Where the window starts (default `0`). Pass the previous call's `next_offset` to continue. |
-
-### List envelope
-
-List verbs answer with a single envelope:
-
-```json
-{
-  "returned": 2,
-  "offset": 0,
-  "limit": 2,
-  "total": 42,
-  "has_more": true,
-  "next_offset": 2,
-  "truncated": { "reason": "max_bytes", "bytes": 123456 },
-  "data": []
-}
-```
-
-| Field         | Meaning                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `data`        | The items in this window.                                                                               |
-| `returned`    | How many items are in `data`.                                                                           |
-| `offset`      | Where this window starts.                                                                               |
-| `limit`       | Present only when you passed `--limit`.                                                                 |
-| `total`       | The server's count where the endpoint reports one, otherwise `null`. A display value, not a bound.      |
-| `has_more`    | Whether more items remain. This — not `returned` against `total` — is what says to keep going.          |
-| `next_offset` | Pass back as `--offset` for the next window; `null` when the walk is over.                              |
-| `truncated`   | Present when `--max-bytes` dropped trailing items; `bytes` is what the full answer would have measured. |
-
-When the cap leaves no room for even one item, the list comes back empty with `next_offset: null` — narrow it with `--fields` or raise the cap. A `get` whose single item is over the cap fails instead, with exit `2`.
+[Read and page through output](packages/cli/guides/output.md) explains how to choose the format and the fields, cap the output, and read a list one window at a time.
 
 ## Authentication
 
-Credentials are stored per-profile. The default profile is named `default`. Use `--profile <name>` to manage additional profiles.
+Credentials are stored per-profile. The default profile is the one `MB_PROFILE` names, or `default` when it's unset. Use `--profile <name>` to manage additional profiles.
 
 ### `mb auth login`
 
@@ -113,7 +72,7 @@ On success the server is probed once — the rendered output shows the user, rol
 | `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
 | `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead; `--api-key -` reads the key from piped stdin.               |
 | `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
+| `--profile <name>`, `-p` | Profile to write to (default: `$MB_PROFILE`, else `default`).                                                                                  |
 | `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
 
 Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
@@ -135,10 +94,10 @@ mb auth status --json
 mb auth status --profile staging
 ```
 
-| Flag                     | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `--profile <name>`, `-p` | Profile to inspect (default: `default`). |
-| `--json`                 | Emit JSON. Auto-enabled on non-TTY.      |
+| Flag                     | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| `--profile <name>`, `-p` | Profile to inspect (default: `$MB_PROFILE`, else `default`). |
+| `--json`                 | Emit JSON. Auto-enabled on non-TTY.                          |
 
 ### `mb auth list`
 
@@ -166,7 +125,7 @@ mb auth logout --profile staging --yes
 
 | Flag                     | Description                                                                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile <name>`, `-p` | Profile to clear (default: `default`).                                                                                            |
+| `--profile <name>`, `-p` | Profile to clear (default: `$MB_PROFILE`, else `default`).                                                                        |
 | `--yes`                  | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Transforms
@@ -392,11 +351,11 @@ An input names its `table` and carries either `format: "sql"` with a `sql` query
 
 An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table, or a column qualified by a table name rather than an alias, is refused with `transform-test.unremapped-reference`.
 
-Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` before it can be sent back:
 
 ```sh
 mb transform-test get 1 --full --json \
-  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' \
   | mb transform-test update 1
 ```
 
@@ -2527,7 +2486,7 @@ A body field only some Metabase servers take names in its `description` the feat
 
 A field holding a query the CLI checks against the MBQL 5 schema, such as a card's `dataset_query`, says so in its `description`: ``MBQL 5 query checked against `mb schema query` ``.
 
-`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against, as the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
+`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against, as the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc. and `addSchema(schema, "query.yaml")`, which the files refer back to, then `compile(schema)`) or read it as documentation.
 
 | Arg / Flag     | Description                                                                 |
 | -------------- | --------------------------------------------------------------------------- |
@@ -2697,7 +2656,12 @@ bun run build
 bun run test           # unit tests
 bun run typecheck
 bun run lint
+bun run docs           # write the command reference to packages/cli/dist/docs (the build does too)
 ```
+
+The command reference is written from the help text and from the guides in `packages/cli/guides/`.
+[`write-docs`](.claude/skills/write-docs/SKILL.md) says where a sentence goes, what it can hold,
+and how to check it, for people and agents alike.
 
 `bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a
 dev run never touches your real profiles or the OS keychain.

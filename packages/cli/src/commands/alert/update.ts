@@ -11,11 +11,9 @@ import { describeAlert } from "./summary";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a question alert by id" },
   details: [
-    "Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`.",
-    'Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card.',
-    "`subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep —",
-    "`mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card.",
-  ].join(" "),
+    'Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers` and `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. Don\'t send a `card_id`: to watch another card, create a new alert. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep (`mb alert get <id>` prints them).',
+    "Don't send a `payload.id` either. The command keeps the alert's `id` whatever the body says, but it passes a `payload.id` on, and on some patch releases an id that differs from the stored one makes the server delete the payload and insert a new one.",
+  ].join("\n\n"),
   requires: ["notification.update"],
   args: {
     ...outputFlags,

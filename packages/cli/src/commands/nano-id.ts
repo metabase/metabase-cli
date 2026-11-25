@@ -30,7 +30,7 @@ export default defineMetabaseCommand({
     description: "Mint random NanoIDs, the entity IDs Metabase serializes content by",
   },
   details:
-    "For the values that must be an entity ID: the `entityId` of a data app's `defineQuery` and `defineAction` definitions.",
+    "For the values that must be an entity ID: the `entityId` of a data app's `defineQuery` and `defineAction` definitions. Needs no server.",
   skills: [
     { skill: "data-app-data", purpose: "the entity IDs of a data app's questions and actions" },
   ],
@@ -39,7 +39,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     count: {
       type: "string",
-      description: `How many NanoIDs to mint (default 1, max ${MAX_COUNT})`,
+      description: `How many NanoIDs to mint (max ${MAX_COUNT})`,
       default: "1",
     },
   },

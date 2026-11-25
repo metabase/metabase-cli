@@ -11,8 +11,7 @@ export const TransformDependenciesEnvelope = listEnvelopeSchema(TransformCompact
 
 export default defineMetabaseCommand({
   meta: { name: "dependencies", description: "List the transforms a transform depends on" },
-  details:
-    "Returns the upstream transforms in this transform's dependency graph — the ones that must run before it. The positional id is a transform id.",
+  details: "Returns the upstream transforms, which must run before this one.",
   requires: ["transform.dependencies"],
   args: {
     ...outputFlags,

@@ -14,6 +14,7 @@ import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from 
 
 describe("showUsage", () => {
   let chunks: string[];
+  let originalColumns: number | undefined;
 
   beforeEach(() => {
     chunks = [];
@@ -23,10 +24,13 @@ describe("showUsage", () => {
       done?.(null);
       return true;
     });
+    originalColumns = process.stdout.columns;
+    setColumns(80);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setColumns(originalColumns);
   });
 
   it("strips citty's '(<command name>)' breadcrumb suffix from the description line", async () => {
@@ -94,12 +98,14 @@ describe("showUsage", () => {
     expect(out).not.toContain("EXAMPLES");
   });
 
-  it("renders the details block after the description and before USAGE when declared", async () => {
+  it("prints a command's details in a DETAILS section between its examples and its agent skills", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
       requires: [],
-      args: {},
+      args: { limit: { type: "string", description: "Rows to return" } },
       details: "Longer per-command knowledge shown only on this page.",
+      examples: ["mb demo"],
+      skills: [{ skill: "core", purpose: "learn the conventions" }],
       run() {
         return;
       },
@@ -107,15 +113,210 @@ describe("showUsage", () => {
 
     await showUsage(cmd);
     const out = chunks.join("");
-    const summaryIdx = out.indexOf("Short summary");
-    const detailIdx = out.indexOf("Longer per-command knowledge shown only on this page.");
-    const usageIdx = out.indexOf("USAGE");
-    expect(summaryIdx).toBeGreaterThanOrEqual(0);
-    expect(detailIdx).toBeGreaterThan(summaryIdx);
-    expect(usageIdx).toBeGreaterThan(detailIdx);
+    expect(out).toBe(
+      [
+        "Short summary",
+        "",
+        "USAGE demo [OPTIONS]",
+        "",
+        "OPTIONS",
+        "",
+        "  --limit=<limit>    Rows to return",
+        "       -h, --help    Show help for this command",
+        "",
+        "EXAMPLES",
+        "",
+        "  mb demo",
+        "",
+        "DETAILS",
+        "",
+        "  Longer per-command knowledge shown only on this page.",
+        "",
+        "AGENT SKILLS",
+        "",
+        "  mb skills get core — learn the conventions",
+        "",
+        "Machine-readable help (flags): demo --help --json",
+        "",
+      ].join("\n"),
+    );
   });
 
-  it("omits the details block when none is declared", async () => {
+  it("prints Markdown bold text without its marks", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Open **Admin** settings" },
+      requires: [],
+      args: {},
+      details: "Find it in **Admin** > **Settings** > **API keys**.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Open Admin settings\n");
+    expect(out).toContain("\n  Find it in Admin > Settings > API keys.\n");
+  });
+
+  it("prints a group's details after its commands, each heading over its own indented text and each link as its text", async () => {
+    const list = defineMetabaseCommand({
+      meta: { name: "list", description: "List things" },
+      requires: [],
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const group = defineCommandGroup({
+      name: "demo",
+      description: "Manage demos",
+      details:
+        "Demos are samples.\n\n## Rows\n\nSee [`mb demo list`](#mb-demo-list) and [rows](rows.md#more).",
+      subCommands: { list: () => Promise.resolve(list) },
+    });
+
+    await showUsage(group);
+    const out = chunks.join("");
+    expect(out).toBe(
+      [
+        "Manage demos",
+        "",
+        "USAGE demo <command> [options]",
+        "",
+        "COMMANDS",
+        "",
+        "  list    List things",
+        "",
+        "Use demo <command> --help for more information about a command.",
+        "",
+        "DETAILS",
+        "",
+        "  Demos are samples.",
+        "",
+        "  Rows",
+        "",
+        "    See `mb demo list` and rows.",
+        "",
+        "First time? Run `mb auth login` to connect to a Metabase instance.",
+        "",
+        "Machine-readable command index: demo --help --json",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("wraps each paragraph of the details to the terminal width, under its indent", async () => {
+    setColumns(40);
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      requires: [],
+      args: {},
+      details: "Each paragraph wraps at a word boundary so that every line keeps its indent.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain(
+      [
+        "DETAILS",
+        "",
+        "  Each paragraph wraps at a word",
+        "  boundary so that every line keeps its",
+        "  indent.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps each table row of the details on its own line", async () => {
+    setColumns(40);
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      requires: [],
+      args: {},
+      details:
+        "| Code | When |\n| --- | --- |\n| `2` | A flag is wrong, or the body is malformed. |",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain(
+      [
+        "DETAILS",
+        "",
+        "  | Code | When |",
+        "  | --- | --- |",
+        "  | `2` | A flag is wrong, or the body is malformed. |",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps each line of a list, a quote and a code block of the details", async () => {
+    setColumns(40);
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      requires: [],
+      args: {},
+      details: [
+        "Exits with:\n- `0` when every row of the table was read\n- `2` on a bad flag",
+        "1. Read the rows.\n2. Print them.",
+        "> Rows are read in order.",
+        '```json\n{ "id": 1, "name": "A name that is long" }\n{ "id": 2 }\n```',
+      ].join("\n\n"),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain(
+      [
+        "DETAILS",
+        "",
+        "  Exits with:",
+        "  - `0` when every row of the table was read",
+        "  - `2` on a bad flag",
+        "",
+        "  1. Read the rows.",
+        "  2. Print them.",
+        "",
+        "  > Rows are read in order.",
+        "",
+        "  ```json",
+        '  { "id": 1, "name": "A name that is long" }',
+        '  { "id": 2 }',
+        "  ```",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps the `**` of a glob", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Sync files" },
+      requires: [],
+      args: {},
+      details: "Reads `models/**/*.yaml` and `metrics/**/*.yaml`.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Reads `models/**/*.yaml` and `metrics/**/*.yaml`.\n");
+  });
+
+  it("omits the DETAILS section when no details are declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
       requires: [],
@@ -128,7 +329,7 @@ describe("showUsage", () => {
     await showUsage(cmd);
     const out = chunks.join("");
     expect(out).toContain("Short summary");
-    expect(out).not.toContain("Longer per-command knowledge");
+    expect(out).not.toContain("DETAILS");
   });
 
   it("strips citty's column-padding whitespace from short rows so a long description does not bloat every line", async () => {
@@ -631,4 +832,8 @@ describe("findUnknownCommand", () => {
 // The page ends in a newline, so its last lines are the ones before the empty tail.
 function trailingLines(page: string, count: number): string[] {
   return page.split("\n").slice(-count - 1, -1);
+}
+
+function setColumns(columns: number | undefined): void {
+  Object.defineProperty(process.stdout, "columns", { value: columns, configurable: true });
 }

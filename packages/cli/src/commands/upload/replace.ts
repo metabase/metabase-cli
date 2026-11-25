@@ -12,14 +12,13 @@ export default defineMetabaseCommand({
     name: "replace",
     description: "Replace an existing uploaded table's rows with a CSV file",
   },
-  details:
-    "Replaces the contents of the table with the given id with the rows of the CSV. The table must have been created by a CSV upload and the CSV columns must match.",
+  details: "The table must have been created by a CSV upload and the CSV columns must match.",
   requires: ["table.replaceCsv"],
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    file: { type: "string", description: "Path to the CSV/TSV file to upload" },
+    file: { type: "string", description: "Path to the CSV/TSV file to upload (required)" },
     id: { type: "positional", description: "Target table id", required: true },
   },
   outputSchema: UploadUpdateResult,

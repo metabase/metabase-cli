@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a native query snippet from a JSON spec" },
+  details:
+    "The JSON body needs `name` and `content`, the SQL text; `description` and `collection_id` are optional.",
   requires: ["snippet.create"],
   args: {
     ...outputFlags,

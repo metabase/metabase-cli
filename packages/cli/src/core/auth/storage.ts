@@ -9,6 +9,7 @@ import type { ServerInfo } from "@metabase/client/version/probe";
 
 import { ENV_DISABLE_KEYRING, readEnv } from "../env";
 import { configDir } from "../paths";
+import { DEFAULT_PROFILE } from "./default-profile";
 import {
   ProfileLastFailure,
   ProfileLastProbe,
@@ -25,8 +26,6 @@ const LEGACY_CREDENTIALS_FILE = "credentials.json";
 const LEGACY_REJECTIONS_FILE = "rejections.json";
 const PROFILES_FILE_MODE = 0o600;
 const PROFILES_DIR_MODE = 0o700;
-
-export const DEFAULT_PROFILE = "default";
 
 export const LEGACY_STORAGE_NOTICE =
   "Old profile storage detected and ignored; re-run `mb auth login` for each profile.";

@@ -69,6 +69,12 @@ export const FEATURE_RULES = {
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
   dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
   dependencyAsyncBackfill: { since: 60, tokenFeature: "dependencies" },
+  // Archived upstream entities in `graph`, dropped and hidden tables in `unreferenced` and `breaking`,
+  // and archived sources in `breaking`; older servers leave them out.
+  dependencyKeepsArchivedSources: { since: 63, tokenFeature: "dependencies" },
+  // Query analysis traces an error back to a transform. A 60 server does so from 60.10.1 on, a 61
+  // one from 61.5, a 62 one from 62.2, and a 63 one always does.
+  dependencyTransformErrorSources: { since: 63, tokenFeature: "dependencies" },
   measureDependencyGraph: { since: 59 },
   actionDependencyGraph: { since: 65 },
   tableListAccessFilters: { since: 59 },
@@ -89,6 +95,8 @@ export const FEATURE_RULES = {
   metricDimensionListing: { since: 64 },
   oauthFullAccessScopeUnadvertised: { since: 64 },
   exportCsvByteOrderMark: { since: 63 },
+  // A timeline or timeline event takes the icons mail_at, info, note and event.
+  timelineExtendedIcons: { since: 64 },
   workspaces: { since: 66, tokenFeature: "workspaces" },
   taskRuns: { since: 59 },
   // A 60 server reports both switches from 60.1 on, and a 61 one always does.
@@ -119,6 +127,25 @@ export function featureAvailability(feature: FeatureName): string {
     throw new Error(`${feature} holds on every supported server, so it gates nothing`);
   }
   return parts.join(", ");
+}
+
+/**
+ * Whether every supported server that holds `feature` also holds `other`: the majors its rule
+ * spans lie within the other's, and it needs the other's token feature, if the other needs one.
+ */
+export function featureImplies(feature: FeatureName, other: FeatureName): boolean {
+  const rule: FeatureRule = FEATURE_RULES[feature];
+  const otherRule: FeatureRule = FEATURE_RULES[other];
+  const startsWithin = supportedSince(rule) >= supportedSince(otherRule);
+  const endsWithin =
+    otherRule.until === undefined || (rule.until !== undefined && rule.until <= otherRule.until);
+  const tokenCovered =
+    otherRule.tokenFeature === undefined || otherRule.tokenFeature === rule.tokenFeature;
+  return startsWithin && endsWithin && tokenCovered;
+}
+
+function supportedSince(rule: FeatureRule): number {
+  return Math.max(rule.since, KNOWN_RANGE.min);
 }
 
 function majorSpan(rule: FeatureRule): string | null {

@@ -4,14 +4,19 @@ import type { Credential } from "@metabase/client/auth/credential";
 import { oauthLogin } from "@metabase/client/auth/oauth-login";
 import { revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
 import { ConfigError, errorMessage, NetworkError, TimeoutError } from "@metabase/client/errors";
-import { tryDiscoverMetadata, type OAuthServerMetadata } from "@metabase/client/http/oauth";
+import {
+  OAUTH_MINIMUM_RELEASE,
+  OAUTH_UNSUPPORTED_MESSAGE,
+  tryDiscoverMetadata,
+  type OAuthServerMetadata,
+} from "@metabase/client/http/oauth";
 import { normalizeUrl } from "@metabase/client/url";
 
+import { DEFAULT_PROFILE } from "../../core/auth/default-profile";
 import {
   consumeKeychainResidualWarning,
   consumeKeyringDowngradeWarning,
   type CredentialLocation,
-  DEFAULT_PROFILE,
   keyringFallbackWarning,
   writeOAuthProfile,
   writeProbeFailure,
@@ -70,8 +75,7 @@ const loginView: ResourceView<LoginResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
-  details:
-    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key (`--api-key -` reads it from stdin), piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
+  details: `Interactive login offers browser login (recommended; Metabase ${OAUTH_MINIMUM_RELEASE}+) or an API key from **Admin** > **Settings** > **Authentication** > **API keys**; older servers go straight to the API key prompt. Browser login opens Metabase for you to sign in and approve, then stores tokens that the CLI refreshes on its own. For CI and other non-interactive runs, pass an API key with \`--api-key\`, piped stdin, or \`$MB_API_KEY\` (the first one given wins; \`--api-key -\` reads stdin and keeps the key out of shell history); any of these skips the browser, and a non-TTY login without one fails. The URL comes from \`--url\`, \`$MB_URL\`, or a prompt on a TTY. Unless \`--skip-verify\` is given, login probes the server, and saves no credential if the probe fails; a profile that already exists records the failure as \`lastFailure\`. With an API key, \`--skip-verify\` saves without contacting the server.`,
   requires: ["user.current"],
   args: {
     ...outputFlags,
@@ -85,11 +89,12 @@ export default defineMetabaseCommand({
     "skip-verify": {
       type: "boolean",
       default: false,
-      description: "Save without contacting the server",
+      description: "Save the credential without the probe that checks it",
     },
   },
   outputSchema: LoginResult,
   examples: [
+    "mb auth login",
     "mb auth login --url https://metabase.example.com",
     "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
     "pass show metabase | mb auth login --url https://metabase.example.com --api-key -",
@@ -160,7 +165,7 @@ export default defineMetabaseCommand({
 
 type LoginMethod = "oauth" | "apiKey";
 
-// Reaching the server but finding no CLI-capable OAuth server (pre-v63) degrades to the API key
+// Reaching the server but finding no CLI-capable OAuth server (before v62.3.3) degrades to the API key
 // prompt; not reaching it at all is an error worth stopping on before any credential is collected.
 // A server that answered, however badly, keeps the error that says how.
 async function probeOAuthSupport(url: string): Promise<OAuthServerMetadata | null> {
@@ -180,12 +185,10 @@ async function chooseLoginMethod(
 ): Promise<LoginMethod> {
   if (metadata === null) {
     if (clientId !== undefined) {
-      throw new ConfigError(
-        "--client-id was given but this Metabase does not support OAuth login (requires Metabase v63 or newer)",
-      );
+      throw new ConfigError(`--client-id was given but ${OAUTH_UNSUPPORTED_MESSAGE}`);
     }
     warn(
-      "This Metabase does not support browser login (requires Metabase v63 or newer); using an API key instead.",
+      `This Metabase does not support browser login (requires Metabase ${OAUTH_MINIMUM_RELEASE} or newer); using an API key instead.`,
     );
     return "apiKey";
   }
@@ -203,7 +206,7 @@ async function chooseLoginMethod(
       {
         value: "apiKey",
         label: "With an API key",
-        hint: "paste a key from Admin settings → Authentication → API keys",
+        hint: "paste a key from Admin > Settings > Authentication > API keys",
       },
     ],
     initialValue: "oauth",

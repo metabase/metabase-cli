@@ -10,12 +10,8 @@ import { normalizeUrl } from "@metabase/client/url";
 
 import { STDIN_ARG } from "../runtime/input";
 import { USER_AGENT } from "./user-agent";
-import {
-  DEFAULT_PROFILE,
-  readProfileCredential,
-  readProfileRecord,
-  writeOAuthProfile,
-} from "./auth/storage";
+import { DEFAULT_PROFILE } from "./auth/default-profile";
+import { readProfileCredential, readProfileRecord, writeOAuthProfile } from "./auth/storage";
 import { ENV_API_KEY, ENV_PROFILE, ENV_URL, readEnv } from "./env";
 
 type ConfigSource = "flag" | "env" | "stored" | "mixed";

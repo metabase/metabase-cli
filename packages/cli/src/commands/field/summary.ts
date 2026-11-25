@@ -10,6 +10,8 @@ export default defineMetabaseCommand({
     name: "summary",
     description: "Get the row count and distinct count for a field",
   },
+  details:
+    "Metabase returns the two counts as an array of pairs; the command returns them as `{ field_id, count, distincts }`.",
   requires: ["field.summary"],
   args: {
     ...outputFlags,

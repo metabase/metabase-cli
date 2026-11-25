@@ -1,7 +1,11 @@
 import type { StringArgDef } from "citty";
 
+import { DEFAULT_PROFILE } from "../core/auth/default-profile";
+import { ENV_API_KEY, ENV_PROFILE, ENV_SKIP_PREFLIGHT, ENV_URL } from "../core/env";
+import type { SharedFlagSet } from "../output/command-reference";
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
+import { bodyInputFlags } from "./body-flags";
 
 interface ListFlagDef extends StringArgDef {
   type: "string";
@@ -17,19 +21,23 @@ export function listFlag<const T extends ListFlagDef>(def: T): T & ListMarker {
 // A command whose output is always the server's JSON as-is has nothing to project or cap, so it
 // takes only the format pair, which still picks the shape of an error report.
 export const formatFlags = {
-  format: { type: "string", description: "auto | json | text", default: "auto" },
-  json: { type: "boolean", description: "Shorthand for --format json" },
+  format: {
+    type: "string",
+    description: "auto | json | text; `auto` is text on a terminal and JSON otherwise",
+    default: "auto",
+  },
+  json: { type: "boolean", description: "Shorthand for `--format json`" },
 } as const;
 
 export const outputFlags = {
   ...formatFlags,
   full: {
     type: "boolean",
-    description: "Return the full object (default: compact)",
+    description: "Return the full object instead of the compact one",
   },
   fields: listFlag({
     type: "string",
-    description: "Dot-paths, comma separated (mutually exclusive with --full)",
+    description: "Comma-separated dot-paths to keep; can't be used with `--full`",
   }),
   maxBytes: {
     type: "string",
@@ -46,7 +54,7 @@ export const listFlags = {
   },
   offset: {
     type: "string",
-    description: "Start at this item index; pass the previous run's next_offset to continue",
+    description: "Start at this item index; pass the previous run's `next_offset` to continue",
     default: "0",
   },
 } as const;
@@ -66,20 +74,41 @@ export function listFlagsWithDefaultLimit(defaultLimit: number) {
 }
 
 export const profileFlag = {
-  profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
+  profile: {
+    type: "string",
+    description: `Named profile (default: \`$${ENV_PROFILE}\`, else \`${DEFAULT_PROFILE}\`)`,
+    alias: "p",
+  },
 } as const;
 
 export const urlFlag = {
-  url: { type: "string", description: "Metabase URL" },
+  url: {
+    type: "string",
+    description: `Metabase URL, including any subpath the instance is served under (\`https://example.com/metabase\`). Default: \`$${ENV_URL}\`, else the profile's`,
+  },
 } as const;
 
 export const connectionFlags = {
   ...urlFlag,
-  apiKey: { type: "string", description: "API key", alias: "api-key" },
+  apiKey: {
+    type: "string",
+    description: `API key. Default: \`$${ENV_API_KEY}\`, else the profile's credential`,
+    alias: "api-key",
+  },
   skipPreflight: {
     type: "boolean",
-    description:
-      "Skip the client's version and license checks made before a request, and let the server answer",
+    description: `Skip the client's version and license checks made before a request, and let the server answer; \`${ENV_SKIP_PREFLIGHT}=1\` does the same`,
     alias: "skip-preflight",
   },
 } as const;
+
+// The sets the command reference documents once, on its index, instead of on every command.
+// `outputFlags` holds `formatFlags`, so it comes first.
+export const SHARED_FLAG_SETS: readonly SharedFlagSet[] = [
+  { name: "output", flags: outputFlags },
+  { name: "format", flags: formatFlags },
+  { name: "list", flags: listFlags },
+  { name: "body", flags: bodyInputFlags },
+  { name: "profile", flags: profileFlag },
+  { name: "connection", flags: connectionFlags },
+];

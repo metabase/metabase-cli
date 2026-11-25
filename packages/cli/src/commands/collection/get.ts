@@ -9,8 +9,10 @@ import { parseCollectionRef } from "./parse-ref";
 export default defineMetabaseCommand({
   meta: {
     name: "get",
-    description: 'Get a collection by id, 21-char entity id, or "root"/"trash"',
+    description: "Get a collection by id",
   },
+  details:
+    "The root collection is virtual: its response leaves out `archived`, `description`, `location` and `type` rather than sending them as `null`.",
   requires: ["collection.get"],
   args: {
     ...outputFlags,

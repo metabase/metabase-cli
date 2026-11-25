@@ -8,6 +8,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a document by id" },
+  details:
+    "The body takes any of the `create` keys, plus `archived`, and changes only the keys you send. A `document` key replaces the whole body.",
   requires: ["document.update"],
   args: {
     ...outputFlags,

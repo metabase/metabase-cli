@@ -8,6 +8,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a native query snippet by id" },
+  details:
+    "Patches only the fields you send: any of `name`, `content`, `description`, `collection_id` and `archived`.",
   requires: ["snippet.update"],
   args: {
     ...outputFlags,

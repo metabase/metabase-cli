@@ -17,6 +17,7 @@ import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { parseCsv } from "../runtime/csv";
 import { parseYaml } from "../runtime/yaml";
 import { ENV_SKILLS_DIR, readEnv } from "./env";
+import { readMarkdownLines, splitFrontmatter, type MarkdownLine } from "./markdown";
 
 const Frontmatter = z
   .object({
@@ -75,14 +76,12 @@ const SKILL_REFERENCES_DIR = "references";
 const SKILL_TEMPLATES_DIR = "templates";
 
 const FRONTMATTER_PREFIX_BYTES = 8192;
-const FRONTMATTER_FENCE = "---";
 
 const COMMENT_START = "<!--";
 const COMMENT_END = "-->";
 const MARKER_KEYWORD = "requires";
 const MARKER_OPEN_KEYWORD = `${MARKER_KEYWORD}:`;
 const MARKER_CLOSE_KEYWORD = `/${MARKER_KEYWORD}`;
-const FENCE_RUN = /^(?:`{3,}|~{3,})/;
 
 export function loadAllSkills(): SkillInfo[] {
   return discoverSkills(resolveSkillDirs());
@@ -246,16 +245,7 @@ function readFilePrefix(path: string, maxBytes: number): string | null {
 }
 
 export function parseFrontmatter(content: string, source: string): Frontmatter {
-  const trimmed = content.trimStart();
-  if (!trimmed.startsWith(FRONTMATTER_FENCE)) {
-    throw new ConfigError(`${source}: missing frontmatter`);
-  }
-  const afterOpening = trimmed.slice(FRONTMATTER_FENCE.length);
-  const closingIndex = afterOpening.indexOf(`\n${FRONTMATTER_FENCE}`);
-  if (closingIndex < 0) {
-    throw new ConfigError(`${source}: unterminated frontmatter`);
-  }
-  return parseYaml(afterOpening.slice(0, closingIndex), Frontmatter, { source });
+  return parseYaml(splitFrontmatter(content, source).yaml, Frontmatter, { source });
 }
 
 export function readSkillContent(info: SkillInfo, opts: ReadSkillContentOptions): SkillContent {
@@ -302,11 +292,6 @@ function parseFeatureNames(names: readonly string[], where: string): FeatureName
   return known;
 }
 
-interface OpenSection {
-  line: number;
-  met: boolean;
-}
-
 interface OpenMarker {
   kind: "open";
   names: string[];
@@ -323,51 +308,79 @@ interface MarkerSite {
   lineNumber: number;
 }
 
+interface SectionText {
+  kind: "text";
+  line: MarkdownLine;
+}
+
+interface SectionOpen {
+  kind: "open";
+  line: MarkdownLine;
+  features: readonly FeatureName[];
+}
+
+interface SectionClose {
+  kind: "close";
+  line: MarkdownLine;
+}
+
+type SectionItem = SectionText | SectionOpen | SectionClose;
+
+// Each line as text or as the marker it holds. What a fenced code block encloses is text,
+// marker-shaped lines included.
+export function* readSections(
+  lines: readonly MarkdownLine[],
+  where: string,
+): Generator<SectionItem> {
+  let openLine: number | null = null;
+  for (const [index, line] of lines.entries()) {
+    const marker = line.place === "prose" ? readMarker(line, where) : null;
+    if (marker === null) {
+      yield { kind: "text", line };
+      continue;
+    }
+    assertOutsideTable(lines, index, { where, lineNumber: line.lineNumber });
+    if (marker.kind === "open") {
+      const features = openedFeatures(marker, openLine, { where, lineNumber: line.lineNumber });
+      openLine = line.lineNumber;
+      yield { kind: "open", line, features };
+      continue;
+    }
+    if (openLine === null) {
+      throw new ConfigError(
+        `${where}: requires section closed at line ${line.lineNumber} was never opened`,
+      );
+    }
+    openLine = null;
+    yield { kind: "close", line };
+  }
+  if (openLine !== null) {
+    throw new ConfigError(`${where}: requires section opened at line ${openLine} is never closed`);
+  }
+}
+
 // Without features the markers stay in the text, so a reader still sees what each section needs.
 // They are validated either way, so a typo fails on every read rather than only against some server.
 export function resolveSections(text: string, features: Features | null, where: string): string {
-  const lines = text.split("\n");
   const out: string[] = [];
-  let open: OpenSection | null = null;
-  let fence: string | null = null;
+  let met = true;
   let collapseBlank = false;
-  for (const [index, line] of lines.entries()) {
-    const site: MarkerSite = { where, lineNumber: index + 1 };
-    const trimmed = line.trim();
-    const opening: string | null = fence === null ? fenceRun(trimmed) : null;
-    if (fence !== null) {
-      if (closesFence(trimmed, fence)) {
-        fence = null;
-      }
-    } else if (opening !== null) {
-      fence = opening;
-    } else {
-      const marker = parseMarker(trimmed);
-      if (marker === null && mentionsMarker(line)) {
-        throw markerError(trimmed, site);
-      }
-      if (marker !== null) {
-        assertOutsideTable(lines, index, where);
-        open =
-          marker.kind === "open"
-            ? openSection(marker, open, features, site)
-            : closeSection(open, site);
-        collapseBlank = dropMarker(out, line, features);
-        continue;
-      }
+  for (const item of readSections(readMarkdownLines(text), where)) {
+    const line = item.line.text;
+    if (item.kind !== "text") {
+      met = item.kind === "close" || features === null || item.features.every((f) => features[f]);
+      collapseBlank = dropMarker(out, line, features);
+      continue;
     }
     if (collapseBlank) {
       collapseBlank = false;
-      if (trimmed === "") {
+      if (line.trim() === "") {
         continue;
       }
     }
-    if (open === null || open.met) {
+    if (met) {
       out.push(line);
     }
-  }
-  if (open !== null) {
-    throw new ConfigError(`${where}: requires section opened at line ${open.line} is never closed`);
   }
   return out.join("\n");
 }
@@ -383,57 +396,43 @@ function dropMarker(out: string[], marker: string, features: Features | null): b
 
 // A table ends at a blank line, so only a row on the very next or previous line puts a marker
 // inside one.
-function assertOutsideTable(lines: readonly string[], index: number, where: string): void {
+function assertOutsideTable(lines: readonly MarkdownLine[], index: number, site: MarkerSite): void {
   if (isTableRow(lines[index - 1]) || isTableRow(lines[index + 1])) {
     throw new ConfigError(
-      `${where}: a requires marker cannot sit inside a Markdown table (line ${index + 1})`,
+      `${site.where}: a requires marker cannot sit inside a Markdown table (line ${site.lineNumber})`,
     );
   }
 }
 
-function isTableRow(line: string | undefined): boolean {
-  return line !== undefined && line.trimStart().startsWith("|");
+function isTableRow(line: MarkdownLine | undefined): boolean {
+  return line !== undefined && line.text.trimStart().startsWith("|");
 }
 
-// The backtick or tilde run that opens a fenced code block, or `null` for any other line. What a
-// fence encloses is text, marker-shaped lines included.
-function fenceRun(trimmed: string): string | null {
-  const match = FENCE_RUN.exec(trimmed);
-  return match === null ? null : match[0];
+function readMarker(line: MarkdownLine, where: string): Marker | null {
+  const trimmed = line.text.trim();
+  const marker = parseMarker(trimmed);
+  if (marker === null && mentionsMarker(line.text)) {
+    throw markerError(trimmed, { where, lineNumber: line.lineNumber });
+  }
+  return marker;
 }
 
-// A closing fence is the opening run's character, at least as long, and nothing else on the line.
-function closesFence(trimmed: string, fence: string): boolean {
-  const run = fenceRun(trimmed);
-  return run !== null && run.startsWith(fence) && run === trimmed;
-}
-
-function openSection(
+function openedFeatures(
   marker: OpenMarker,
-  open: OpenSection | null,
-  features: Features | null,
+  openLine: number | null,
   site: MarkerSite,
-): OpenSection {
+): FeatureName[] {
   const { where, lineNumber } = site;
-  if (open !== null) {
+  if (openLine !== null) {
     throw new ConfigError(
-      `${where}: nested requires section at line ${lineNumber} (opened at line ${open.line})`,
+      `${where}: nested requires section at line ${lineNumber} (opened at line ${openLine})`,
     );
   }
   const named = parseFeatureNames(marker.names, `${where} line ${lineNumber}`);
   if (named.length === 0) {
     throw new ConfigError(`${where}: requires section at line ${lineNumber} names no feature`);
   }
-  return { line: lineNumber, met: features === null || named.every((name) => features[name]) };
-}
-
-function closeSection(open: OpenSection | null, site: MarkerSite): null {
-  if (open === null) {
-    throw new ConfigError(
-      `${site.where}: requires section closed at line ${site.lineNumber} was never opened`,
-    );
-  }
-  return null;
+  return named;
 }
 
 // The whole grammar, on a line that is nothing else; `null` for any other line. Plain string

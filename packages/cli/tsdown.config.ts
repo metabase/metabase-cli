@@ -11,4 +11,8 @@ export default defineConfig({
     entryFileNames: "[name].mjs",
     chunkFileNames: "[name]-[hash].mjs",
   },
+  // The command reference ships in the package. It is written after each bundle because `clean`
+  // removes all of `dist/` first. The script runs as its own process so this config never loads
+  // the command tree.
+  onSuccess: "bun ../../scripts/generate-docs.ts",
 });

@@ -35,11 +35,17 @@ const logoutView: ResourceView<LogoutResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "logout", description: "Clear stored credentials for a profile" },
+  details:
+    "Clears the local credentials first. For an OAuth profile it then revokes the tokens on the server, best-effort: a revocation failure only warns, so a slow or offline server never blocks the logout.",
   requires: [],
   args: {
     ...outputFlags,
     ...profileFlag,
-    yes: { type: "boolean", description: "Skip confirmation", default: false },
+    yes: {
+      type: "boolean",
+      description: "Skip confirmation; without a TTY there's no prompt",
+      default: false,
+    },
   },
   outputSchema: LogoutResult,
   examples: ["mb auth logout --yes", "mb auth logout --profile staging --yes"],

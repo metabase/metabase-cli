@@ -19,6 +19,7 @@ export const CollectionItemListEnvelope = listEnvelopeSchema(CollectionItemCompa
 
 export default defineMetabaseCommand({
   meta: { name: "items", description: "List items inside a collection" },
+  details: "The items under `root` carry `collection_id: null`.",
   requires: ["collection.itemPages"],
   args: {
     ...outputFlags,

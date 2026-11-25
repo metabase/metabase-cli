@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { gateInput } from "../version/input-gate-registry";
+import type { FeatureName } from "../version/features";
 import type { InputGate } from "../version/input-gates";
 
 import { Field, FieldCompact, FieldWithTarget } from "./field";
@@ -104,6 +105,25 @@ export type TableCompact = z.infer<typeof TableCompact>;
 
 export const TableQueryMetadataCompact = TableCompact.extend({ fields: z.array(FieldCompact) });
 export type TableQueryMetadataCompact = z.infer<typeof TableQueryMetadataCompact>;
+
+// The list filters an older server drops without a word, each with the feature it needs. Every
+// server applies such a filter only when it is `true`, so a `false` one needs no feature.
+export const TableListFilter = z.enum([
+  "can-query",
+  "can-write",
+  "include-transform-targets",
+  "unused-only",
+  "published-only",
+]);
+export type TableListFilter = z.infer<typeof TableListFilter>;
+
+export const TABLE_LIST_FILTER_FEATURES: Readonly<Record<TableListFilter, FeatureName>> = {
+  "can-query": "tableListAccessFilters",
+  "can-write": "tableListAccessFilters",
+  "include-transform-targets": "tableListTransformTargets",
+  "unused-only": "tableUnusedFilter",
+  "published-only": "tableListPublishedFilter",
+};
 
 export const DATA_LAYER_TIER_GATE: InputGate = {
   feature: "tableDataLayerTiers",

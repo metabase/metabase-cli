@@ -11,6 +11,8 @@ export default defineMetabaseCommand({
     name: "update-dashcard",
     description: "Patch a single dashcard's layout or settings on a dashboard",
   },
+  details:
+    "Merges the patch into one dashcard and writes the dashboard's dashcards back, with the other dashcards and the tabs unchanged. The patch takes `row`, `col`, `size_x`, `size_y`, `dashboard_tab_id`, `parameter_mappings`, `inline_parameters`, `visualization_settings` and `series`; an empty patch or any other key is refused before sending. Prints the updated dashcard.",
   requires: ["dashboard.updateDashcard"],
   args: {
     ...outputFlags,

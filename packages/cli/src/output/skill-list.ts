@@ -5,6 +5,7 @@ import { RequirementFailure } from "@metabase/client/version/capability-error";
 import type { CachedProbeMiss, CachedServerProfile } from "../core/auth/cached-server";
 import type { UnavailableSkill } from "../core/skills";
 import { listTruncationNotice, warn } from "./notice";
+import { wrapText, wrapWidth } from "./wrap";
 
 export interface SkillListRow {
   name: string;
@@ -80,8 +81,6 @@ function unfilteredNotice(profileName: string, miss: CachedProbeMiss): string {
   }
 }
 
-const DEFAULT_TERMINAL_WIDTH = 80;
-const MIN_WRAP_WIDTH = 24;
 const DESCRIPTION_INDENT = "  ";
 
 export function renderSkillList(rows: readonly SkillListRow[], maxBytes: number): void {
@@ -116,30 +115,4 @@ function renderSkillBlock(row: SkillListRow, width: number): string {
   const lines = wrapText(row.description, width - DESCRIPTION_INDENT.length);
   const body = lines.map((line) => DESCRIPTION_INDENT + line).join("\n");
   return body === "" ? `${row.name}\n\n` : `${row.name}\n${body}\n\n`;
-}
-
-function wrapText(text: string, width: number): string[] {
-  const limit = Math.max(width, MIN_WRAP_WIDTH);
-  const words = text.split(/\s+/).filter((word) => word.length > 0);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    if (current === "") {
-      current = word;
-    } else if (current.length + 1 + word.length <= limit) {
-      current += ` ${word}`;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-  }
-  if (current !== "") {
-    lines.push(current);
-  }
-  return lines;
-}
-
-function wrapWidth(): number {
-  const columns = process.stdout.columns;
-  return typeof columns === "number" && columns > 0 ? columns : DEFAULT_TERMINAL_WIDTH;
 }

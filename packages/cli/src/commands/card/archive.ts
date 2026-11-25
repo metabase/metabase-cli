@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a card by id" },
+  details:
+    "Sets `archived: true`. The card stays readable through `card list --filter archived` and `card get <id>`; `mb card update <id> --body '{\"archived\":false}'` restores it.",
   requires: ["card.archive"],
   args: {
     ...outputFlags,

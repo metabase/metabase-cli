@@ -1,15 +1,19 @@
 import {
+  DATA_AUTHORITY_WITHDRAWAL_GATE,
   TableBulkEditFields,
   TableBulkEditInput,
   TableBulkEditResult,
   TableSelectors,
 } from "@metabase/client/domain/table";
 import { ConfigError } from "@metabase/client/errors";
+import { featureAvailability } from "@metabase/client/version/features";
 import { renderSummary } from "../../output/render";
 import { tableBulkEditResultView } from "../../output/views/table";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+
+const WITHDRAWAL_FEATURE = DATA_AUTHORITY_WITHDRAWAL_GATE.feature;
 
 const SELECTOR_KEYS = TableSelectors.keyof().options;
 const EDIT_KEYS = TableBulkEditFields.keyof().options;
@@ -44,8 +48,11 @@ export default defineMetabaseCommand({
     name: "bulk-edit",
     description: "Set the same metadata on every table a selector picks out",
   },
-  details:
-    'The body selects tables with any of `table_ids`, `database_ids`, and `schema_ids` (each schema id is "<db-id>:<schema>", e.g. 1:public; the selectors are unioned) and sets any of `data_authority`, `data_source`, `data_layer`, `entity_type`, `owner_email`, `owner_user_id` on all of them. A configured `data_authority` cannot be set back to "unconfigured", and `data_source` never moves to or from "metabase-transform". A selected table that breaks either rule fails the call: before Metabase 64 no table is edited, while on 64 the selected tables Metabase held no user edits for may already carry the new values. Before Metabase 64, `null` clears a field, `null` for `data_authority` is refused before any request, and the next scheduled analysis overwrites `entity_type` with the type it derives from the table name. On Metabase 64, `null` withdraws the edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table, which are the name-derived entity type and the owner and data authority from before the upgrade (no owner and "unconfigured" for a table published then or created since). A table leaving the `hidden` data layer is re-synced after the call returns. The server answers the same whether or not a selector matched a table, so the output restates the accepted request and cannot say which tables were edited.',
+  details: [
+    `The body picks every table that any of \`table_ids\`, \`database_ids\` and \`schema_ids\` (\`<db-id>:<schema>\`, such as \`1:public\`) names, and sets any of \`data_authority\`, \`data_source\`, \`data_layer\`, \`entity_type\`, \`owner_email\` and \`owner_user_id\` on all of them. A body that picks or sets nothing is refused before the request. A configured \`data_authority\` can't go back to \`unconfigured\`, and \`data_source\` can't move to or from \`metabase-transform\`: a table that breaks either rule fails the call, though on some patch releases with \`${WITHDRAWAL_FEATURE}\` (${featureAvailability(WITHDRAWAL_FEATURE)}), some tables may already have the new values. Without that feature, \`null\` for \`data_authority\` is refused (exit 2). The output restates the request as \`{ accepted: true, ...body }\`, since the server doesn't say which tables matched.`,
+    `On a server with \`${WITHDRAWAL_FEATURE}\`, what \`null\` does depends on the patch release, so read the table back. Some withdraw the edit: \`data_source\` and \`data_layer\` read back empty, and \`entity_type\`, \`owner_email\`, \`owner_user_id\` and \`data_authority\` go back to the values Metabase keeps for the table: the entity type it derives from the table name, and the owner and data authority from before the upgrade (no owner and \`unconfigured\` for a table published then or created since). Others clear the field, with \`entity_type\` set to the name-derived type by the next scheduled analysis, and refuse \`null\` for \`data_authority\` (400, exit 1).`,
+    "On an older server, where `null` for `data_authority` is refused, `null` clears any other field, and the next scheduled analysis overwrites `entity_type` with the name-derived type. A table that leaves the `hidden` data layer is synced again after the call returns.",
+  ].join("\n\n"),
   requires: ["table.bulkEdit"],
   args: {
     ...outputFlags,

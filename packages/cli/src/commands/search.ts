@@ -33,8 +33,7 @@ export default defineMetabaseCommand({
     name: "search",
     description: "Search Metabase content (cards, dashboards, collections, …)",
   },
-  details:
-    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb.",
+  details: `Ranks content against a query; to list every item of one kind, use its \`list\` command. With \`--collection\`, tables match only once they're published to the Library, and a transforms collection isn't searchable. With \`--created-by\`, collections, tables, databases, segments, transforms and indexed entities never match, since they record no creator.`,
   skills: [{ skill: "core", purpose: "search vs. list" }],
   requires: ["search.query"],
   args: {
@@ -63,8 +62,7 @@ export default defineMetabaseCommand({
     },
     verified: {
       type: "boolean",
-      description:
-        "Only verified content. Needs the content_verification premium feature, and is refused without it: a server with official_collections alone takes the filter without applying it",
+      description: "Only verified content (needs the content_verification premium feature)",
     },
     collection: {
       type: "string",
@@ -73,8 +71,7 @@ export default defineMetabaseCommand({
     },
     "created-by": listFlag({
       type: "string",
-      description:
-        "Comma-separated user ids; matches items created by any of them (drops models with no creator)",
+      description: "Comma-separated user ids; matches items created by any of them",
     }),
     "search-native-query": {
       type: "boolean",

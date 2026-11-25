@@ -1,6 +1,6 @@
 import type { ArgDef, ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
 
-type CittyValue = CommandMeta | ArgsDef | SubCommandsDef | CommandDef;
+type CittyValue = CommandMeta | ArgsDef | SubCommandsDef | CommandDef | string;
 
 export async function resolveCitty<T extends CittyValue>(
   value: Resolvable<T> | undefined,
@@ -24,8 +24,9 @@ export function toAliasArray(alias: string | string[] | undefined): string[] {
 export const ARGUMENT_SEPARATOR = "--";
 export const NEGATION_PREFIX = "--no-";
 const INLINE_VALUE = "=";
-const LONG_PREFIX = "--";
-const SHORT_PREFIX = "-";
+export const LONG_PREFIX = "--";
+export const SHORT_PREFIX = "-";
+const SHORT_ALIAS_LENGTH = 1;
 const SHORT_FLAG_LENGTH = 2;
 const WORD_SEPARATORS: ReadonlySet<string> = new Set(["-", "_", "/", "."]);
 // No flag name starts with a digit, so a token like `-5` or `-0.5` can only be a value.
@@ -59,7 +60,7 @@ export function flagSpellings(argsDef: ArgsDef): FlagSpellings {
       spellings.set(`${LONG_PREFIX}${name}`, { key, negated: false, takes });
       spellings.set(`${NEGATION_PREFIX}${name}`, { key, negated: true, takes });
     }
-    for (const letter of aliases.filter((alias) => alias.length === 1)) {
+    for (const letter of aliases.filter(isShortAlias)) {
       spellings.set(`${SHORT_PREFIX}${letter}`, { key, negated: false, takes });
     }
   }
@@ -219,4 +220,14 @@ function camelCase(words: readonly string[]): string {
 
 function kebabCase(words: readonly string[]): string {
   return words.map((word) => word.toLowerCase()).join("-");
+}
+
+// The spelling a reader is shown for a flag key: `maxBytes` → `max-bytes`, one of those citty binds.
+export function kebabFlagName(key: string): string {
+  return kebabCase(splitWords(key));
+}
+
+// A one-letter alias also binds as `-x`.
+export function isShortAlias(alias: string): boolean {
+  return alias.length === SHORT_ALIAS_LENGTH;
 }

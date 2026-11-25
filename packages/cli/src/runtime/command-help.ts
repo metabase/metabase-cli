@@ -21,15 +21,24 @@ const CommandHelpArg = z.object({
   alias: z.array(z.string()).optional(),
   options: z.array(z.string()).optional(),
 });
-type CommandHelpArg = z.infer<typeof CommandHelpArg>;
+export type CommandHelpArg = z.infer<typeof CommandHelpArg>;
 
 const CommandHelpSkill = z.object({
   skill: z.string(),
   purpose: z.string(),
 });
-type CommandHelpSkill = z.infer<typeof CommandHelpSkill>;
+export type CommandHelpSkill = z.infer<typeof CommandHelpSkill>;
 
 export const CLI_NAME = "mb";
+export const OUTPUT_SCHEMA_FLAG = "--output";
+
+export function skillCommand(skill: string): string {
+  return `${CLI_NAME} skills get ${skill}`;
+}
+
+export function schemaCommand(command: string): string {
+  return `${CLI_NAME} schema ${command}`;
+}
 
 const CommandHelpRequires: z.ZodType<CommandRequirements> = z.object({
   methods: z.array(z.enum(METHOD_KEYS)),
@@ -55,6 +64,7 @@ type CommandIndexEntry = z.infer<typeof CommandIndexEntry>;
 
 export const CommandHelpIndex = z.object({
   description: z.string().nullable(),
+  details: z.string().optional(),
   skills: z.array(CommandHelpSkill),
   commands: z.array(CommandIndexEntry),
 });
@@ -96,11 +106,15 @@ export async function buildHelpIndex<T extends ArgsDef = ArgsDef>(
 ): Promise<CommandHelpIndex> {
   const meta = await resolveCitty(cmd.meta);
   const augment = getMetabaseAugment(cmd) ?? EMPTY_AUGMENT;
-  return {
+  const index: CommandHelpIndex = {
     description: readDescription(meta),
     skills: Array.from(augment.skills),
     commands: await walk(cmd, path),
   };
+  if (augment.details !== null) {
+    index.details = augment.details;
+  }
+  return index;
 }
 
 export async function resolveCommandPath(
@@ -180,7 +194,7 @@ function readDescription(meta: CommandMeta | undefined): string | null {
   return typeof meta?.description === "string" ? meta.description : null;
 }
 
-function convertArgs(args: ArgsDef): CommandHelpArg[] {
+export function convertArgs(args: ArgsDef): CommandHelpArg[] {
   return Object.entries(args).map(([name, def]) => convertArg(name, def));
 }
 

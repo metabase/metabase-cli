@@ -9,7 +9,7 @@ import { SubscriptionListEnvelope } from "../subscription/list";
 export default defineMetabaseCommand({
   meta: { name: "subscriptions", description: "List subscriptions on a dashboard" },
   details:
-    "Manage them with `mb subscription create|update|archive`, which take the subscription id printed here.",
+    "Manage them with `mb subscription get|update|archive`, which take the subscription id printed here. `mb subscription create` adds one.",
   requires: ["pulse.list"],
   args: {
     ...outputFlags,

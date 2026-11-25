@@ -18,8 +18,11 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Rename, describe, move, trash, or restore a collection by id (partial)",
   },
-  details:
-    "Patches only what you send: `--name`, `--description` or `--clear-description`, `--parent-id` (`root` moves it to the top level), `--archived true|false`, or a JSON body with any of `name`, `description`, `parent_id`, `authority_level`, `archived`. The server reads an absent `archived` as false, so when the patch leaves it out the CLI reads the collection first and sends its current state: an archived collection stays archived unless you pass `--archived false`. The server ignores `parent_id` in a request that trashes a collection, so moving and trashing a live collection together is sent as the move and then the trash. A collection enters the Trash only by being trashed, so a `--parent-id` that names the Trash (looked up with one more request whenever `--parent-id` is a collection id) is read as the trash alone with `--archived true` and refused otherwise. Setting `authority_level` needs admin and the Official Collections feature. Takes the integer id only; `root`, `trash`, and entity ids are refused.",
+  details: [
+    "Changes only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use flags or a body, not both (exit 2). Takes the integer ID only; `root`, `trash` and entity IDs are refused.",
+    '`--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the trash. A `--parent-id` that names the trash is refused, except with `--archived true`, where it only trashes the collection.',
+    "`--archived true` with `--parent-id` moves the collection and then trashes it, in two requests, since the server ignores `parent_id` when it trashes. If the second request fails, the error says that the collection moved but isn't in the trash.",
+  ].join("\n\n"),
   requires: ["collection.get", "collection.update", "collection.archive"],
   args: {
     ...outputFlags,

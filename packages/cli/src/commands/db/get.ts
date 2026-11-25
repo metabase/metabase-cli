@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     include: {
       type: "string",
-      description: `Hydrate related entities: ${DatabaseGetInclude.options.join("|")}. tables is the compact table map; tables.fields adds every field — fine for small databases, use the map plus table fields <id> for large ones`,
+      description: `Hydrate related entities: ${DatabaseGetInclude.options.join("|")}`,
     },
     id: { type: "positional", description: "Database id", required: true },
   },

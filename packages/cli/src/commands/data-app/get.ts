@@ -8,7 +8,7 @@ import { parseSlug, slugArg } from "./slug";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a data app by slug" },
   details:
-    "Admins get any app, disabled ones included; other users get an enabled app they can open.",
+    "Admins get any app, disabled ones included; other people get an enabled app they can open.",
   requires: ["dataApp.get"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...slugArg },
   outputSchema: DataAppEntry,

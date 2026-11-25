@@ -7,10 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description: "Create the Library (Data + Metrics collections); idempotent",
+    description: "Create the Library and its collections (Data, Metrics, …); idempotent",
   },
-  details:
-    "Creates the Library subtree if it doesn't exist and returns it; a no-op that returns the existing Library when it's already there. Only admins and data analysts can curate the Library.",
   requires: ["library.create"],
   args: {
     ...outputFlags,

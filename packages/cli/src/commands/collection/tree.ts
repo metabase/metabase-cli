@@ -13,6 +13,8 @@ export default defineMetabaseCommand({
     name: "tree",
     description: "Fetch the collection hierarchy as a nested tree (JSON only)",
   },
+  details:
+    "On a terminal, pass `--json`: there the default `auto` format resolves to text, which this command refuses (exit 2).",
   requires: ["collection.tree"],
   args: {
     ...formatFlags,
@@ -24,11 +26,7 @@ export default defineMetabaseCommand({
     },
   },
   outputSchema: CollectionTreeResponse,
-  examples: [
-    "mb collection tree",
-    "mb collection tree --json",
-    "mb collection tree --include-library",
-  ],
+  examples: ["mb collection tree --json", "mb collection tree --include-library --json"],
   async run({ args, ctx, getClient }) {
     if (ctx.format === "text") {
       throw new ConfigError("collection tree output is JSON-only; --format text is not supported");

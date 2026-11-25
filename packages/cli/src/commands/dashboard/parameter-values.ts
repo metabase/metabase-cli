@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Fetch the selectable values for a dashboard parameter",
   },
   details:
-    "Reads the chain-filter value endpoint. With --query the server returns only values containing the substring (first 1000 matches). --constraints sets other parameters' values, by parameter id, which narrow the values of a parameter linked to them; an array sets several values.",
+    "Returns `{ values, has_more_values }`: the parameter's static list, its source card's values, or the distinct values of the field it's mapped to. `--query` keeps only the values that contain the text, ignoring case (up to 1000). `--constraints` sets other parameters' values, by parameter ID, to narrow a parameter linked to them; an array sets several values.",
   skills: [{ skill: "dashboard", purpose: "dashboard parameters, mapping, value sources" }],
   requires: ["dashboard.parameterValues", "dashboard.searchParameterValues"],
   args: {

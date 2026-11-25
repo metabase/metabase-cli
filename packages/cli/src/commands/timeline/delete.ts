@@ -8,6 +8,7 @@ export default defineMetabaseCommand({
     name: "delete",
     description: "Permanently delete a timeline and all its events by id",
   },
+  details: "You can't undo this. To keep the timeline restorable, use `mb timeline archive`.",
   requires: ["timeline.delete"],
   args: {
     ...outputFlags,

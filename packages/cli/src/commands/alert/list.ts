@@ -11,15 +11,18 @@ export const AlertListEnvelope = listEnvelopeSchema(NotificationCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List question alerts" },
-  details:
-    "Archived (inactive) alerts are hidden unless you pass --include-inactive. System-event notifications, which share the same API, are never listed here.",
+  details: "System-event notifications, which share the same API, are never listed here.",
   requires: ["notification.list"],
   args: {
     ...outputFlags,
     ...listFlags,
     ...profileFlag,
     ...connectionFlags,
-    cardId: { type: "string", description: "Only alerts watching this card id", alias: "card-id" },
+    cardId: {
+      type: "string",
+      description: "Only alerts watching this card ID, as `mb card alerts <card-id>` lists them",
+      alias: "card-id",
+    },
     creatorId: {
       type: "string",
       description: "Only alerts created by this user id",

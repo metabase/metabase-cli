@@ -1,7 +1,7 @@
 import type { CommandMeta } from "citty";
 import { describe, expect, it } from "vitest";
 
-import { resolveCitty, toAliasArray } from "./citty";
+import { isShortAlias, kebabFlagName, resolveCitty, toAliasArray } from "./citty";
 
 describe("resolveCitty", () => {
   const meta: CommandMeta = { name: "demo", description: "demo cmd" };
@@ -37,5 +37,24 @@ describe("toAliasArray", () => {
 
   it("returns a list of aliases unchanged", () => {
     expect(toAliasArray(["m", "model-id"])).toEqual(["m", "model-id"]);
+  });
+});
+
+describe("kebabFlagName", () => {
+  it("spells each word of a flag key in lower case, joined by hyphens", () => {
+    const keys = ["maxBytes", "skipPreflight", "include-inactive", "id"];
+
+    expect(keys.map(kebabFlagName)).toEqual([
+      "max-bytes",
+      "skip-preflight",
+      "include-inactive",
+      "id",
+    ]);
+  });
+});
+
+describe("isShortAlias", () => {
+  it("holds for a one-letter alias only", () => {
+    expect(["p", "max-bytes", "mb"].map(isShortAlias)).toEqual([true, false, false]);
   });
 });

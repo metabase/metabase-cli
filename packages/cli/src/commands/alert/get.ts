@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a question alert by id" },
   details:
-    "`--full` includes the hydrated card the alert watches, alongside its schedules and handlers.",
+    "The compact view holds `id`, `payload_type`, `active`, `creator_id`, the `payload` (`card_id`, `send_condition`, `send_once`), the cron `subscriptions`, and the `handlers` with their recipients. `--full` adds the hydrated card the alert watches.",
   requires: ["notification.get"],
   args: {
     ...outputFlags,

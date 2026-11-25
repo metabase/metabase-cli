@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a dashboard by id" },
+  details:
+    "Sets `archived: true`. The dashboard stays readable through `dashboard list --filter archived` and `dashboard get <id>`; `mb dashboard update <id> --body '{\"archived\":false}'` restores it.",
   requires: ["dashboard.archive"],
   args: {
     ...outputFlags,

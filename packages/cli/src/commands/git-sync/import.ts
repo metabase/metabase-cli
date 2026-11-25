@@ -9,6 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
 import { branchFlag } from "./branch-flag";
+import { mergeRefusal } from "./merge-refusal";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
 export default defineMetabaseCommand({
@@ -16,8 +17,7 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
-  details:
-    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, --merge (Metabase 63+) keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes. Never answer a conflict with a retry: keep the remote's side with `import --force`, Metabase's with `export --force`, or both through a reviewed PR from a new branch (`mb skills get git-sync`, \"After a conflict task\").",
+  details: `A plain import is refused while Metabase has changes it hasn't exported. A merge ends in \`conflict\`, with local content untouched, when entities changed on both sides or there's no merge base (the remote history was rewritten, or the instance never synced). ${mergeRefusal("import")}`,
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
@@ -25,17 +25,19 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     branch: {
       type: "string",
-      description: "Branch to import from (defaults to remote-sync-branch setting)",
+      description:
+        "Branch to import from, which git-sync tracks once the import succeeds. Defaults to the tracked branch (the `remote-sync-branch` setting); can't be blank",
       alias: "b",
     },
     force: {
       type: "boolean",
-      description: "Discard local Metabase-side dirty changes (LOSSY)",
+      description: "Discard the changes Metabase hasn't exported. They're lost",
       default: false,
     },
     merge: {
       type: "boolean",
-      description: "Keep un-pushed local changes and fold the remote's in by a three-way merge",
+      description:
+        "Keep the changes Metabase hasn't exported, and merge the remote's changes in. Can't be used with `--force`",
       default: false,
     },
     ...gitSyncWaitFlags,
