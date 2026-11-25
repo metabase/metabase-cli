@@ -8,7 +8,7 @@ import { assertEndpointOrigin } from "../url";
 import { PROBE_PATH, serverInfoFromProperties } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
-import { HttpError, isRetryableStatus } from "./errors";
+import { HttpError, isRedirectStatus, isRetryableStatus } from "./errors";
 import { buildNetworkError } from "./network-error";
 
 const DISCOVERY_PATH = "/.well-known/oauth-authorization-server";
@@ -29,14 +29,17 @@ interface OAuthRequest {
 // Single fetch path for every OAuth protocol call: stamps the caller's user-agent, enforces the
 // timeout, and maps transport failures to the same NetworkError/TimeoutError taxonomy as the typed
 // client — so a refresh that can't reach the server surfaces a diagnostic instead of a bare
-// `TypeError: fetch failed` that masks the original error.
+// `TypeError: fetch failed` that masks the original error. A redirect is reported, never followed:
+// these calls go only to the endpoints discovery returned.
 async function oauthFetch(request: OAuthRequest): Promise<Response> {
   const timeoutSignal = AbortSignal.timeout(OAUTH_TIMEOUT_MS);
+  let response: Response;
   try {
-    return await fetch(request.url, {
+    response = await fetch(request.url, {
       method: request.method,
       headers: { ...request.headers, "user-agent": request.userAgent },
       ...(request.body !== undefined ? { body: request.body } : {}),
+      redirect: "manual",
       signal: combineAborts(timeoutSignal, request.signal),
     });
   } catch (error) {
@@ -51,6 +54,18 @@ async function oauthFetch(request: OAuthRequest): Promise<Response> {
     }
     throw buildNetworkError(error, request.method, request.url);
   }
+  if (isRedirectStatus(response.status)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new HttpError({
+      status: response.status,
+      statusText: response.statusText,
+      method: request.method,
+      url: request.url,
+      responseHeaders: response.headers,
+      rawBody: null,
+    });
+  }
+  return response;
 }
 
 // The CLI always authorizes with the single full-access scope; it never requests anything narrower,

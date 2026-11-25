@@ -211,6 +211,9 @@ function decodedResponseShapeDetailOf(
 
 function describeKind(kind: HttpErrorKind): string {
   switch (kind) {
+    case "redirect": {
+      return "the server sent the request to another address";
+    }
     case "route-missing": {
       return "the route is not served by this Metabase";
     }

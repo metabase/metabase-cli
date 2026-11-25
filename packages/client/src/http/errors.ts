@@ -10,6 +10,7 @@ import { ERROR_BODY_BYTE_CAP, errorBodyJson, keepErrorBodyJson } from "./error-b
 import { redactBody, redactHeaders, type RedactionContext } from "./sanitize";
 
 export type HttpErrorKind =
+  | "redirect"
   | "route-missing"
   | "resource-missing"
   | "auth"
@@ -34,6 +35,8 @@ export const TOO_MANY_REQUESTS_STATUS = 429;
 export const INTERNAL_SERVER_ERROR_STATUS = 500;
 export const SERVICE_UNAVAILABLE_STATUS = 503;
 
+const REDIRECT_STATUSES_START = 300;
+const REDIRECT_STATUSES_END = 400;
 const SERVER_ERROR_STATUSES_START = 500;
 const SERVER_ERROR_STATUSES_END = 600;
 
@@ -392,7 +395,14 @@ interface SanitizedAnswer {
   envelope: ErrorEnvelope | null;
 }
 
+export function isRedirectStatus(status: number): boolean {
+  return status >= REDIRECT_STATUSES_START && status < REDIRECT_STATUSES_END;
+}
+
 function classifyKind(status: number, answer: SanitizedAnswer): HttpErrorKind {
+  if (isRedirectStatus(status)) {
+    return "redirect";
+  }
   // 401: Metabase did not accept the credential. 403: it identified the user and refused the
   // request. 409: the request conflicts with existing state. None of the last two is about the key.
   if (status === UNAUTHORIZED_STATUS) {
@@ -444,6 +454,9 @@ interface ServerSaid {
 }
 
 function buildUserMessage(kind: HttpErrorKind, input: HttpErrorInput, said: ServerSaid): string {
+  if (kind === "redirect") {
+    return buildRedirectMessage(input);
+  }
   if (kind === "route-missing") {
     return buildRouteMissingMessage(input);
   }
@@ -497,6 +510,16 @@ function buildRouteMissingMessage(input: HttpErrorInput): string {
     `This endpoint is not available on Metabase ${input.serverTag}: ${input.method} ${path}. ` +
     `It may require a newer Metabase major version.`
   );
+}
+
+// Only the target's origin is named; the path and query of a redirect are the server's own.
+function buildRedirectMessage(input: HttpErrorInput): string {
+  const location = new Headers(input.responseHeaders).get("location");
+  const target =
+    location !== null && URL.canParse(location, input.url)
+      ? new URL(location, input.url).origin
+      : "another address";
+  return `Metabase answered ${input.method} ${pathFromUrl(input.url)} with a redirect (${String(input.status)}) to ${target}, which this client does not follow. Use the address the server redirects to.`;
 }
 
 function pathFromUrl(url: string): string {

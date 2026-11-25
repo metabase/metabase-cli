@@ -367,10 +367,13 @@ export function createTransport(config: ClientCredentials, options: TransportOpt
 
     let response: Response;
     try {
+      // A redirect is reported as a failure, never followed, so a request reaches only the server the
+      // client was configured with.
       response = await fetchImpl(prepared.url, {
         method: prepared.method,
         headers: prepared.headers,
         body: prepared.body,
+        redirect: "manual",
         signal: combined,
       });
     } catch (error) {

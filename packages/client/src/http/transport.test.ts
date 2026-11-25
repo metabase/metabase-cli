@@ -20,6 +20,7 @@ import {
   probeResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
+import { redirectingServer } from "../testing/redirecting-server";
 import { CapabilityError } from "../version/capability-error";
 import { SessionProperties } from "../domain/session-properties";
 import { PROBE_PATH, type ServerInfo } from "../version/probe";
@@ -1674,5 +1675,30 @@ describe("the caller-facing RequestOptions", () => {
 
     expect(result).toEqual({ id: 9, email: "ok@m.com" });
     expect(fakeFetch.calls.length).toBe(2);
+  });
+});
+
+describe("createTransport redirects", () => {
+  it("follows no redirect, and reports it as an HTTP failure", async () => {
+    const servers = await redirectingServer();
+    try {
+      const client = createTransport(
+        { url: servers.url, credential: CONFIG.credential },
+        { userAgent: TEST_USER_AGENT, getServerTag: () => Promise.resolve(null) },
+      );
+
+      const error = await client.requestParsed(PingResponse, "/api/user/current").then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+      assert(error instanceof HttpError);
+      expect(error.kind).toBe("redirect");
+      expect(error.message).toBe(
+        `Metabase answered GET /api/user/current with a redirect (307) to ${servers.target}, which this client does not follow. Use the address the server redirects to.`,
+      );
+      expect(servers.targetRequests()).toBe(0);
+    } finally {
+      await servers.close();
+    }
   });
 });
