@@ -20,7 +20,6 @@ export const FEATURE_RULES = {
   dataActionCollections: { since: 65 },
   dataActionsWithoutModel: { since: 65 },
   dataApps: { since: 65, tokenFeature: "data-apps" },
-  dataAppEditing: { since: 66 },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
   builtInTransformJobsStartInactive: { since: 66 },
