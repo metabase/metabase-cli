@@ -2442,6 +2442,54 @@ mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
 
+## Workspaces
+
+Workspaces, from `/api/ee/workspace-manager` and `/api/ee/workspace-instance`. A workspace attaches databases and provisions each one's warehouse isolation, for a developer instance to work in. Every verb needs the `workspaces` feature, which holds from Metabase 66 with the `workspaces` token.
+
+### `mb workspace list`
+
+Lists every workspace with its `id`, `name` and `databases`, each with its `database_id` and provisioning `status` (`unprovisioned`, `provisioning`, `provisioned` or `deprovisioning`). Admins only.
+
+```sh
+mb workspace list
+mb workspace list --json
+```
+
+### `mb workspace get <id>`
+
+Get one workspace by id, with its databases.
+
+```sh
+mb workspace get 1
+mb workspace get 1 --json
+```
+
+### `mb workspace create`
+
+Create a workspace from `--name` and `--database-ids` together, or from a JSON body that holds exactly `name` and `database_ids`. The flags cannot be combined with `--body` or `--file`. Each database must be eligible for workspaces. The server provisions each database's warehouse isolation before it answers, so the call waits up to `--timeout` milliseconds (10 minutes by default); a provisioning failure whose cleanup also fails answers the workspace with its databases `unprovisioned`.
+
+```sh
+mb workspace create --name "Orders rework" --database-ids 1,2
+mb workspace create --body '{"name":"Orders rework","database_ids":[1]}'
+```
+
+| Flag                   | Description                                         |
+| ---------------------- | --------------------------------------------------- |
+| `--name <text>`        | The workspace name (used with `--database-ids`).    |
+| `--database-ids <ids>` | Comma-separated database ids (used with `--name`).  |
+| `--body <json>`        | Inline JSON body.                                   |
+| `--file <path>`        | Path to JSON body file.                             |
+| `--timeout <ms>`       | How long to wait for provisioning (default 600000). |
+
+### `mb workspace current`
+
+Shows the workspace this instance runs in, from its `config.yml` at boot or set at runtime, with its `name` and `can_write`; `can_write` is false when deployment config set it, which then cannot be changed at runtime. An instance that only manages workspaces has none loaded, which `--json` answers as `{"loaded": false}`. Admins only.
+
+```sh
+mb workspace current
+mb workspace current --json
+```
+
 ## Instance setup
 
 Bootstrapping a fresh, not-yet-configured Metabase instance.
