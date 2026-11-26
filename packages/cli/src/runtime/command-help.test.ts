@@ -675,6 +675,7 @@ describe("command tree contract", () => {
       "test update": requiresOf("dataTest.update"),
       "test delete": requiresOf("dataTest.delete"),
       "test run": requiresOf("dataTest.run"),
+      "test runs": requiresOf("dataTestRun.list"),
     });
   });
 
