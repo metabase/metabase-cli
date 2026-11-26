@@ -240,6 +240,12 @@ Create and update bodies are closed at every level (the top level is checked bef
 
 <!-- /requires -->
 
+<!-- requires: transformTests, dataTestFixedClock -->
+
+**`now`** — optional: an ISO-8601 date-time with an offset (`"now": "2026-10-13T00:00:00Z"`) that the transform reads as the current time when a run compiles it, so a relative date filter such as "last 30 days" selects the same fixture rows on every run. It reaches the transform's own query only: input and expectation SQL read the database's clock. A transform written in SQL, or built on a question written in SQL, cannot take it — `create`/`update`/`run` refuse with `transform-test.now-on-native-sql` (501). It must lie from `1970-01-01T00:00:01Z` to `2038-01-19T03:14:07Z`; `null` clears it, and `get` shows it.
+
+<!-- /requires -->
+
 ## Drop the materialized table (keep the transform)
 
 ```bash

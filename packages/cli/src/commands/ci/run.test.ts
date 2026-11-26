@@ -279,6 +279,7 @@ const TEST = {
   creator_id: 1,
   name: "total adds tax",
   description: null,
+  now: null,
   inputs: [],
   expectations: [],
   created_at: "2026-10-30T12:00:00Z",

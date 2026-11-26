@@ -1,18 +1,16 @@
 import { z } from "zod";
 
 import {
-  DATA_TEST_SCHEMAS,
   type DataTest,
   type DataTestDefinition,
   type DataTestPatch,
   DataTestRunResult,
+  dataTestSchema,
   DataTestType,
 } from "../domain/data-test";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { explainer, type ParameterRequirement } from "../version/refusal";
-
-const SCHEMAS: { [T in DataTestType]: z.ZodType<DataTest<T>> } = DATA_TEST_SCHEMAS;
 
 // The feature each type needs beyond the transform tests every server with data tests serves. A
 // server without it has no route for the type, so the request names no field.
@@ -26,6 +24,10 @@ const TYPE_REQUIREMENTS: Record<DataTestType, readonly ParameterRequirement[]> =
 
 function typeRequirements(type: DataTestType): readonly ParameterRequirement[] {
   return TYPE_REQUIREMENTS[DataTestType.parse(type)];
+}
+
+function fixesClock(body: object): boolean {
+  return "now" in body && body.now !== undefined && body.now !== null;
 }
 
 // A caller outside TypeScript can pass any string as the type, and it lands in the path.
@@ -42,6 +44,13 @@ export interface DataTestListParams {
 export function dataTestResource(transport: Transport) {
   const { explain } = explainer(transport, "dataTest");
 
+  // A server that fixes no clock drops `now` unread and saves the test on the real clock.
+  async function requireFixedClock(body: object, options: RequestOptions): Promise<void> {
+    if (fixesClock(body)) {
+      await transport.requireFeatures(["dataTestFixedClock"], options);
+    }
+  }
+
   /**
    * List the tests of one type the caller can read, optionally only those of one entity. The tests of
    * an archived card or segment are left out unless `include-archived` is true; the other types take
@@ -53,7 +62,9 @@ export function dataTestResource(transport: Transport) {
     params: DataTestListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<DataTest<T>>> {
-    const data = await transport.requestParsed(z.array(SCHEMAS[type]), testsPath(type), {
+    const { features } = await transport.server(options);
+    const reader = z.array(dataTestSchema(type, features));
+    const data = await transport.requestParsed(reader, testsPath(type), {
       ...options,
       query: {
         [`${type}-id`]: entityId === null ? undefined : entityId,
@@ -69,7 +80,10 @@ export function dataTestResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], `${testsPath(type)}/${id}`, { ...options });
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), `${testsPath(type)}/${id}`, {
+      ...options,
+    });
   }
 
   /**
@@ -83,7 +97,9 @@ export function dataTestResource(transport: Transport) {
     definition: DataTestDefinition<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], testsPath(type), {
+    await requireFixedClock(definition, options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), testsPath(type), {
       ...options,
       method: "POST",
       body: { ...definition, [`${type}_id`]: entityId },
@@ -100,7 +116,9 @@ export function dataTestResource(transport: Transport) {
     patch: DataTestPatch<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], `${testsPath(type)}/${id}`, {
+    await requireFixedClock(patch, options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), `${testsPath(type)}/${id}`, {
       ...options,
       method: "PUT",
       body: patch,
