@@ -45,7 +45,7 @@ describe("createEmitter", () => {
     const { events, emit } = collector();
 
     emit({ type: "stage.start", stage: "lint" });
-    emit({ type: "stage.end", stage: "lint", status: "passed", stopped: null });
+    emit({ type: "stage.end", stage: "lint", status: "passed", stopped: null, skipped: null });
 
     expect(events).toEqual([
       { type: "stage.start", stage: "lint", seq: 0, job: "job-1", at: "2026-10-30T12:00:00.000Z" },
@@ -54,6 +54,7 @@ describe("createEmitter", () => {
         stage: "lint",
         status: "passed",
         stopped: null,
+        skipped: null,
         seq: 1,
         job: "job-1",
         at: "2026-10-30T12:00:00.000Z",
@@ -104,7 +105,15 @@ describe("runStages", () => {
         ms: 5,
         detail: null,
       },
-      { ...envelope, seq: 2, type: "stage.end", stage: "lint", status: "failed", stopped: null },
+      {
+        ...envelope,
+        seq: 2,
+        type: "stage.end",
+        stage: "lint",
+        status: "failed",
+        stopped: null,
+        skipped: null,
+      },
       { ...envelope, seq: 3, type: "stage.start", stage: "unit" },
       {
         ...envelope,
@@ -117,7 +126,15 @@ describe("runStages", () => {
         ms: 5,
         detail: null,
       },
-      { ...envelope, seq: 5, type: "stage.end", stage: "unit", status: "passed", stopped: null },
+      {
+        ...envelope,
+        seq: 5,
+        type: "stage.end",
+        stage: "unit",
+        status: "passed",
+        stopped: null,
+        skipped: null,
+      },
     ]);
   });
 
@@ -180,10 +197,10 @@ describe("runStages", () => {
       name: "lint",
       run: async (report) => {
         report({
-          check: { kind: "coverage", id: "untouched", label: "untouched transforms" },
+          check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
           verdict: "passed",
           warnings: [
-            { code: "no-tests-untouched", message: "2 untouched transforms have no tests" },
+            { code: "validation-exception-error", message: "Metabase could not check this entity" },
           ],
           ms: 1,
           detail: null,
@@ -211,7 +228,28 @@ describe("runStages", () => {
       stage: "unit",
       status: "errored",
       stopped: { code: "ci.unauthorized", message: "Metabase did not accept the credential" },
+      skipped: null,
       seq: 2,
+      job: "job-1",
+      at: "2026-10-30T12:00:00.000Z",
+    });
+  });
+
+  it("passes a stage that was skipped, saying why on stage.end", async () => {
+    const { events, emit } = collector();
+    const skipped: CiStage = {
+      name: "lint",
+      run: async () => ({ skipped: { code: "ci.lint-unsupported", message: "no lint report" } }),
+    };
+
+    expect(await runStages([skipped], emit)).toEqual({ state: "passed", checks: 0, warnings: 0 });
+    expect(events.at(-1)).toEqual({
+      type: "stage.end",
+      stage: "lint",
+      status: "passed",
+      stopped: null,
+      skipped: { code: "ci.lint-unsupported", message: "no lint report" },
+      seq: 1,
       job: "job-1",
       at: "2026-10-30T12:00:00.000Z",
     });

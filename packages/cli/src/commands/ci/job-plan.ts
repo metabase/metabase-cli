@@ -16,7 +16,6 @@ import {
   uncommittedContentWarning,
   unreadContentWarning,
 } from "../../core/ci-affected";
-import { type CoverageAssessment, assessCoverage } from "../../core/ci-coverage";
 import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
@@ -38,7 +37,8 @@ export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedTransform[];
   warnings: CiWarning[];
-  coverage: CoverageAssessment;
+  // The transforms at head that no test with expectations in the branch covers.
+  untested: ReadonlySet<string>;
 }
 
 // A regular or executable file. Metabase's import follows a symlink and reads a submodule's
@@ -156,7 +156,7 @@ function baseSide(reading: FileReading | null): ContentFile | null {
 }
 
 // One read at each side: the changed files, and at head also every unchanged file whose text names a
-// Transform model, which the coverage check counts.
+// Transform model, which names the checked transforms and says which of them the branch tests.
 async function classifyChanges(
   repo: string,
   forkPoint: string,
@@ -239,13 +239,7 @@ export async function planJob(
     }
     checked.push({ entity_id: entityId, name });
   }
-  const coverage = assessCoverage({
-    changes,
-    transformsAtHead: atHead.names,
-    testedAtHead: atHead.tested,
-    testedWithoutExpectationsAtHead: atHead.testedWithoutExpectations,
-    untestableAtHead: atHead.untestable,
-  });
+  const untested = new Set([...atHead.names.keys()].filter((id) => !atHead.tested.has(id)));
 
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
@@ -256,5 +250,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, warnings, coverage };
+  return { snapshot: { base, head }, checked, warnings, untested };
 }

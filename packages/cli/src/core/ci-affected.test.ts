@@ -21,22 +21,15 @@ import {
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
-const LOGIC = { source: { type: "query" }, target: { name: "t" } };
-const SAME_LOGIC = { yaml12: LOGIC, yaml11: LOGIC };
-
 const TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
-  logic: SAME_LOGIC,
-  testable: true,
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
-  logic: SAME_LOGIC,
-  testable: true,
 };
 const TEST: ContentFile = {
   kind: "transform-test",
@@ -181,7 +174,7 @@ describe("parseNameStatus", () => {
 
 // A document every parser reads the same.
 function classifyDocument(path: string, document: unknown): ContentFile {
-  return classifyContentFile(path, { yaml12: document, yaml11: document });
+  return classifyContentFile(path, document);
 }
 
 describe("classifyContentFile", () => {
@@ -195,41 +188,6 @@ describe("classifyContentFile", () => {
         "serdes/meta": [{ model: "Transform" }],
       }),
     ).toEqual(TRANSFORM);
-  });
-
-  it("marks a transform whose source is not a query as one Metabase cannot test", () => {
-    const python = { type: "python", body: "print(1)" };
-
-    expect(
-      classifyDocument("transforms/a.yaml", {
-        entity_id: TRANSFORM_ID,
-        name: "Daily Order Summary",
-        source: python,
-        target: { name: "t" },
-        "serdes/meta": [{ model: "Transform" }],
-      }),
-    ).toEqual({
-      kind: "transform",
-      entityId: TRANSFORM_ID,
-      name: "Daily Order Summary",
-      logic: {
-        yaml12: { source: python, target: { name: "t" } },
-        yaml11: { source: python, target: { name: "t" } },
-      },
-      testable: false,
-    });
-  });
-
-  it("holds a transform whose source names no type to the query rule", () => {
-    const file = classifyDocument("transforms/a.yaml", {
-      entity_id: TRANSFORM_ID,
-      name: "Daily Order Summary",
-      source: { query: "SELECT 1" },
-      target: { name: "t" },
-      "serdes/meta": [{ model: "Transform" }],
-    });
-
-    expect(file.kind === "transform" && file.testable).toBe(true);
   });
 
   it("classifies a transform test by the transform it covers", () => {
@@ -451,9 +409,7 @@ describe("affectedTransforms", () => {
       z.unknown(),
     );
     const affected = () =>
-      affectedTransforms([
-        change(TRANSFORM, classifyContentFile(CHANGED_PATH, { yaml12: merged, yaml11: merged })),
-      ]);
+      affectedTransforms([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
@@ -553,8 +509,6 @@ describe("headTransforms", () => {
     expect(headTransforms([TRANSFORM, empty])).toEqual({
       names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
       tested: new Set(),
-      testedWithoutExpectations: new Set([TRANSFORM_ID]),
-      untestable: new Set(),
     });
   });
 
@@ -564,23 +518,13 @@ describe("headTransforms", () => {
     expect(headTransforms([empty, TEST, empty])).toEqual({
       names: new Map(),
       tested: new Set([TRANSFORM_ID]),
-      testedWithoutExpectations: new Set(),
-      untestable: new Set(),
     });
-  });
-
-  it("collects the transforms Metabase cannot test", () => {
-    const python: ContentFile = { ...OTHER_TRANSFORM, testable: false };
-
-    expect(headTransforms([TRANSFORM, python]).untestable).toEqual(new Set([OTHER_TRANSFORM_ID]));
   });
 
   it("ignores files that are not transforms or tests, and absent sides", () => {
     expect(headTransforms([OTHER, null])).toEqual({
       names: new Map(),
       tested: new Set(),
-      testedWithoutExpectations: new Set(),
-      untestable: new Set(),
     });
   });
 });

@@ -27,6 +27,7 @@ import { glossaryResource } from "./resources/glossary";
 import { groupResource } from "./resources/group";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
+import { lintResource } from "./resources/lint";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
@@ -81,6 +82,7 @@ function surfaceOn(transport: Transport) {
     group: groupResource(transport),
     health: healthResource(transport),
     library: libraryResource(transport),
+    lint: lintResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
