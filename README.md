@@ -2483,15 +2483,17 @@ mb workspace create --body '{"name":"Orders rework","database_ids":[1]}'
 
 ### `mb workspace delete <id>`
 
-Delete a workspace, tearing down each database's warehouse isolation first. When a teardown fails, the workspace is kept with the databases that failed, so the delete can be run again. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+Delete a workspace, tearing down each database's warehouse isolation first. When a teardown fails, the workspace is kept with the databases that failed, so the delete can be run again. `--force` deletes the databases whose teardown failed without tearing them down, and the server logs what the warehouse may still hold of them: use it only when the warehouse is gone for good. The other databases are torn down as without it, and a workspace with a create or teardown still running is refused (409) either way. Prompts for confirmation on a TTY; requires `--yes` otherwise.
 
 ```sh
 mb workspace delete 3 --yes
+mb workspace delete 3 --yes --force
 ```
 
-| Flag    | Description        |
-| ------- | ------------------ |
-| `--yes` | Skip confirmation. |
+| Flag      | Description                                                           |
+| --------- | --------------------------------------------------------------------- |
+| `--yes`   | Skip confirmation.                                                    |
+| `--force` | Delete the databases whose teardown failed without tearing them down. |
 
 ### `mb workspace config <id>`
 

@@ -7,6 +7,10 @@ import { explainer } from "../version/refusal";
 
 const WORKSPACE_MANAGER_PATH = "/api/ee/workspace-manager";
 
+export interface WorkspaceDeleteParams {
+  force?: boolean | undefined;
+}
+
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function workspaceManagerResource(transport: Transport) {
   const { explain } = explainer(transport, "workspaceManager");
@@ -43,13 +47,21 @@ export function workspaceManagerResource(transport: Transport) {
 
   /**
    * Delete a workspace, tearing down every database's warehouse isolation first. When any teardown
-   * fails the workspace is kept with the failed databases, so the delete can be retried.
+   * fails the workspace is kept with the failed databases, so the delete can be retried. `force`
+   * deletes the databases whose teardown failed without tearing them down, and the server logs what
+   * the warehouse may still hold of them; it is for a warehouse that is gone for good. The other
+   * databases are torn down as without it.
    */
-  async function remove(id: number, options: RequestOptions = {}): Promise<void> {
+  async function remove(
+    id: number,
+    params: WorkspaceDeleteParams = {},
+    options: RequestOptions = {},
+  ): Promise<void> {
     await transport.requestRaw(`${WORKSPACE_MANAGER_PATH}/${id}`, {
       ...options,
       method: "DELETE",
       expectContentType: "binary",
+      query: { force: params.force },
     });
   }
 

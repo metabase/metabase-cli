@@ -199,6 +199,17 @@ describe("workspace e2e", () => {
       expect(result.stdout).toBe("");
     });
 
+    it("delete --force of a missing id is a 404 HttpError, so the server takes the flag", async () => {
+      const result = await mb(["workspace", "delete", "9999999", "--yes", "--force", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: DELETE /api/ee/workspace-manager/9999999?force=true.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
     it("config of a missing id is a 404 HttpError", async () => {
       const result = await mb(["workspace", "config", "9999999", "--json"]);
 
