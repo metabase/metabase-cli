@@ -2,7 +2,7 @@
 
 Notable changes to `@metabase/client`.
 
-## Unreleased
+## 0.4.0
 
 - `workspaceManager.delete(id, params, options)` takes `WorkspaceDeleteParams` before the options: `force` deletes the databases whose teardown failed without tearing them down, for a warehouse that is gone for good, and the server logs what may remain. A call that passed the options second, `delete(id, options)`, passes `{}` first.
 
