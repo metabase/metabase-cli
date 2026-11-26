@@ -11,5 +11,6 @@ export default defineCommandGroup({
     delete: () => import("./delete").then((mod) => mod.default),
     run: () => import("./run").then((mod) => mod.default),
     runs: () => import("./runs").then((mod) => mod.default),
+    "get-run": () => import("./get-run").then((mod) => mod.default),
   },
 });

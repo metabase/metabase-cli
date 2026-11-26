@@ -398,6 +398,7 @@ const ALL_COMMANDS = [
   "test delete",
   "test run",
   "test runs",
+  "test get-run",
   "test-suite list",
   "test-suite get",
   "test-suite create",
@@ -676,6 +677,7 @@ describe("command tree contract", () => {
       "test delete": requiresOf("dataTest.delete"),
       "test run": requiresOf("dataTest.run"),
       "test runs": requiresOf("dataTestRun.list"),
+      "test get-run": requiresOf("dataTestRun.get"),
     });
   });
 

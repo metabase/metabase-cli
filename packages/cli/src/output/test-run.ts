@@ -1,8 +1,11 @@
-import type {
-  DataTestExpectationResult,
-  DataTestRunResult,
+import {
+  type DataTestExpectationResult,
+  type DataTestRunDetail,
+  DataTestRunRefusal,
+  type DataTestRunResult,
 } from "@metabase/client/domain/data-test";
 
+import { testKind } from "../core/data-test";
 import { pluralize } from "./pluralize";
 import { printable } from "./table";
 
@@ -29,4 +32,25 @@ export function testRunSummary(label: string, result: DataTestRunResult): string
     return `${label} ${result.status}.`;
   }
   return `${label} ${result.status} — ${parts.join("; ")}.`;
+}
+
+type StoredResult = NonNullable<DataTestRunDetail["result"]>;
+
+function isRefusal(result: StoredResult): result is DataTestRunRefusal {
+  return DataTestRunRefusal.safeParse(result).success;
+}
+
+function testLabel(run: DataTestRunDetail): string {
+  const kind = testKind(run.test_type);
+  return run.test_id === null ? kind : `${kind}:${run.test_id}`;
+}
+
+export function storedResultSummary(run: DataTestRunDetail): string {
+  if (run.result === null) {
+    return run.can_read_result ? "none stored" : "withheld from this user";
+  }
+  if (isRefusal(run.result)) {
+    return `${run.result.message} (${run.result["error-code"]})`;
+  }
+  return testRunSummary(testLabel(run), run.result);
 }
