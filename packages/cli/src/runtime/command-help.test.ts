@@ -424,6 +424,8 @@ const ALL_COMMANDS = [
   "workspace list",
   "workspace get",
   "workspace create",
+  "workspace delete",
+  "workspace config",
   "workspace current",
   "setup",
   "snippet list",

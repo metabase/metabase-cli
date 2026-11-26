@@ -1,10 +1,14 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { WorkspaceCompact } from "@metabase/client/domain/workspace";
 import { parseJson } from "@metabase/client/json";
 
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { WorkspaceConfigResult } from "../../packages/cli/src/commands/workspace/config";
 import { CurrentWorkspaceResult } from "../../packages/cli/src/commands/workspace/current";
 import { WorkspaceListEnvelope } from "../../packages/cli/src/commands/workspace/list";
+import { parseYaml } from "../../packages/cli/src/runtime/yaml";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -16,6 +20,21 @@ const WORKSPACES_UNAVAILABLE = requireServer("workspace › with the workspaces 
 ]);
 
 const WORKSPACE_NAME = "e2e workspace";
+const WAREHOUSE_DB_NAME = "Warehouse";
+
+// No request is sent before these refusals, so the id names nothing.
+const UNSENT_ID = "1";
+
+// The part of a developer-instance config that names the workspace and the databases it works in.
+const ConfigWorkspace = z.object({
+  version: z.literal(1),
+  config: z.object({
+    workspace: z.object({
+      name: z.string(),
+      databases: z.record(z.string(), z.object({ input_schemas: z.array(z.string()) })),
+    }),
+  }),
+});
 
 describe("workspace e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -104,6 +123,35 @@ describe("workspace e2e", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("delete without --yes refuses in non-TTY and exits 2", async () => {
+    const result = await mb(["workspace", "delete", UNSENT_ID, "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `refusing to delete ${UNSENT_ID} without confirmation — pass --yes to proceed non-interactively`,
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("delete with a non-integer id fails fast with ConfigError", async () => {
+    const result = await mb(["workspace", "delete", "abc", "--yes", "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("config with a non-integer id fails fast with ConfigError", async () => {
+    const result = await mb(["workspace", "config", "abc", "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
   describe.skipIf(WORKSPACES_UNAVAILABLE !== null)("with the workspaces feature", () => {
     async function listWorkspaces() {
       const result = await mb(["workspace", "list", "--json"]);
@@ -140,8 +188,30 @@ describe("workspace e2e", () => {
       expect(result.stdout).toBe("");
     });
 
+    it("delete of a missing id is a 404 HttpError", async () => {
+      const result = await mb(["workspace", "delete", "9999999", "--yes", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: DELETE /api/ee/workspace-manager/9999999.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("config of a missing id is a 404 HttpError", async () => {
+      const result = await mb(["workspace", "config", "9999999", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: GET /api/ee/workspace-manager/9999999/config.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
     // One workspace per run: provisioning leaves warehouse state the snapshot restore does not undo.
-    it("create provisions the warehouse database, and get and list then show the workspace", async () => {
+    it("create provisions the warehouse database, and get, list, config and delete then follow it", async () => {
       const created = await mb([
         "workspace",
         "create",
@@ -165,6 +235,29 @@ describe("workspace e2e", () => {
       expect(fetched.exitCode, fetched.stderr).toBe(0);
       expect(parseJson(fetched.stdout, WorkspaceCompact)).toEqual(expected);
       expect((await listWorkspaces()).data).toEqual([expected]);
+
+      const config = await mb(["workspace", "config", String(workspace.id), "--json"]);
+      expect(config.exitCode, config.stderr).toBe(0);
+      const answered = parseJson(config.stdout, WorkspaceConfigResult);
+      const parsed = parseYaml(answered.config, ConfigWorkspace);
+      expect({
+        id: answered.id,
+        ...parsed.config.workspace,
+        databases: Object.keys(parsed.config.workspace.databases),
+      }).toEqual({
+        id: workspace.id,
+        name: WORKSPACE_NAME,
+        databases: [WAREHOUSE_DB_NAME],
+      });
+
+      const deleted = await mb(["workspace", "delete", String(workspace.id), "--yes", "--json"]);
+      expect(deleted.exitCode, deleted.stderr).toBe(0);
+      expect(parseJson(deleted.stdout, DeleteResult)).toEqual({
+        deleted: true,
+        aborted: false,
+        id: workspace.id,
+      });
+      expect((await listWorkspaces()).data).toEqual([]);
     });
   });
 });

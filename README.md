@@ -2481,6 +2481,27 @@ mb workspace create --body '{"name":"Orders rework","database_ids":[1]}'
 | `--file <path>`        | Path to JSON body file.                             |
 | `--timeout <ms>`       | How long to wait for provisioning (default 600000). |
 
+### `mb workspace delete <id>`
+
+Delete a workspace, tearing down each database's warehouse isolation first. When a teardown fails, the workspace is kept with the databases that failed, so the delete can be run again. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb workspace delete 3 --yes
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
+### `mb workspace config <id>`
+
+Print the YAML a developer instance boots from (`config.yml`). It holds the workspace's warehouse login, so treat it as a secret. Text output is the YAML alone; `--json` answers `{ id, config }`. The server refuses with 409 while any of the workspace's databases is not `provisioned` (wait while one is `provisioning` or `deprovisioning`, and delete the workspace otherwise), and with 422 when a database's connection settings need an admin to fix them or the workspace has no databases.
+
+```sh
+mb workspace config 1 --format text > config.yml
+mb workspace config 1 --json
+```
+
 ### `mb workspace current`
 
 Shows the workspace this instance runs in, from its `config.yml` at boot or set at runtime, with its `name` and `can_write`; `can_write` is false when deployment config set it, which then cannot be changed at runtime. An instance that only manages workspaces has none loaded, which `--json` answers as `{"loaded": false}`. Admins only.
