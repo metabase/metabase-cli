@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
+
 export const DATA_TEST_TYPES = ["transform", "card", "segment", "measure", "action"] as const;
 export const DataTestType = z.enum(DATA_TEST_TYPES);
 export type DataTestType = z.infer<typeof DataTestType>;
@@ -208,11 +210,19 @@ const dataTestFields = {
 
 const entityId = z.number().int();
 
+const DATA_TEST_TYPES_WITH_NOW: ReadonlySet<DataTestType> = new Set(["transform", "card"]);
+
+export function dataTestTakesNow(type: DataTestType): boolean {
+  return DATA_TEST_TYPES_WITH_NOW.has(type);
+}
+
+const storedNow = z.string().nullable();
+
 // A saved test of each type: the shared fields, and the id of the entity it tests under that type's
 // own key.
 export const DATA_TEST_SCHEMAS = {
-  transform: z.object({ ...dataTestFields, transform_id: entityId }).loose(),
-  card: z.object({ ...dataTestFields, card_id: entityId }).loose(),
+  transform: z.object({ ...dataTestFields, transform_id: entityId, now: storedNow }).loose(),
+  card: z.object({ ...dataTestFields, card_id: entityId, now: storedNow }).loose(),
   segment: z.object({ ...dataTestFields, segment_id: entityId }).loose(),
   measure: z.object({ ...dataTestFields, measure_id: entityId }).loose(),
   action: z
@@ -222,6 +232,25 @@ export const DATA_TEST_SCHEMAS = {
 
 type DataTestShapes = { [T in DataTestType]: z.infer<(typeof DATA_TEST_SCHEMAS)[T]> };
 export type DataTest<T extends DataTestType = DataTestType> = DataTestShapes[T];
+
+const TransformTestWireV65 = DATA_TEST_SCHEMAS.transform.omit({ now: true });
+
+function readingRealClock(wire: z.infer<typeof TransformTestWireV65>): DataTest<"transform"> {
+  return { ...wire, now: null };
+}
+
+export function dataTestSchema<T extends DataTestType>(
+  type: T,
+  features: Features,
+): z.ZodType<DataTest<T>> {
+  const readers: { [K in DataTestType]: z.ZodType<DataTest<K>> } = {
+    ...DATA_TEST_SCHEMAS,
+    transform: features.dataTestFixedClock
+      ? DATA_TEST_SCHEMAS.transform
+      : TransformTestWireV65.transform(readingRealClock),
+  };
+  return readers[type];
+}
 
 const ENTITY_IDS: { [T in DataTestType]: (test: DataTest<T>) => number } = {
   transform: (test) => test.transform_id,
@@ -242,24 +271,36 @@ export const DataTestCompact = z
   .strip();
 export type DataTestCompact = z.infer<typeof DataTestCompact>;
 
+export const DataTestWithNowCompact = z
+  .object({ ...dataTestFields, now: storedNow })
+  .pick({ id: true, name: true, description: true, now: true })
+  .strip();
+export type DataTestWithNowCompact = z.infer<typeof DataTestWithNowCompact>;
+
 /**
- * A test as a client writes it, without the entity it tests. `now` is the moment the entity reads as
- * the current time when a run compiles it; without it, the entity reads the real clock. The server
- * closes this map, so an unrecognized key is a 400 there.
+ * A test as a client writes it, without the entity it tests. The server closes this map, so an
+ * unrecognized key is a 400 there.
  */
 export const DataTestDefinition = z
   .object({
     name: z.string().min(1),
     description: z.string().nullable().optional(),
-    now: z.string().min(1).nullable().optional(),
     inputs: z.array(DataTestInput),
     expectations: z.array(DataTestExpectation),
   })
   .strict();
 
+/**
+ * `now` is the moment the entity reads as the current time when a run compiles it, an ISO-8601
+ * date-time with an offset; without it, the entity reads the real clock.
+ */
+export const DataTestDefinitionWithNow = DataTestDefinition.extend({
+  now: z.string().min(1).nullable().optional(),
+}).strict();
+
 const DATA_TEST_DEFINITIONS = {
-  transform: DataTestDefinition,
-  card: DataTestDefinition,
+  transform: DataTestDefinitionWithNow,
+  card: DataTestDefinitionWithNow,
   segment: DataTestDefinition,
   measure: DataTestDefinition,
   action: DataTestDefinition.extend({

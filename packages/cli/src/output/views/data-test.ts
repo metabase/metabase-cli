@@ -3,20 +3,33 @@ import { z } from "zod";
 import {
   DataTestCompact,
   DataTestRunResult,
+  dataTestTakesNow,
   DataTestType,
+  DataTestWithNowCompact,
 } from "@metabase/client/domain/data-test";
 
 import type { AnyTest } from "../../core/data-test";
-import type { ResourceView } from "../view";
+import type { ColumnDef, ResourceView } from "../view";
+
+const testColumns: ColumnDef<AnyTest>[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Name" },
+  { key: "description", label: "Description" },
+];
 
 export const anyTestView: ResourceView<AnyTest> = {
   compactPick: DataTestCompact,
-  tableColumns: [
-    { key: "id", label: "ID" },
-    { key: "name", label: "Name" },
-    { key: "description", label: "Description" },
-  ],
+  tableColumns: testColumns,
 };
+
+export const testWithNowView: ResourceView<AnyTest> = {
+  compactPick: DataTestWithNowCompact,
+  tableColumns: [...testColumns, { key: "now", label: "Now" }],
+};
+
+export function testView(type: DataTestType): ResourceView<AnyTest> {
+  return dataTestTakesNow(type) ? testWithNowView : anyTestView;
+}
 
 // One row per test whatever its type, with the entity it tests under one name.
 export const TestListItem = z

@@ -63,6 +63,7 @@ export const FEATURE_RULES = {
   segmentTests: { since: 66, tokenFeature: "transforms-testing" },
   measureTests: { since: 66, tokenFeature: "transforms-testing" },
   actionTests: { since: 66, tokenFeature: "transforms-testing" },
+  dataTestFixedClock: { since: 66, tokenFeature: "transforms-testing" },
   dataTestRuns: { since: 66, tokenFeature: "transforms-testing" },
   testSuites: { since: 66, tokenFeature: "transforms-testing" },
   libraryChildrenCarryType: { since: 62 },
