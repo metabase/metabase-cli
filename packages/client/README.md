@@ -455,7 +455,7 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
 `TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
-`CurrentUser`, `User`, `PermissionGroup`, `TaskRun`, `Workspace`, `WorkspaceDatabase`, `WorkspaceInstance`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `Session`, `Health`, `SyncTask`, `SyncDirtyItem`,
+`CurrentUser`, `User`, `PermissionGroup`, `SavedPermissionGroup` (a created or renamed group, without the listing's `member_count`), `TaskRun`, `Workspace`, `WorkspaceDatabase`, `WorkspaceInstance`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `Session`, `Health`, `SyncTask`, `SyncDirtyItem`,
 `DashboardTab`, the dependency graph's `DependencyEntity`, `DependencyNode`, `BreakingSource` and
 `DependencyGraph`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
 `NotificationHandler`, …).

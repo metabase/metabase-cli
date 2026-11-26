@@ -2140,6 +2140,54 @@ mb glossary delete 3 --yes
 | ------- | ------------------ |
 | `--yes` | Skip confirmation. |
 
+## Groups
+
+Permission groups (user groups), from `/api/permissions/group`. Creating a group needs an admin. Renaming or deleting one needs an admin or, with advanced permissions, a manager of that group, and listing also works with the settings application permission or for a group manager, who sees only the groups they manage. A group's members come from Metabase's people admin or an identity provider (SSO group mappings, SCIM); these commands manage the groups themselves. A built-in group, one with a `magic_group_type` such as All Users (`all-internal-users`) or Administrators (`admin`), cannot be renamed or deleted.
+
+### `mb group list`
+
+Lists every group with its `id`, `name`, `magic_group_type` and `member_count`. A group's `id` is the key it is listed under in the data permissions graph.
+
+```sh
+mb group list
+mb group list --json
+```
+
+### `mb group create`
+
+Create a group from `--name`, or from a JSON body that holds exactly a `name` key, so a tenant group (`is_tenant_group`) is not created here. The flag cannot be combined with `--body` or `--file`. A blank name is refused. The new group has no members, and on each database it starts with data permissions based on the All Users group's.
+
+```sh
+mb group create --name "Analysts"
+mb group create --body '{"name":"Analysts"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--name <text>` | The group name.         |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb group update <id>`
+
+Rename a group. Takes the same flags and body as `create`.
+
+```sh
+mb group update 3 --name "Data analysts"
+```
+
+### `mb group delete <id>`
+
+Delete a group with its memberships and permissions. Its members keep their other groups. Prompts for confirmation on a TTY; requires `--yes` otherwise. Through Metabase 65 the server does not check that the id names a group, so a missing id is reported deleted with exit code 0; Metabase 66 and later answer 404.
+
+```sh
+mb group delete 3 --yes
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
