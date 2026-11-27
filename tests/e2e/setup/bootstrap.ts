@@ -411,11 +411,13 @@ function workspacesReady(server: ServerInfo): boolean {
   return createServerProfile(server).features.workspaces;
 }
 
-// Only the workspace suite's create lane attaches a database, so a stack that will not take the
-// setting costs that lane alone; as with the transform opt-in, a warning names the cause rather than
-// ending the run for every suite.
+// Only the workspace suite's provisioning lane attaches a database, so a stack that will not take
+// the setting costs that lane alone; as with the transform opt-in, a warning names the cause rather
+// than ending the run for every suite.
 function warnWorkspacesUnavailable(detail: string): void {
-  process.stderr.write(`bootstrap: the workspace suite's create lane will fail — ${detail}\n`);
+  process.stderr.write(
+    `bootstrap: the workspace suite's provisioning lane will fail — ${detail}\n`,
+  );
 }
 
 function workspacesEnabled(database: DatabaseWithSettings): boolean {

@@ -1,11 +1,14 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { WorkspaceCompact } from "@metabase/client/domain/workspace";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
 import { parseJson } from "@metabase/client/json";
+import { workspaceManagerResource } from "@metabase/client/resources/workspace-manager";
 
 import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
 import { CurrentWorkspaceResult } from "../../packages/cli/src/commands/workspace/current";
 import { WorkspaceListEnvelope } from "../../packages/cli/src/commands/workspace/list";
+import { USER_AGENT } from "../../packages/cli/src/core/user-agent";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -18,15 +21,24 @@ const WORKSPACES_UNAVAILABLE = requireServer("workspace › with the workspaces 
 
 const WORKSPACE_NAME = "e2e workspace";
 
+// The server provisions the warehouse database before it answers a create, which outlasts the 30
+// seconds a request gets by default.
+const PROVISION_TIMEOUT_MS = 10 * 60_000;
+
 // No request is sent before these refusals, so the id names nothing.
 const UNSENT_ID = "1";
 
 describe("workspace e2e", () => {
   let bootstrap: E2EBootstrap;
+  let adminClient: Transport;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
+    adminClient = createTransport(
+      { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+      { userAgent: USER_AGENT },
+    );
   });
 
   afterEach(async () => {
@@ -56,55 +68,6 @@ describe("workspace e2e", () => {
     expect(result.exitCode).toBe(2);
     expect(cliErrorCategory(result.stderr)).toBe("config");
     expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
-    expect(result.stdout).toBe("");
-  });
-
-  it("create with --name alone refuses before any request", async () => {
-    const result = await mb(["workspace", "create", "--name", WORKSPACE_NAME, "--json"]);
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe("--database-ids is required when using --name");
-    expect(result.stdout).toBe("");
-  });
-
-  it("create with the flags beside --body refuses before any request", async () => {
-    const body = JSON.stringify({ name: WORKSPACE_NAME, database_ids: [SEEDED.warehouseDbId] });
-
-    const result = await mb([
-      "workspace",
-      "create",
-      "--name",
-      WORKSPACE_NAME,
-      "--database-ids",
-      String(SEEDED.warehouseDbId),
-      "--body",
-      body,
-      "--json",
-    ]);
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "--name, --database-ids cannot be combined with --body or --file",
-    );
-    expect(result.stdout).toBe("");
-  });
-
-  it("create with a database id that is not an integer fails fast with ConfigError", async () => {
-    const result = await mb([
-      "workspace",
-      "create",
-      "--name",
-      WORKSPACE_NAME,
-      "--database-ids",
-      "1,x",
-      "--json",
-    ]);
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe('invalid database id: "x" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -187,25 +150,16 @@ describe("workspace e2e", () => {
     });
 
     // One workspace per run: provisioning leaves warehouse state the snapshot restore does not undo.
-    it("create provisions the warehouse database, and get, list and delete then follow it", async () => {
-      const created = await mb([
-        "workspace",
-        "create",
-        "--name",
-        WORKSPACE_NAME,
-        "--database-ids",
-        String(SEEDED.warehouseDbId),
-        "--json",
-      ]);
-
-      expect(created.exitCode, created.stderr).toBe(0);
-      const workspace = parseJson(created.stdout, WorkspaceCompact);
+    it("get, list and delete follow a workspace provisioned through the client", async () => {
+      const workspace = await workspaceManagerResource(adminClient).create(
+        { name: WORKSPACE_NAME, database_ids: [SEEDED.warehouseDbId] },
+        { timeoutMs: PROVISION_TIMEOUT_MS },
+      );
       const expected = {
         id: workspace.id,
         name: WORKSPACE_NAME,
         databases: [{ database_id: SEEDED.warehouseDbId, status: "provisioned" }],
       };
-      expect(workspace).toEqual(expected);
 
       const fetched = await mb(["workspace", "get", String(workspace.id), "--json"]);
       expect(fetched.exitCode, fetched.stderr).toBe(0);

@@ -6,7 +6,6 @@ export default defineCommandGroup({
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),
-    create: () => import("./create").then((mod) => mod.default),
     delete: () => import("./delete").then((mod) => mod.default),
     current: () => import("./current").then((mod) => mod.default),
   },

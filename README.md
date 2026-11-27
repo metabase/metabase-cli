@@ -2464,23 +2464,6 @@ mb workspace get 1
 mb workspace get 1 --json
 ```
 
-### `mb workspace create`
-
-Create a workspace from `--name` and `--database-ids` together, or from a JSON body that holds exactly `name` and `database_ids`. The flags cannot be combined with `--body` or `--file`. Each database must be eligible for workspaces. The server provisions each database's warehouse isolation before it answers, so the call waits up to `--timeout` milliseconds (10 minutes by default); a provisioning failure whose cleanup also fails answers the workspace with its databases `unprovisioned`.
-
-```sh
-mb workspace create --name "Orders rework" --database-ids 1,2
-mb workspace create --body '{"name":"Orders rework","database_ids":[1]}'
-```
-
-| Flag                   | Description                                         |
-| ---------------------- | --------------------------------------------------- |
-| `--name <text>`        | The workspace name (used with `--database-ids`).    |
-| `--database-ids <ids>` | Comma-separated database ids (used with `--name`).  |
-| `--body <json>`        | Inline JSON body.                                   |
-| `--file <path>`        | Path to JSON body file.                             |
-| `--timeout <ms>`       | How long to wait for provisioning (default 600000). |
-
 ### `mb workspace delete <id>`
 
 Delete a workspace, tearing down each database's warehouse isolation first. When a teardown fails, the workspace is kept with the databases that failed, so the delete can be run again. `--force` deletes the databases whose teardown failed without tearing them down, and the server logs what the warehouse may still hold of them: use it only when the warehouse is gone for good. The other databases are torn down as without it, and a workspace with a create or teardown still running is refused (409) either way. Prompts for confirmation on a TTY; requires `--yes` otherwise.
