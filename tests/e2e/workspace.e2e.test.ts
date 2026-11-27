@@ -1,0 +1,179 @@
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
+
+import { WorkspaceCompact } from "@metabase/client/domain/workspace";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
+import { parseJson } from "@metabase/client/json";
+import { workspaceManagerResource } from "@metabase/client/resources/workspace-manager";
+
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { CurrentWorkspaceResult } from "../../packages/cli/src/commands/workspace/current";
+import { WorkspaceListEnvelope } from "../../packages/cli/src/commands/workspace/list";
+import { USER_AGENT } from "../../packages/cli/src/core/user-agent";
+import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
+import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
+
+const WORKSPACES_UNAVAILABLE = requireServer("workspace › with the workspaces feature", [
+  "workspaces",
+]);
+
+const WORKSPACE_NAME = "e2e workspace";
+
+// The server provisions the warehouse database before it answers a create, which outlasts the 30
+// seconds a request gets by default.
+const PROVISION_TIMEOUT_MS = 10 * 60_000;
+
+// No request is sent before these refusals, so the id names nothing.
+const UNSENT_ID = "1";
+
+describe("workspace e2e", () => {
+  let bootstrap: E2EBootstrap;
+  let adminClient: Transport;
+  const tempDirs: string[] = [];
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+    adminClient = createTransport(
+      { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+      { userAgent: USER_AGENT },
+    );
+  });
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function makeIsolatedConfigHome(): Promise<string> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  function authEnv(): Record<string, string> {
+    return {
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
+    };
+  }
+
+  async function mb(args: string[]) {
+    return runCli({ args, configHome: await makeIsolatedConfigHome(), env: authEnv() });
+  }
+
+  it("get with a non-integer id fails fast with ConfigError", async () => {
+    const result = await mb(["workspace", "get", "abc", "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("delete without --yes refuses in non-TTY and exits 2", async () => {
+    const result = await mb(["workspace", "delete", UNSENT_ID, "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `refusing to delete ${UNSENT_ID} without confirmation — pass --yes to proceed non-interactively`,
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("delete with a non-integer id fails fast with ConfigError", async () => {
+    const result = await mb(["workspace", "delete", "abc", "--yes", "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  describe.skipIf(WORKSPACES_UNAVAILABLE !== null)("with the workspaces feature", () => {
+    async function listWorkspaces() {
+      const result = await mb(["workspace", "list", "--json"]);
+      expect(result.exitCode, result.stderr).toBe(0);
+      return parseJson(result.stdout, WorkspaceListEnvelope);
+    }
+
+    it("current answers no workspace on an instance that only manages them", async () => {
+      const result = await mb(["workspace", "current", "--json"]);
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, CurrentWorkspaceResult)).toEqual({ loaded: false });
+    });
+
+    it("list on the fresh snapshot is empty", async () => {
+      expect(await listWorkspaces()).toEqual({
+        data: [],
+        returned: 0,
+        offset: 0,
+        total: 0,
+        has_more: false,
+        next_offset: null,
+      });
+    });
+
+    it("get of a missing id is a 404 HttpError", async () => {
+      const result = await mb(["workspace", "get", "9999999", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: GET /api/ee/workspace-manager/9999999.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("delete of a missing id is a 404 HttpError", async () => {
+      const result = await mb(["workspace", "delete", "9999999", "--yes", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: DELETE /api/ee/workspace-manager/9999999.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("delete --force of a missing id is a 404 HttpError, so the server takes the flag", async () => {
+      const result = await mb(["workspace", "delete", "9999999", "--yes", "--force", "--json"]);
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "Not found: DELETE /api/ee/workspace-manager/9999999?force=true.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    // One workspace per run: provisioning leaves warehouse state the snapshot restore does not undo.
+    it("get, list and delete follow a workspace provisioned through the client", async () => {
+      const workspace = await workspaceManagerResource(adminClient).create(
+        { name: WORKSPACE_NAME, database_ids: [SEEDED.warehouseDbId] },
+        { timeoutMs: PROVISION_TIMEOUT_MS },
+      );
+      const expected = {
+        id: workspace.id,
+        name: WORKSPACE_NAME,
+        databases: [{ database_id: SEEDED.warehouseDbId, status: "provisioned" }],
+      };
+
+      const fetched = await mb(["workspace", "get", String(workspace.id), "--json"]);
+      expect(fetched.exitCode, fetched.stderr).toBe(0);
+      expect(parseJson(fetched.stdout, WorkspaceCompact)).toEqual(expected);
+      expect((await listWorkspaces()).data).toEqual([expected]);
+
+      const deleted = await mb(["workspace", "delete", String(workspace.id), "--yes", "--json"]);
+      expect(deleted.exitCode, deleted.stderr).toBe(0);
+      expect(parseJson(deleted.stdout, DeleteResult)).toEqual({
+        deleted: true,
+        aborted: false,
+        id: workspace.id,
+      });
+      expect((await listWorkspaces()).data).toEqual([]);
+    });
+  });
+});

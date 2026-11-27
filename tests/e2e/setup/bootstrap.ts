@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { CardQueryResult } from "@metabase/client/domain/card";
+import { DatabaseWithSettings } from "@metabase/client/domain/database";
 import { CurrentUser } from "@metabase/client/domain/user";
 import { errorMessage, isFileNotFoundError, MetabaseError } from "@metabase/client/errors";
 import { createTransport, type Transport } from "@metabase/client/http/transport";
@@ -61,6 +62,15 @@ const WAREHOUSE_CONNECTION = {
   password: "metabase_test",
   ssl: false,
 } as const;
+// A workspace attaches only a database an admin enabled for workspaces, with the admin connection it
+// provisions through: that login creates each workspace's schema and user and grants the user reads
+// on the input schemas. The warehouse's own login is its superuser, so it serves as both.
+const WAREHOUSE_ADMIN_DETAILS = {
+  "admin-connection": true,
+  user: WAREHOUSE_CONNECTION.user,
+  password: WAREHOUSE_CONNECTION.password,
+} as const;
+const WORKSPACES_SETTING = "database-enable-workspaces";
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 const ORDERS_BY_STATUS_CARD_NAME = "Orders by status";
 const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";
@@ -129,6 +139,11 @@ async function main(): Promise<void> {
     const reused: E2EBootstrap = { ...existing, server };
     assertSnapshotMatchesSeed(reused);
     await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), server);
+    await reportSnapshotWorkspaces(
+      apiKeyClient(existing.adminApiKey),
+      server,
+      existing.seeded.warehouseDbId,
+    );
     await writeStoredBootstrap(reused);
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
@@ -147,6 +162,9 @@ async function main(): Promise<void> {
     await reportTransformsUsable(client);
   }
   const seeded = await seedContent(client, libraryReady(server), adminPersonalCollectionId);
+  if (workspacesReady(server)) {
+    await enableWorkspaces(client, seeded.warehouseDbId);
+  }
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
@@ -387,6 +405,74 @@ function libraryReady(server: ServerInfo): boolean {
 
 function transformsReady(server: ServerInfo): boolean {
   return createServerProfile(server).features.transforms;
+}
+
+function workspacesReady(server: ServerInfo): boolean {
+  return createServerProfile(server).features.workspaces;
+}
+
+// Only the workspace suite's provisioning lane attaches a database, so a stack that will not take
+// the setting costs that lane alone; as with the transform opt-in, a warning names the cause rather
+// than ending the run for every suite.
+function warnWorkspacesUnavailable(detail: string): void {
+  process.stderr.write(
+    `bootstrap: the workspace suite's provisioning lane will fail — ${detail}\n`,
+  );
+}
+
+function workspacesEnabled(database: DatabaseWithSettings): boolean {
+  return database.settings?.[WORKSPACES_SETTING] === true;
+}
+
+// Setting it before the snapshot is captured is what lets every test that restores the snapshot
+// create a workspace on the warehouse.
+async function enableWorkspaces(client: Transport, warehouseDbId: number): Promise<void> {
+  try {
+    const database = await client.requestParsed(
+      DatabaseWithSettings,
+      `/api/database/${warehouseDbId}`,
+      {
+        method: "PUT",
+        body: { admin_details: WAREHOUSE_ADMIN_DETAILS, settings: { [WORKSPACES_SETTING]: true } },
+        idempotent: true,
+      },
+    );
+    if (!workspacesEnabled(database)) {
+      warnWorkspacesUnavailable(
+        `${BASE_URL} answered the update with ${WORKSPACES_SETTING} still off on the warehouse`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof HttpError) {
+      warnWorkspacesUnavailable(
+        `${BASE_URL} refused to enable workspaces on the warehouse (HTTP ${error.status})`,
+      );
+      return;
+    }
+    throw error;
+  }
+}
+
+// The setting lives in the app DB, so a snapshot captured before the bootstrap enabled it restores a
+// warehouse no workspace can attach to. Nothing has run yet, so the live server still holds what the
+// snapshot does.
+async function reportSnapshotWorkspaces(
+  client: Transport,
+  server: ServerInfo,
+  warehouseDbId: number,
+): Promise<void> {
+  if (!workspacesReady(server)) {
+    return;
+  }
+  const database = await client.requestParsed(
+    DatabaseWithSettings,
+    `/api/database/${warehouseDbId}`,
+  );
+  if (!workspacesEnabled(database)) {
+    warnWorkspacesUnavailable(
+      `snapshot ${SNAPSHOT_NAME} predates enabling workspaces on the warehouse — rebuild it with \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\``,
+    );
+  }
 }
 
 // Only the transform suites turn on the opt-in, so a stack that will not take it costs those suites
