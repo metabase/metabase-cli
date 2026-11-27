@@ -1,6 +1,7 @@
 import {
   type PermissionGroup,
   PermissionGroupCompact,
+  PermissionsGraphRevision,
   type SavedPermissionGroup,
   SavedPermissionGroupCompact,
 } from "@metabase/client/domain/permission";
@@ -24,4 +25,9 @@ export const savedPermissionGroupView: ResourceView<SavedPermissionGroup> = {
     { key: "name", label: "Name" },
     { key: "magic_group_type", label: "Built-in" },
   ],
+};
+
+export const permissionsGraphRevisionView: ResourceView<PermissionsGraphRevision> = {
+  compactPick: PermissionsGraphRevision.pick({ revision: true }).strip(),
+  tableColumns: [{ key: "revision", label: "Revision" }],
 };
