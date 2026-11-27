@@ -270,6 +270,8 @@ const ALL_COMMANDS = [
   "auth logout",
   "db list",
   "db get",
+  "db create",
+  "db update",
   "db schemas",
   "db schema-tables",
   "db sync-schema",
@@ -466,6 +468,8 @@ const ALL_COMMANDS = [
 ];
 
 const BODY_COMMANDS = [
+  "db create",
+  "db update",
   "table update",
   "table bulk-edit",
   "field update",

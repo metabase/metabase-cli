@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   Database,
+  type DatabaseCreateInput,
   type DatabaseGetInclude,
   type DatabaseListInclude,
   type DatabaseSyncResult,
@@ -74,7 +75,27 @@ export function databaseResource(transport: Transport) {
     });
   }
 
-  /** Update a database's settings by id; the server merges them into the ones it holds. */
+  /**
+   * Add a database connection. Admins only. The server tests the connection first and refuses one
+   * it cannot open; once saved, the database starts its first sync.
+   */
+  async function create(
+    params: DatabaseCreateInput,
+    options: RequestOptions = {},
+  ): Promise<Database> {
+    return transport.requestParsed(Database, "/api/database", {
+      ...options,
+      method: "POST",
+      body: params,
+    });
+  }
+
+  /**
+   * Update a database by id: its name, connection `details` or settings. Needs an admin or, with
+   * advanced permissions, the Manage database permission on it. The server changes only the keys
+   * named and merges `settings` into the ones it holds. Changed `details` are tested before they
+   * are saved.
+   */
   async function update(
     id: number,
     params: DatabaseUpdateInput,
@@ -151,5 +172,5 @@ export function databaseResource(transport: Transport) {
     return { id, status: ack.status };
   }
 
-  return { list, get, update, schemas, schemaTables, syncSchema, rescanValues };
+  return { list, get, create, update, schemas, schemaTables, syncSchema, rescanValues };
 }

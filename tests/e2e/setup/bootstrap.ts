@@ -28,6 +28,7 @@ import {
   resolveE2EBaseUrl,
   resolveSnapshotName,
   resolveStackId,
+  WAREHOUSE_CONNECTION,
 } from "../defaults";
 import { E2E_GROUPS } from "../seed/ids";
 
@@ -53,14 +54,6 @@ const BACKFILL_TIMEOUT_MS = 120_000;
 const BACKFILL_POLL_INTERVAL_MS = 1000;
 
 const WAREHOUSE_DB_NAME = "Warehouse";
-const WAREHOUSE_CONNECTION = {
-  host: "data-db",
-  port: 5432,
-  dbname: "warehouse",
-  user: "metabase_test",
-  password: "metabase_test",
-  ssl: false,
-} as const;
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 const ORDERS_BY_STATUS_CARD_NAME = "Orders by status";
 const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";

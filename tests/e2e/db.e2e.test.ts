@@ -21,7 +21,8 @@ import { DatabaseSchemaTablesEnvelope } from "../../packages/cli/src/commands/db
 import { DEFAULT_MAX_BYTES, listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
+import { WAREHOUSE_CONNECTION } from "./defaults";
 import { SEEDED } from "./seed/seeded";
 
 // A warehouse database lists real tables only; the virtual ones belong to the Saved Questions database.
@@ -512,5 +513,110 @@ describe("db e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe(
       "missing argument: <enabled> (this command takes <id> <enabled>)",
     );
+  });
+  // A second connection to the seeded warehouse: the one connection details the stack can open.
+  const WAREHOUSE_COPY = "Warehouse (copy)";
+
+  async function createWarehouseCopy(): Promise<number> {
+    const result = await runCli({
+      args: ["db", "create", "--json"],
+      stdin: JSON.stringify({
+        name: WAREHOUSE_COPY,
+        engine: "postgres",
+        details: WAREHOUSE_CONNECTION,
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, DatabaseCompact).id;
+  }
+
+  async function getFull(id: number): Promise<Database> {
+    const result = await runCli({
+      args: ["db", "get", String(id), "--full", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, Database);
+  }
+
+  it("create adds a connection and answers it in compact form", async () => {
+    const result = await runCli({
+      args: ["db", "create", "--json"],
+      stdin: JSON.stringify({
+        name: WAREHOUSE_COPY,
+        engine: "postgres",
+        details: WAREHOUSE_CONNECTION,
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const created = parseJson(result.stdout, DatabaseCompact);
+    // The create answer carries no `is_saved_questions`, so the compact form has three fields.
+    expect(created).toEqual({ id: created.id, name: WAREHOUSE_COPY, engine: "postgres" });
+  });
+
+  it("get --full answers the connection details with the password redacted", async () => {
+    const id = await createWarehouseCopy();
+
+    const { details } = await getFull(id);
+
+    expect(details?.["host"]).toBe(WAREHOUSE_CONNECTION.host);
+    // Metabase answers every stored secret as this placeholder.
+    expect(details?.["password"]).toBe("**MetabasePass**");
+  });
+
+  it("update with the redacted details sent back keeps the stored password", async () => {
+    const id = await createWarehouseCopy();
+    const { details } = await getFull(id);
+
+    const result = await runCli({
+      args: ["db", "update", String(id), "--json"],
+      stdin: JSON.stringify({ name: "Warehouse (renamed)", details }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, DatabaseCompact).name).toBe("Warehouse (renamed)");
+    const sync = await runCli({
+      args: ["db", "sync-schema", String(id), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(sync.exitCode, sync.stderr).toBe(0);
+  });
+
+  it("create refuses a connection the server cannot open", async () => {
+    const result = await runCli({
+      args: ["db", "create", "--json"],
+      stdin: JSON.stringify({
+        name: WAREHOUSE_COPY,
+        engine: "postgres",
+        details: { ...WAREHOUSE_CONNECTION, password: "wrong" },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("http");
+    expect(result.stdout).toBe("");
+  });
+
+  it("update with no fields to change refuses before any request", async () => {
+    const result = await runCli({
+      args: ["db", "update", String(SEEDED.warehouseDbId), "--body", "{}", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: { MB_URL: bootstrap.baseUrl },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("validation");
+    expect(result.stdout).toBe("");
   });
 });

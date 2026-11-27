@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { CardType } from "./card";
 import { Table, TableCompact, withoutPublicationFlags } from "./table";
+import { NonBlankText } from "./text";
 
 // A saved question standing in as a table of the Saved Questions virtual database, id `card__<id>`.
 // A database listing carries it without its columns.
@@ -58,6 +59,8 @@ export const Database = z
     // The driver's capabilities; absent when the server has no driver loaded for the engine.
     features: z.array(z.string()).optional(),
     settings: DatabaseSettings.nullable().optional(),
+    // The connection settings, answered to admins only; secrets come back redacted.
+    details: z.record(z.string(), z.unknown()).nullable().optional(),
     tables: z
       .array(z.union([Table.transform(withoutPublicationFlags), DatabaseVirtualTable]))
       .optional(),
@@ -101,9 +104,38 @@ export const DatabaseWithSettingsCompact = DatabaseWithSettings.pick({
   });
 export type DatabaseWithSettingsCompact = z.infer<typeof DatabaseWithSettingsCompact>;
 
-export const DatabaseUpdateInput = z
-  .object({ settings: z.object({ [DATA_ACTIONS_SETTING]: z.boolean() }).strict() })
+// A connection's `details` are the driver's own keys (host, project id, credentials…), so they pass
+// through unchecked; the server tests the connection before it saves one.
+const DatabaseDetails = z.record(z.string(), z.unknown());
+
+// The server also takes `schedules`, `auto_run_queries`, `cache_ttl`, `is_full_sync`, `is_on_demand`,
+// `is_stub`, `connection_source` and `provider_name` on create; each has a server default, so the body
+// is the connection alone and any other key is refused.
+export const DatabaseCreateInput = z
+  .object({
+    name: NonBlankText,
+    engine: NonBlankText,
+    details: DatabaseDetails,
+  })
   .strict();
+export type DatabaseCreateInput = z.infer<typeof DatabaseCreateInput>;
+
+// Each key is optional and the server changes only the ones named. A secret in `details` sent back
+// as the redacted value the server answered keeps the stored secret. The server also takes
+// `engine`, `description`, `caveats`, `points_of_interest`, `schedules`, `write_data_details` and
+// sync and cache options; the body holds the connection and the settings alone, and any other key
+// is refused.
+export const DatabaseUpdateInput = z
+  .object({
+    name: NonBlankText.optional(),
+    details: DatabaseDetails.optional(),
+    settings: z
+      .object({ [DATA_ACTIONS_SETTING]: z.boolean() })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, "name the fields to change");
 export type DatabaseUpdateInput = z.infer<typeof DatabaseUpdateInput>;
 
 export const DatabaseSyncResult = z.object({
